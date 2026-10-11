@@ -730,9 +730,9 @@ export default function Home() {
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
                 <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
                 <button className="primary" type="submit">Create recipe draft　→</button>
-                <label htmlFor="import-backup">Import a JSON draft backup <span>OPTIONAL</span></label>
+                <label htmlFor="import-backup">Import a recipe draft or restore a workspace backup <span>OPTIONAL</span></label>
                 <input id="import-backup" type="file" accept="application/json,.json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importProject(file); }} />
-                <p className="hint">Imports a JSON draft exported by this app. Imported information is not independently verified.</p>
+                <p className="hint">A single recipe draft is added to this browser. A full workspace backup restores all included drafts and creator settings, replacing current local data only after confirmation. Imports are not independently verified and nothing is uploaded.</p>
                 {message && <p className="message" role="status">{message}</p>}
               </form>
 
@@ -844,7 +844,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
