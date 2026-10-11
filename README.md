@@ -15,6 +15,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for URL validation, data shape, warnings, draft generation, and scene count.
 - GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
+- One-command quality gate: `npm run check` runs tests, lint, type-check and the production build in sequence.
 
 ## Run locally
 
@@ -29,6 +30,14 @@ Open http://localhost:3000.
 
 ## Quality checks
 
+Run the complete local gate:
+
+```bash
+npm run check
+```
+
+Or run each stage separately:
+
 ```bash
 npm test
 npm run lint
@@ -37,6 +46,8 @@ npm run build
 ```
 
 The checks are configured, but do not consider them passed until the workflow or local commands actually complete successfully. The workflow does not use a lockfile yet; once CI has run successfully, commit a generated `package-lock.json` and switch CI to `npm ci` for reproducible installs.
+
+For the Android/Chrome manual acceptance pass, follow [the V1 acceptance checklist](docs/V1-acceptance-checklist.md). Automated checks do not replace real-device testing.
 
 ## Important limitations
 
