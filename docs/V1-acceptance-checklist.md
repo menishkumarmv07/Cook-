@@ -33,6 +33,10 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Add at least three ordered cooking steps with timings, heat cues, and doneness cues.
 - [ ] Edit all six scene titles/details/timings.
 - [ ] Validation warnings remain visible for unverified source, food safety, and nutrition.
+- [ ] Add two structured source references (for example, a recipe page and a video/Reel); record what was actually checked and any differences/uncertainty.
+- [ ] Confirm duplicate source URLs are warned about, invalid source URLs are errors, and distinct case-sensitive paths/query strings are not incorrectly treated as duplicates.
+- [ ] Reload and confirm source reference records persist.
+- [ ] Tutorial preview/export includes each source reference and explicitly says manual notes are unverified; it must not claim automated link/video analysis.
 - [ ] Tutorial preview preserves ingredient and step order and clearly says it is a draft.
 - [ ] Export Markdown and open the file; check text and order.
 - [ ] Export JSON and check the file parses and keeps verification flags false.
