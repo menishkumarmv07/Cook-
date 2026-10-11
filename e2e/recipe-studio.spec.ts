@@ -199,3 +199,26 @@ test("content pack export downloads a text file without publishing", async ({ pa
   expect(download.suggestedFilename()).toBe("lemon-rice.content-pack.txt");
   await expect(page.getByRole("status")).toContainText("not uploaded or published");
 });
+
+
+test("PWA manifest and service worker support reopening the app offline after first visit", async ({ page }) => {
+  const manifestResponse = await page.request.get("/manifest.webmanifest");
+  expect(manifestResponse.ok()).toBeTruthy();
+  const manifest = await manifestResponse.json();
+  expect(manifest.name).toBe("Cooking Creator Studio");
+  expect(manifest.display).toBe("standalone");
+  expect(manifest.icons.length).toBeGreaterThan(0);
+
+  const workerResponse = await page.request.get("/sw.js");
+  expect(workerResponse.ok()).toBeTruthy();
+  expect(await workerResponse.text()).toContain("caches.open");
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await page.context().setOffline(true);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await page.context().setOffline(false);
+});
