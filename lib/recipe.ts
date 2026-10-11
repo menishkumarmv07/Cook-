@@ -134,7 +134,9 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "## Verification status",
     "- This draft reflects only information entered by the user.",
     "- Source links have not been analyzed automatically.",
-    "- Source references and checked items are manually recorded and have not been independently verified.\n- Compare references yourself; conflicts or missing details must be resolved before publishing."
+    "- Manual source evidence notes are user-provided and have not been independently verified.",
+    "- Source references and checked items are manually recorded and have not been independently verified.",
+    "- Compare references yourself; conflicts or missing details must be resolved before publishing.",
     "- Missing amounts/timings must be checked; do not guess.",
     "- Food safety and nutrition have not been independently verified.",
     "- This file is a draft and has not been published.",
