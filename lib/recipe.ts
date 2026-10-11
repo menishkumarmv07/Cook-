@@ -1,4 +1,26 @@
-export type Ingredient = { id: string; amount: string; unit: string; name: string; prep: string };
+export type Ingredient = {
+  id: string;
+  amount: string;
+  unit: string;
+  name: string;
+  prep: string;
+  // Manual nutrition entries apply to the exact quantity recorded for this ingredient.
+  nutritionCalories?: string;
+  nutritionProteinG?: string;
+  nutritionCarbsG?: string;
+  nutritionFatG?: string;
+  nutritionBasis?: string;
+  nutritionSourceUrl?: string;
+};
+
+export type RecipeNutritionSummary = {
+  totalCalories: number | null;
+  caloriesPerServing: number | null;
+  proteinGPerServing: number | null;
+  carbsGPerServing: number | null;
+  fatGPerServing: number | null;
+  missingIngredients: string[];
+};
 export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string };
 export type Scene = { title: string; detail: string; timing: string };
 export type SourceReference = {
@@ -100,6 +122,46 @@ export function normalizeSourceUrlForComparison(value: string): string {
   }
 }
 
+export function calculateRecipeNutrition(project: RecipeProject): RecipeNutritionSummary {
+  const numeric = (value: string | undefined): number | null => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
+  const servingMatch = project.servings.match(/^\s*(\d+(?:\.\d+)?)\s*(?:servings?|people|persons?|portions?)?\s*$/i);
+  const servingCount = servingMatch ? Number(servingMatch[1]) : null;
+  const positiveServings = servingCount !== null && Number.isFinite(servingCount) && servingCount > 0
+    ? servingCount : null;
+
+  const sourceComplete = (ingredient: Ingredient) =>
+    Boolean(ingredient.name.trim() && ingredient.amount.trim() && ingredient.unit.trim() &&
+      ingredient.nutritionBasis?.trim() &&
+      ingredient.nutritionSourceUrl?.trim() && isHttpUrl(ingredient.nutritionSourceUrl));
+  const completeFor = (field: "nutritionCalories" | "nutritionProteinG" | "nutritionCarbsG" | "nutritionFatG") =>
+    project.ingredients.length > 0 && project.ingredients.every((ingredient) =>
+      sourceComplete(ingredient) && numeric(ingredient[field]) !== null);
+  const totalFor = (field: "nutritionCalories" | "nutritionProteinG" | "nutritionCarbsG" | "nutritionFatG") =>
+    completeFor(field)
+      ? project.ingredients.reduce((total, ingredient) => total + (numeric(ingredient[field]) ?? 0), 0)
+      : null;
+  const totalCalories = totalFor("nutritionCalories");
+  const protein = totalFor("nutritionProteinG");
+  const carbs = totalFor("nutritionCarbsG");
+  const fat = totalFor("nutritionFatG");
+  const missingIngredients = project.ingredients
+    .filter((ingredient) => !sourceComplete(ingredient) || numeric(ingredient.nutritionCalories) === null)
+    .map((ingredient, index) => ingredient.name.trim() || `Ingredient ${project.ingredients.indexOf(ingredient) + 1}`);
+
+  return {
+    totalCalories,
+    caloriesPerServing: totalCalories !== null && positiveServings !== null ? totalCalories / positiveServings : null,
+    proteinGPerServing: protein !== null && positiveServings !== null ? protein / positiveServings : null,
+    carbsGPerServing: carbs !== null && positiveServings !== null ? carbs / positiveServings : null,
+    fatGPerServing: fat !== null && positiveServings !== null ? fat / positiveServings : null,
+    missingIngredients,
+  };
+}
+
 export function isRecipeProject(value: unknown): value is RecipeProject {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<RecipeProject>;
@@ -117,7 +179,9 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Array.isArray(p.ingredients) &&
     p.ingredients.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.amount === "string" &&
-      typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string") &&
+      typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string" &&
+      ["nutritionCalories", "nutritionProteinG", "nutritionCarbsG", "nutritionFatG", "nutritionBasis", "nutritionSourceUrl"]
+        .every((field) => (x as Record<string, unknown>)[field] === undefined || typeof (x as Record<string, unknown>)[field] === "string")) &&
     Array.isArray(p.steps) &&
     p.steps.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.action === "string" &&
@@ -155,7 +219,12 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
   if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source link has not been fetched or analyzed by this app; manual notes and checked items are user-entered and have not been independently checked or verified." });
   else issues.push({ level: "warning", field: "source", message: "No source references have been recorded. Add multiple references and compare ingredient quantities, method order, and timings before treating the recipe as verified." });
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
-  issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from ingredient quantities." });
+  const nutrition = calculateRecipeNutrition(project);
+  if (nutrition.caloriesPerServing === null) {
+    issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from sourced values for the exact amount of every ingredient and a clear serving count." });
+  } else {
+    issues.push({ level: "warning", field: "nutrition", message: "A calorie estimate is calculated from manually entered values and sources; the app has not independently verified the values or source matches." });
+  }
   return issues;
 }
 
