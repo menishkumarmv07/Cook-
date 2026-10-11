@@ -325,6 +325,7 @@ test("workspace backup exports all drafts and restores them with explicit confir
 });
 
 
+
 test("light workspace theme is pure white with grayscale UI colors", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
@@ -341,12 +342,15 @@ test("light workspace theme is pure white with grayscale UI colors", async ({ pa
       for (const property of properties) {
         const value = style[property as keyof CSSStyleDeclaration];
         if (typeof value !== "string") continue;
-        const match = value.match(/rgba?\\(\\s*([0-9.]+)[,\\s]+([0-9.]+)[,\\s]+([0-9.]+)/i);
-        if (!match) continue;
-        const [red, green, blue] = match.slice(1, 4).map(Number);
+        const channels = value.match(/[0-9.]+/g);
+        if (!channels || channels.length < 3) continue;
+        const [red, green, blue] = channels.slice(0, 3).map(Number);
         if (red !== green || green !== blue) {
-          nonMonochrome.push(`${element.tagName.toLowerCase()}.${String(element.className || "").toString().replace(/\\s+/g, ".")}: ${property}=${value}`);
-          if (nonMonochrome.length >= 10) return { background: window.getComputedStyle(document.body).backgroundColor, nonMonochrome };
+          const className = String(element.className || "").split(" ").join(".");
+          nonMonochrome.push(element.tagName.toLowerCase() + "." + className + ": " + property + "=" + value);
+          if (nonMonochrome.length >= 10) {
+            return { background: window.getComputedStyle(document.body).backgroundColor, nonMonochrome };
+          }
         }
       }
     }
