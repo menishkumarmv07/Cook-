@@ -4,6 +4,7 @@ import {
   buildTutorialDraft,
   isHttpUrl,
   isRecipeProject,
+  parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
   type RecipeProject,
@@ -64,4 +65,31 @@ test("scene template has six scenes with required headings", () => {
   assert.equal(SCENE_TEMPLATE.length, 6);
   assert.match(SCENE_TEMPLATE[0].title, /Hook/);
   assert.match(SCENE_TEMPLATE[5].title, /Taste/);
+});
+
+
+test("imports valid JSON exports and rejects malformed or unsafe backups", () => {
+  const imported = parseRecipeProjectJSON(JSON.stringify({ ...base, status: "draft", published: false }));
+  assert.ok(imported);
+  assert.equal(imported.name, "Tomato pasta");
+  assert.equal(imported.ingredients[0].name, "pasta");
+  assert.equal(parseRecipeProjectJSON("{not json"), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, url: "javascript:alert(1)" })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, steps: [{ action: "malformed" }] })), null);
+});
+
+test("imports older V1 draft exports with missing structured fields safely", () => {
+  const legacy = {
+    id: 22,
+    name: "Old draft",
+    url: "",
+    notes: "Old notes",
+    scenes: SCENE_TEMPLATE.map((scene) => ({ ...scene })),
+  };
+  const imported = parseRecipeProjectJSON(JSON.stringify(legacy));
+  assert.ok(imported);
+  assert.equal(imported.servings, "");
+  assert.deepEqual(imported.ingredients, []);
+  assert.deepEqual(imported.steps, []);
+  assert.equal(imported.sourceEvidence, "");
 });
