@@ -262,7 +262,7 @@ export default function Home() {
                 <input id="url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." />
                 <p className="hint">This saves the link only. V1 does not fetch, transcribe, or analyze linked videos.</p>
                 <label htmlFor="servings">Servings <b>*</b></label>
-                <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} />
+                <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} required />
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
                 <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
                 <button className="primary" type="submit">Create recipe draft　→</button>
