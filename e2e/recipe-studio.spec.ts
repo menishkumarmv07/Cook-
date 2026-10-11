@@ -167,6 +167,14 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(page.getByRole("button", { name: "Approve pack" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
 
+  await page.locator("#trial-photo").setInputFiles({
+    name: "cooked-dish.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"),
+  });
+  await expect(page.getByRole("status")).toContainText("Cooking-trial photo saved locally");
+  await expect(page.getByAltText("Your cooking-trial photo for Lemon rice")).toBeVisible();
+
   await page.getByLabel("Your trial rating").selectOption("5");
   await page.getByLabel("What happened when you cooked it?").fill("Cooked at home; texture and taste were good.");
   await page.getByRole("button", { name: "Mark as Tested" }).click();

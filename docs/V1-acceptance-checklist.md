@@ -47,7 +47,8 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Narration preview/copy/export preserves ingredient and cooking-step order and uses recorded timings, heat settings, and visual cues only.
 - [ ] Missing quantities/actions/timings are explicitly flagged; no ingredient-to-step mapping or timing is silently invented.
 - [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, nutrition calculation, finished video, or post was created.
-- [ ] New recipes start Untested and cannot be approved/shared until a creator enters a trial rating and useful trial notes.
+- [ ] New recipes start Untested and cannot be approved/shared until a creator attaches a real-dish photo, enters a trial rating, and records useful trial notes.
+- [ ] Confirm trial photo is resized in-browser, previewed, stored locally, included in JSON backup, and never uploaded automatically.
 - [ ] Marking a recipe Tested reflects the creator's own cooking trial only; it must not imply independent safety or source verification.
 - [ ] Prepare the short-form content pack and confirm it includes five hooks, narration/shot guidance, caption, hashtags, CTA, source, and limitations.
 - [ ] Approve the pack explicitly; confirm the share action remains disabled before approval.

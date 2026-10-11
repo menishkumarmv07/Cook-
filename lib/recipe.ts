@@ -13,6 +13,7 @@ export type RecipeProject = {
   trialStatus: "untested" | "tested";
   trialRating: string;
   trialNotes: string;
+  trialPhotoDataUrl: string;
   approved: boolean;
   approvedAt: string;
   name: string;
@@ -103,6 +104,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<RecipeProject>;
   return typeof p.id === "number" &&
+    typeof p.trialPhotoDataUrl === "string" &&
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
@@ -288,6 +290,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     trialStatus: legacy.trialStatus === "tested" ? "tested" : "untested",
     trialRating: typeof legacy.trialRating === "string" ? legacy.trialRating : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
+    trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",

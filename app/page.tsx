@@ -54,6 +54,7 @@ function migrateProject(value: unknown): RecipeProject | null {
     trialStatus: old.trialStatus === "tested" ? "tested" : "untested",
     trialRating: typeof old.trialRating === "string" ? old.trialRating : "",
     trialNotes: typeof old.trialNotes === "string" ? old.trialNotes : "",
+    trialPhotoDataUrl: typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "",
     approved: old.approved === true,
     approvedAt: typeof old.approvedAt === "string" ? old.approvedAt : "" };
 }
@@ -227,6 +228,7 @@ export default function Home() {
       trialStatus: "untested",
       trialRating: "",
       trialNotes: "",
+      trialPhotoDataUrl: "",
       approved: false,
       approvedAt: "",
       servings: servings.trim(),
@@ -251,12 +253,58 @@ export default function Home() {
     if (!current) return;
     const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
     setProjects((existing) => existing.map((project) => project.id === current.id
-      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch) ? { approved: false, approvedAt: "" } : {})) }
+      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch || "trialPhotoDataUrl" in patch) ? { approved: false, approvedAt: "" } : {})) }
       : project));
+  }
+
+  async function saveTrialPhoto(file: File | null) {
+    if (!current || !file) return;
+    if (!file.type.startsWith("image/")) {
+      setMessage("Choose an image file for the cooking-trial photo.");
+      return;
+    }
+    if (file.size > 12 * 1024 * 1024) {
+      setMessage("That photo is over 12 MB. Choose a smaller image so local browser storage is less likely to fill.");
+      return;
+    }
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Image decode failed"));
+        image.src = objectUrl;
+      });
+      const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) {
+        setMessage("This browser could not prepare the photo. Try a JPG or PNG image.");
+        return;
+      }
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      const compressed = canvas.toDataURL("image/jpeg", 0.65);
+      if (compressed.length > 500_000) {
+        setMessage("The compressed photo is still too large for reliable local storage. Choose or crop a smaller photo.");
+        return;
+      }
+      patchCurrent({ trialPhotoDataUrl: compressed });
+      setMessage("Cooking-trial photo saved locally with the recipe. It is not uploaded.");
+    } catch {
+      setMessage("Photo could not be processed in this browser. Try a smaller JPG or PNG.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   }
 
   function markRecipeTested() {
     if (!current) return;
+    if (!current.trialPhotoDataUrl) {
+      setMessage("Add a photo of the dish you actually cooked before marking this recipe Tested.");
+      return;
+    }
     if (!current.trialRating) {
       setMessage("Rate your real cooking trial before marking this recipe Tested.");
       return;
@@ -514,11 +562,12 @@ export default function Home() {
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
                 <section className="trial-panel">
                   <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
+                  <div className="trial-photo-field"><label htmlFor="trial-photo">Cooking-trial photo <b>*</b></label><input id="trial-photo" type="file" accept="image/*" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void saveTrialPhoto(file); }} /><small className="hint">Resized on your device and saved locally; no upload. Keep the photo of the dish you actually cooked.</small>{current.trialPhotoDataUrl && <div className="trial-photo-preview"><img src={current.trialPhotoDataUrl} alt={`Your cooking-trial photo for ${current.name}`} /><button className="text-button" type="button" onClick={() => patchCurrent({ trialPhotoDataUrl: "" })}>Remove photo</button></div>}</div>
                   <div className="editor-grid">
                     <div><label htmlFor="trial-rating">Your trial rating</label><select id="trial-rating" value={current.trialRating} onChange={(event) => patchCurrent({ trialRating: event.target.value })}><option value="">Choose a rating</option><option value="1">1 — Needs work</option><option value="2">2 — Below expectations</option><option value="3">3 — Good</option><option value="4">4 — Very good</option><option value="5">5 — Excellent</option></select></div>
                     <div><label htmlFor="trial-notes">What happened when you cooked it?</label><textarea id="trial-notes" rows={3} value={current.trialNotes} onChange={(event) => patchCurrent({ trialNotes: event.target.value })} placeholder="Record changes, actual timing, texture, taste, and any safety concerns…" /></div>
                   </div>
-                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a rating and trial notes. Editing the recipe resets approval.</small></div>
+                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a real-dish photo, rating, and trial notes. Editing the recipe resets approval.</small></div>
                 </section>
                 <section className="approval-panel">
                   <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>

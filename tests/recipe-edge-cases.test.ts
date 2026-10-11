@@ -14,6 +14,7 @@ const project: RecipeProject = {
   trialStatus: "untested",
   trialRating: "",
   trialNotes: "",
+  trialPhotoDataUrl: "",
   approved: false,
   approvedAt: "",
   name: "Lemon rice",
