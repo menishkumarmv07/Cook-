@@ -9,7 +9,8 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
-    "check": "npm run test && npm run lint && npm run typecheck && npm run build"
+    "check": "npm run test && npm run lint && npm run typecheck && npm run build",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "next": "15.5.4",
