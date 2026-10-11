@@ -21,6 +21,7 @@ import {
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
+const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 
 function migrateProject(value: unknown): RecipeProject | null {
   if (typeof value !== "object" || value === null) return null;
@@ -146,12 +147,90 @@ export default function Home() {
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNarration, setShowNarration] = useState(false);
   const [showContentPack, setShowContentPack] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [command, setCommand] = useState("");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
+
+  useEffect(() => {
+    try {
+      const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+      if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
+    } catch {
+      // The light theme remains the safe default when storage is unavailable.
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // The app remains usable if the browser blocks local storage.
+    }
+  }, [theme]);
+
+  function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library") {
+    setMenuOpen(false);
+    const targetId =
+      section === "plan" ? "daily-plan" :
+      section === "research" ? (current ? "research-desk" : "research-trends") :
+      section === "studio" ? "recipe-editor" :
+      section === "publish" ? (current ? "publish-queue" : "recipe-editor") :
+      section === "intake" ? "intake" :
+      section === "profile" ? "creator-profile" : "recent-projects";
+    if (section === "publish" && !current) {
+      setMessage("Create or open a recipe draft first. V1 supports owner-approved text export, not direct social publishing.");
+    } else if (section === "research" && !current) {
+      setMessage("Research notes are saved inside a recipe draft. Create or open a draft to add source references.");
+    }
+    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function submitWorkspaceCommand(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const request = command.trim().toLowerCase();
+    if (!request) {
+      setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or “publish”.");
+      return;
+    }
+    if (/new recipe|create recipe|start recipe|add recipe/.test(request)) {
+      setCommand("");
+      goToSection("intake");
+      return;
+    }
+    if (/research|source|trend|video link/.test(request)) {
+      setCommand("");
+      goToSection("research");
+      return;
+    }
+    if (/publish|share|approval|queue/.test(request)) {
+      setCommand("");
+      goToSection("publish");
+      return;
+    }
+    if (/studio|editor|script|storyboard|content/.test(request)) {
+      setCommand("");
+      goToSection("studio");
+      return;
+    }
+    if (/plan|today|next step/.test(request)) {
+      setCommand("");
+      goToSection("plan");
+      return;
+    }
+    if (/profile|theme|settings/.test(request)) {
+      setCommand("");
+      goToSection("profile");
+      setMessage("Use Appearance in the side menu to switch the saved theme. The command bar navigates sections; it is not connected to an AI model yet.");
+      return;
+    }
+    setMessage("This command bar navigates the current V1 workspace but is not connected to an AI model yet. Try “new recipe”, “research”, “content studio”, or “publish”.");
+  }
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
@@ -470,22 +549,51 @@ export default function Home() {
   }
 
   return (
-    <main className="shell">
-      <aside className="sidebar">
-        <a className="brand" href="#dashboard"><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>STUDIO · V1</small></span></a>
+    <main className="shell" data-theme={theme}>
+      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
+      <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
+        <div className="drawer-head">
+          <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>CREATOR WORKSPACE</small></span></a>
+          <button className="drawer-close" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)}>×</button>
+        </div>
         <p className="nav-label">WORKSPACE</p>
-        <a className="nav active" href="#dashboard">▦　Dashboard</a>
-        <a className="nav" href="#intake">＋　New recipe</a>
-        <a className="nav" href="#recipe-editor">▤　Recipe editor</a>
+        <button className="nav active" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">⌂</span> Home</button>
+        <button className="nav" type="button" onClick={() => goToSection("profile")}><span aria-hidden="true">▧</span> Images & chef assets</button>
+        <button className="nav" type="button" onClick={() => goToSection("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
+        <button className="nav" type="button" onClick={() => goToSection("intake")}><span aria-hidden="true">＋</span> Projects / new recipe</button>
+        <button className="nav" type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">◷</span> Publish queue</button>
+        <button className="nav" type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span> Explore research</button>
+        <button className="nav nav-unavailable" type="button" disabled title="Remote workspace is not implemented in V1"><span aria-hidden="true">▱</span> Remote <small>Later</small></button>
+        <div className="drawer-theme">
+          <span><strong>Appearance</strong><small>Saved on this device</small></span>
+          <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((value) => value === "light" ? "dark" : "light")}>{theme === "light" ? "☾ Dark" : "☀ Light"}</button>
+        </div>
+        <div className="drawer-projects">
+          <p className="nav-label">RECENT PROJECTS</p>
+          {projects.length === 0 ? <p className="drawer-empty">Your recipe drafts will appear here.</p> : projects.slice(0, 5).map((project) => <button key={project.id} className={project.id === active ? "nav nav-project selected" : "nav nav-project"} type="button" onClick={() => { setActive(project.id); setShowTutorial(false); setShowNarration(false); setShowContentPack(false); goToSection("studio"); }}>◦　{project.name}</button>)}
+        </div>
         <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small></div>
       </aside>
 
       <section className="main" id="dashboard">
-        <header className="top"><span>Workspace　/　Recipe Studio</span><span className="private">🔒 Private repository · local drafts</span></header>
+        <header className="top">
+          <button className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>☰</button>
+          <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
+          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
+        </header>
         <div className="content">
           <section className="hero">
-            <div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Make every recipe a story.</h1><p>Build a clear, complete cooking tutorial from a recipe you supply. Missing details stay visible—never silently invented.</p></div>
-            <div className="dish" aria-hidden="true">✿</div>
+            <div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Good cooking deserves a story.</h1><p>Research the recipe, plan every step, and prepare a reviewed content pack. This version keeps drafts on this device.</p></div>
+            <div className="dish" aria-hidden="true">✦</div>
+          </section>
+
+          <section className="plan-card panel" id="daily-plan">
+            <div className="section-head"><div><p className="eyebrow">TODAY'S PLAN</p><h2>Your next useful step</h2><p>Work through one recipe carefully before scaling up production.</p></div><span className="step">{current ? "DRAFT OPEN" : "READY TO START"}</span></div>
+            <div className="plan-next">
+              <span className="plan-check" aria-hidden="true">{current ? "02" : "01"}</span>
+              <div><strong>{current ? (current.trialStatus === "tested" ? (current.approved ? "Review the approved content pack" : "Approve the reviewed content pack") : "Complete the recipe details and cooking trial") : "Create your first recipe draft"}</strong><p>{current ? (current.trialStatus === "tested" ? "Check the script, source evidence and final share text before exporting." : "Add quantities, ordered steps, sources, and real cooking-trial evidence before approval.") : "Add a recipe name and optional source link to open the structured recipe editor."}</p></div>
+              <button type="button" className="secondary" onClick={() => goToSection(current ? (current.trialStatus === "tested" ? "publish" : "studio") : "intake")}>{current ? "Continue" : "Start recipe"} →</button>
+            </div>
           </section>
 
           <div className="stats">
@@ -493,6 +601,11 @@ export default function Home() {
             <div><small>Creator outline</small><strong>6 scenes</strong><em>Editable template</em></div>
             <div><small>Publishing</small><strong>Not connected</strong><em>Planned for V6</em></div>
           </div>
+
+          <section className="research-hub panel" id="research-trends">
+            <div className="section-head"><div><p className="eyebrow">RESEARCH & TRENDS</p><h2>Build from evidence, not guesses.</h2><p>Record recipe sources, compare the details you actually checked, and flag gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
+            <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Link access and full video analysis are not automated in V1. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
+          </section>
 
           <section className="profile-section" id="creator-profile">
             <details className="profile-panel">
@@ -569,7 +682,7 @@ export default function Home() {
                   </div>
                   <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a real-dish photo, rating, and trial notes. Editing the recipe resets approval.</small></div>
                 </section>
-                <section className="approval-panel">
+                <section className="approval-panel" id="publish-queue">
                   <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
                   <div className="action-row">
                     <button className="primary" type="button" onClick={() => setShowContentPack((show) => !show)}>{showContentPack ? "Hide content pack" : "Prepare content pack"}</button>
@@ -587,7 +700,7 @@ export default function Home() {
                   <div><label htmlFor="edit-evidence">Manual source evidence notes</label><textarea id="edit-evidence" rows={3} value={current.sourceEvidence} onChange={(event) => patchCurrent({ sourceEvidence: event.target.value })} placeholder="For each reference, record its URL and what you actually checked (recipe text, transcript, video frames, or your own notes). The app does not verify links automatically." /></div>
                 </div>
 
-                <section className="panel source-research-panel">
+                <section className="panel source-research-panel" id="research-desk">
                   <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record separate references and exactly what you checked. This is a research log, not automatic link/video analysis.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "" }] })}>＋ Add source</button></div>
                   {current.sourceReferences.length === 0 ? <p className="empty-inline">No structured references yet. Add at least two independent sources when possible.</p> : <div className="source-reference-list">{current.sourceReferences.map((source, index) => (
                     <div className="source-reference" key={source.id}>
@@ -647,11 +760,26 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
       </section>
+
+      <div className="command-dock" role="region" aria-label="Workspace command">
+        <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => goToSection("intake")}>＋</button>
+        <form className="command-form" onSubmit={submitWorkspaceCommand}>
+          <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Ask your workspace… try “new recipe”" />
+          <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
+        </form>
+      </div>
+      <nav className="quick-dock" aria-label="Quick actions">
+        <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today's Plan</small></button>
+        <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research & Trends</small></button>
+        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Content Studio</small></button>
+        <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
+      </nav>
     </main>
   );
 }
