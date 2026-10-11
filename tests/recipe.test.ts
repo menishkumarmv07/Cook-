@@ -19,6 +19,7 @@ const base: RecipeProject = {
   trialStatus: "untested",
   trialRating: "",
   trialNotes: "",
+  trialPhotoDataUrl: "",
   approved: false,
   approvedAt: "",
   name: "Tomato pasta",
@@ -226,6 +227,7 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
     trialStatus: undefined,
     trialRating: undefined,
     trialNotes: undefined,
+    trialPhotoDataUrl: undefined,
     approved: undefined,
     approvedAt: undefined,
   };
@@ -234,6 +236,7 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
   assert.equal(restored.trialStatus, "untested");
   assert.equal(restored.trialRating, "");
   assert.equal(restored.trialNotes, "");
+  assert.equal(restored.trialPhotoDataUrl, "");
   assert.equal(restored.approved, false);
   assert.equal(restored.approvedAt, "");
 });
