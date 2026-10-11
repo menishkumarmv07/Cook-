@@ -150,7 +150,7 @@ export function calculateRecipeNutrition(project: RecipeProject): RecipeNutritio
   const fat = totalFor("nutritionFatG");
   const missingIngredients = project.ingredients
     .filter((ingredient) => !sourceComplete(ingredient) || numeric(ingredient.nutritionCalories) === null)
-    .map((ingredient, index) => ingredient.name.trim() || `Ingredient ${project.ingredients.indexOf(ingredient) + 1}`);
+    .map((ingredient) => ingredient.name.trim() || `Ingredient ${project.ingredients.indexOf(ingredient) + 1}`);
 
   return {
     totalCalories,
@@ -229,6 +229,7 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
 }
 
 export function buildTutorialDraft(project: RecipeProject): string {
+  const nutrition = calculateRecipeNutrition(project);
   const lines = [
     `# ${project.name.trim() || "Untitled recipe"}`,
     "",
@@ -253,6 +254,17 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "## Source evidence notes",
     project.sourceEvidence.trim() || "No manual source evidence notes recorded. The app has not fetched or analyzed the source content.",
     "",
+    "## Nutrition worksheet (manual source values)",
+    ...(nutrition.caloriesPerServing !== null
+      ? [
+          `Estimated calories per serving: ${Math.round(nutrition.caloriesPerServing)} kcal (recipe total: ${Math.round(nutrition.totalCalories ?? 0)} kcal; serving count: ${project.servings.trim()}).`,
+          nutrition.proteinGPerServing !== null ? `Estimated protein per serving: ${nutrition.proteinGPerServing.toFixed(1)} g.` : "Protein per serving is incomplete because at least one ingredient lacks a sourced protein value for the exact amount used.",
+          nutrition.carbsGPerServing !== null ? `Estimated carbohydrates per serving: ${nutrition.carbsGPerServing.toFixed(1)} g.` : "Carbohydrates per serving are incomplete because at least one ingredient lacks a sourced carbohydrate value for the exact amount used.",
+          nutrition.fatGPerServing !== null ? `Estimated fat per serving: ${nutrition.fatGPerServing.toFixed(1)} g.` : "Fat per serving is incomplete because at least one ingredient lacks a sourced fat value for the exact amount used.",
+          "Values were entered manually by the creator for the exact listed amount and must be checked against the linked references; this app has not fetched or independently verified those sources.",
+        ]
+      : ["No calorie-per-serving result yet. For every ingredient, enter calories for the exact quantity used, its amount basis, and a valid source URL; enter a simple serving count. No unit conversion or source verification is performed automatically."]),
+    "",
     "## Notes",
     project.notes.trim() || "No additional notes.",
     "",
@@ -263,7 +275,10 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "- Source references and checked items are manually recorded and have not been independently verified.",
     "- Compare references yourself; conflicts or missing details must be resolved before publishing.",
     "- Missing amounts/timings must be checked; do not guess.",
-    "- Food safety and nutrition have not been independently verified.",
+    "- Food safety has not been independently verified.",
+    ...(nutrition.caloriesPerServing !== null
+      ? ["- Nutrition totals are calculations from manually entered per-ingredient values; verify every amount, preparation state, serving count, and source yourself."]
+      : ["- Nutrition has not been calculated because at least one ingredient lacks a sourced value for the exact amount used or the serving count is not a simple positive number."]),
     "- This file is a draft and has not been published.",
   ];
   return lines.join("\n");
@@ -272,6 +287,7 @@ export function buildTutorialDraft(project: RecipeProject): string {
 
 export function buildNarrationScript(project: RecipeProject): string {
   const recipeName = project.name.trim() || "Untitled recipe";
+  const nutrition = calculateRecipeNutrition(project);
   const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
   const lines = [
     `# Voiceover script: ${recipeName}`,
@@ -321,7 +337,9 @@ export function buildNarrationScript(project: RecipeProject): string {
     "ON SCREEN: Show the finished dish and final texture.",
     `NARRATION: That's the recorded method for ${recipeName}. Review any unresolved details and food-safety guidance before cooking or publishing.`,
     "TASTING: Add a reaction only after the intended tasting scene is reviewed; this generated script does not establish a real human taste test.",
-    "NUTRITION: Calories and health claims are omitted until calculated from confirmed ingredient quantities and servings.",
+    ...(nutrition.caloriesPerServing !== null
+      ? [`NUTRITION: The entered recipe worksheet calculates approximately ${Math.round(nutrition.caloriesPerServing)} kcal per serving. Ingredient nutrition values and sources were entered manually and have not been independently verified by the app.`]
+      : ["NUTRITION: Calories and health claims are omitted until every ingredient has a sourced value for the exact amount used and the recipe has a clear serving count."]),
     "",
     "## Source uncertainties to resolve",
     ...(project.sourceReferences.length
@@ -338,7 +356,9 @@ export function buildNarrationScript(project: RecipeProject): string {
     "- Do not present uncalculated calories or unsupported health benefits as facts.",
     "- Ingredient-to-step mapping is not inferred; confirm exactly when each ingredient is added.",
     "- Missing ingredient names, quantities, actions, or timings must be completed before recording. Do not guess.",
-    "- Nutrition and calories have not been calculated from ingredient quantities and servings.",
+    ...(nutrition.caloriesPerServing !== null
+      ? ["- Confirm every nutrition value against its reference before recording; app totals are arithmetic on user-entered values, not independent verification."]
+      : ["- Nutrition and calories have not been calculated because complete per-ingredient values and a simple serving count are missing."]),
     "- This is a text script draft. It has not generated voice, animated the chef, rendered a video, or published anything.",
   ];
   return lines.join("\n");
