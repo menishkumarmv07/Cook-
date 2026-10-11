@@ -45,6 +45,17 @@ export function isHttpUrl(value: string): boolean {
   }
 }
 
+export function normalizeSourceUrlForComparison(value: string): string {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") return value.trim();
+    const path = url.pathname.replace(/\\/+$/, "");
+    return `${url.origin}${path}${url.search}`;
+  } catch {
+    return value.trim();
+  }
+}
+
 export function isRecipeProject(value: unknown): value is RecipeProject {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<RecipeProject>;
