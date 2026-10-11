@@ -38,3 +38,5 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .tutorial-preview pre{font:11px/1.75 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:620px;overflow:auto;background:white;border:1px solid #edf0e8;border-radius:8px;padding:15px;color:#2c3b2f}
 @media(max-width:1000px){.ingredient-row{grid-template-columns:28px 1fr 1fr 2fr 2fr 32px}.ingredient-row input{font-size:10px;padding:9px 6px}}
 @media(max-width:700px){.editor-grid{grid-template-columns:1fr;gap:4px}.subsection-head{align-items:flex-start;flex-wrap:wrap}.ingredient-row{grid-template-columns:25px 1fr 1fr 32px;gap:6px}.ingredient-row input:nth-of-type(3),.ingredient-row input:nth-of-type(4){grid-column:span 2}.step-fields{grid-template-columns:1fr}.step-fields .cue-field{grid-column:auto}.action-row .primary{flex:1 1 100%}.tutorial-preview{padding:11px}}
+
+.step-controls{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end}.step-controls .text-button{padding:5px;font-size:10px}.step-controls .text-button:disabled{color:#b6bcb3;cursor:not-allowed}
