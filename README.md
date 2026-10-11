@@ -10,8 +10,9 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Ordered cooking-step editor: action, timing, heat/setting, and visual/doneness cue.
 - Six-scene creator outline that can be edited.
 - Rule-based validation warnings for missing amounts, units, steps, timings, serving count, source analysis, food safety, and nutrition.
+- Structured multi-source research desk for recipe pages, videos/Reels, transcripts, and other references; captures what was checked and unresolved differences, flags invalid/duplicate URLs, and exports the evidence log without claiming independent verification.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
-- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts.
+- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records.
 - JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for URL validation, data shape, warnings, draft generation, JSON backup recovery, and scene count.
@@ -54,7 +55,7 @@ For the Android/Chrome manual acceptance pass, follow [the V1 acceptance checkli
 
 ## Important limitations
 
-This remains a V1 prototype, not the finished AI video-production system. Local drafts are stored in this browser on this device only. This is **not** owner authentication, encrypted storage, cloud backup, or multi-device sync. Clearing browser storage can delete drafts, so export important work.
+This remains a V1 prototype, not the finished AI video-production system. Structured source references are manual records only: the app still does not fetch or analyze source pages, transcribe videos, inspect frames, or resolve recipe disagreements automatically. Local drafts are stored in this browser on this device only. This is **not** owner authentication, encrypted storage, cloud backup, or multi-device sync. Clearing browser storage can delete drafts, so export important work.
 
 The app does **not** yet inspect or transcribe linked videos, verify recipes against multiple external sources, calculate nutrition, perform actual food-safety checks, generate the chef's voice/video, render a finished video, connect social accounts, schedule/publish posts, or provide analytics. Source URLs are not fetched or analyzed. Validation warnings are basic completeness checks, not proof that a recipe is correct or safe. Tutorial previews and exports are drafts and are not published content.
 
