@@ -24,6 +24,9 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 Use a real Android phone with Chrome. Check portrait layout first, then landscape if practical.
 
 - [ ] Dashboard loads without a blank screen or visible runtime error.
+- [ ] Save a creator profile with tone, language, cuisine, units, platforms, never-say list, and sample captions; reload and confirm it persists.
+- [ ] Prepare a content pack and confirm profile guidance appears without claiming automatic translation or AI review.
+- [ ] Export JSON and confirm the creator profile is included; import the backup and confirm the profile restores.
 - [ ] Manifest route returns valid PWA metadata and app icon.
 - [ ] After one successful online visit and service-worker activation, reload in offline mode and confirm the cached app shell opens.
 - [ ] From Android Chrome, use the browser menu's Install app / Add to Home screen option if offered; verify the installed icon and standalone launch. Record if Chrome does not offer installation.

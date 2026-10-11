@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  DEFAULT_CREATOR_PROFILE,
+  isCreatorProfile,
   isHttpUrl,
   isRecipeProject,
   normalizeSourceUrlForComparison,
@@ -234,4 +236,11 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
   assert.equal(restored.trialNotes, "");
   assert.equal(restored.approved, false);
   assert.equal(restored.approvedAt, "");
+});
+
+
+test("creator profile schema accepts complete defaults and rejects malformed values", () => {
+  assert.equal(isCreatorProfile(DEFAULT_CREATOR_PROFILE), true);
+  assert.equal(isCreatorProfile({ ...DEFAULT_CREATOR_PROFILE, tone: 7 }), false);
+  assert.equal(isCreatorProfile(null), false);
 });

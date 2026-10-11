@@ -25,6 +25,44 @@ export type RecipeProject = {
   steps: RecipeStep[];
   scenes: Scene[];
 };
+export type CreatorProfile = {
+  tone: string;
+  catchphrases: string;
+  language: string;
+  cuisineFocus: string;
+  skillLevel: string;
+  equipment: string;
+  budget: string;
+  dietLimits: string;
+  units: string;
+  usualCookingTime: string;
+  platforms: string;
+  neverSay: string;
+  sampleCaptions: string;
+};
+
+export const DEFAULT_CREATOR_PROFILE: CreatorProfile = {
+  tone: "Warm, clear, confident, and practical",
+  catchphrases: "",
+  language: "English",
+  cuisineFocus: "Worldwide recipes; explain unfamiliar ingredients clearly",
+  skillLevel: "Beginner-friendly",
+  equipment: "Standard home kitchen",
+  budget: "Affordable ingredients where practical",
+  dietLimits: "",
+  units: "Metric",
+  usualCookingTime: "Under 45 minutes when practical",
+  platforms: "YouTube Shorts, Instagram Reels",
+  neverSay: "Guaranteed viral; cures; miracle food; guaranteed weight loss",
+  sampleCaptions: "",
+};
+
+export function isCreatorProfile(value: unknown): value is CreatorProfile {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return Object.keys(DEFAULT_CREATOR_PROFILE).every((key) => typeof record[key] === "string");
+}
+
 export type ValidationIssue = { level: "warning" | "error"; field: string; message: string };
 
 export const SCENE_TEMPLATE: Scene[] = [
