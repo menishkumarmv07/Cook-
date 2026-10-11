@@ -6,6 +6,7 @@ export type RecipeProject = {
   name: string;
   url: string;
   notes: string;
+  sourceEvidence: string;
   servings: string;
   ingredients: Ingredient[];
   steps: RecipeStep[];
@@ -43,6 +44,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
+    typeof p.sourceEvidence === "string" &&
     typeof p.servings === "string" &&
     Array.isArray(p.ingredients) &&
     p.ingredients.every((x) => typeof x === "object" && x !== null &&
@@ -73,7 +75,7 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
     if (!step.action.trim()) issues.push({ level: "warning", field: `step-${index}`, message: `Cooking step ${index + 1} has no action.` });
     if (!step.duration.trim()) issues.push({ level: "warning", field: `duration-${index}`, message: `Timing for step ${index + 1} is not recorded; do not invent a time.` });
   });
-  if (project.url.trim()) issues.push({ level: "warning", field: "source", message: "The source link has not been fetched or analyzed by this app." });
+  if (project.url.trim()) issues.push({ level: "warning", field: "source", message: project.sourceEvidence.trim() ? "Source evidence notes are user-entered and have not been independently checked by this app." : "The source link has not been fetched or analyzed by this app; record what you actually checked in source evidence notes." });
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
   issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from ingredient quantities." });
   return issues;
@@ -97,12 +99,16 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "",
     "## Creator scene plan",
     ...project.scenes.flatMap((x, i) => [`### ${i + 1}. ${x.title}`, `Timing guide: ${x.timing}`, x.detail, ""]),
+    "## Source evidence notes",
+    project.sourceEvidence.trim() || "No manual source evidence notes recorded. The app has not fetched or analyzed the source content.",
+    "",
     "## Notes",
     project.notes.trim() || "No additional notes.",
     "",
     "## Verification status",
     "- This draft reflects only information entered by the user.",
-    "- Source links have not been analyzed automatically.",
+    "- Source links have not been analyzed automatically.
+    - Manual source evidence notes are user-provided and have not been independently verified.",
     "- Missing amounts/timings must be checked; do not guess.",
     "- Food safety and nutrition have not been independently verified.",
     "- This file is a draft and has not been published.",
