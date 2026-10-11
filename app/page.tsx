@@ -129,6 +129,14 @@ export default function Home() {
   const warnings = issues.filter((issue) => issue.level === "warning");
 
   useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+        // Offline caching is progressive enhancement; the online app must still work if registration fails.
+      });
+    }
+  }, []);
+
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {

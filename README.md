@@ -5,6 +5,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 ## Current V1 features
 
 - Responsive recipe creator dashboard.
+- Installable PWA manifest, SVG app icon, service-worker app-shell caching, and offline fallback page; offline reopening is verified in CI after the first connected visit.
 - Recipe intake with HTTP(S) source URL, servings/yield, and notes.
 - Structured ingredient rows: amount, unit, name, preparation note.
 - Ordered cooking-step editor: action, timing, heat/setting, and visual/doneness cue.
@@ -17,7 +18,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Short-form text content pack with five hook options, a caption draft, hashtags, CTA, narration/shot guidance, and manual source/review notes.
 - Prepare-and-share workflow using the browser/Android share sheet when available, with a text download fallback. Sharing is manual; no direct platform API publishing is implemented.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
-- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records.
+- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records. Service-worker caching supports reopening the shell offline after the app has first been loaded online; it does not add cloud sync.
 - JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for URL validation, data shape, warnings, draft generation, JSON backup recovery, and scene count.
