@@ -250,4 +250,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   const exported = JSON.parse(await readFile(path!, "utf8")) as { creatorProfile?: { tone?: string; sampleCaptions?: string } };
   expect(exported.creatorProfile?.tone).toBe("Professional and concise");
   expect(exported.creatorProfile?.sampleCaptions).toContain("A simple dinner with clear steps.");
+  await page.locator("#profile-tone").fill("Casual");
+  await page.locator("#import-backup").setInputFiles(path!);
+  await expect(page.locator("#profile-tone")).toHaveValue("Professional and concise");
 });
