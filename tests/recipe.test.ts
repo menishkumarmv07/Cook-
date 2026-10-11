@@ -211,3 +211,22 @@ test("narration script makes empty ingredient and method states explicit", () =>
   assert.match(script, /app has not fetched or verified source content/);
   assert.match(script, /Nutrition and calories have not been calculated/);
 });
+
+
+test("legacy JSON draft imports with an explicit untested and unapproved default", () => {
+  const legacy = {
+    ...base,
+    trialStatus: undefined,
+    trialRating: undefined,
+    trialNotes: undefined,
+    approved: undefined,
+    approvedAt: undefined,
+  };
+  const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
+  assert.ok(restored);
+  assert.equal(restored.trialStatus, "untested");
+  assert.equal(restored.trialRating, "");
+  assert.equal(restored.trialNotes, "");
+  assert.equal(restored.approved, false);
+  assert.equal(restored.approvedAt, "");
+});
