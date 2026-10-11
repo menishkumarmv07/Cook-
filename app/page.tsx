@@ -588,7 +588,7 @@ export default function Home() {
           </section>
 
           <section className="plan-card panel" id="daily-plan">
-            <div className="section-head"><div><p className="eyebrow">TODAY'S PLAN</p><h2>Your next useful step</h2><p>Work through one recipe carefully before scaling up production.</p></div><span className="step">{current ? "DRAFT OPEN" : "READY TO START"}</span></div>
+            <div className="section-head"><div><p className="eyebrow">TODAY&apos;S PLAN</p><h2>Your next useful step</h2><p>Work through one recipe carefully before scaling up production.</p></div><span className="step">{current ? "DRAFT OPEN" : "READY TO START"}</span></div>
             <div className="plan-next">
               <span className="plan-check" aria-hidden="true">{current ? "02" : "01"}</span>
               <div><strong>{current ? (current.trialStatus === "tested" ? (current.approved ? "Review the approved content pack" : "Approve the reviewed content pack") : "Complete the recipe details and cooking trial") : "Create your first recipe draft"}</strong><p>{current ? (current.trialStatus === "tested" ? "Check the script, source evidence and final share text before exporting." : "Add quantities, ordered steps, sources, and real cooking-trial evidence before approval.") : "Add a recipe name and optional source link to open the structured recipe editor."}</p></div>
@@ -775,7 +775,7 @@ export default function Home() {
         </form>
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
-        <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today's Plan</small></button>
+        <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
         <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research & Trends</small></button>
         <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Content Studio</small></button>
         <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
