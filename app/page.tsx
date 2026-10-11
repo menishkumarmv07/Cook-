@@ -1,15 +1,305 @@
 "use client";
-import { useEffect, useState } from "react";
+
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-type Scene={title:string;detail:string;timing:string};type Project={id:number;name:string;url:string;notes:string;scenes:Scene[]};
-function isProject(value:unknown):value is Project { if(typeof value!=="object"||value===null)return false;const p=value as Partial<Project>;return typeof p.id==="number"&&typeof p.name==="string"&&typeof p.url==="string"&&typeof p.notes==="string"&&Array.isArray(p.scenes)&&p.scenes.every((scene:unknown)=>{if(typeof scene!=="object"||scene===null)return false;const item=scene as Partial<Scene>;return typeof item.title==="string"&&typeof item.detail==="string"&&typeof item.timing==="string";});}
-const template:Scene[]=[{title:"Hook & finished dish",detail:"Show the finished dish and explain what viewers will learn.",timing:"0:00–0:08"},{title:"Ingredients",detail:"Show every ingredient and verified quantity.",timing:"0:08–0:25"},{title:"Preparation",detail:"Show washing, chopping, measuring, and prep in order.",timing:"0:25–0:45"},{title:"Cooking steps",detail:"Explain each action, heat level, timing, and visual cue.",timing:"0:45–1:35"},{title:"Finish & serve",detail:"Show texture, doneness, plating, and safe serving guidance.",timing:"1:35–1:50"},{title:"Taste & nutrition",detail:"Add chef tasting reaction and a verified nutrition estimate when available.",timing:"1:50–2:00"}];
-export default function Home(){const[name,setName]=useState("");const[url,setUrl]=useState("");const[notes,setNotes]=useState("");const[projects,setProjects]=useState<Project[]>([]);const[active,setActive]=useState<number|null>(null);const[message,setMessage]=useState("");const[hydrated,setHydrated]=useState(false);const current=projects.find(p=>p.id===active);
-useEffect(()=>{try{const raw=window.localStorage.getItem("cooking-creator-v1-drafts");if(raw){const parsed:unknown=JSON.parse(raw);if(Array.isArray(parsed)){const saved=parsed.filter(isProject);setProjects(saved);setActive(saved[0]?.id??null);if(saved.length!==parsed.length)setMessage("Some saved draft data was invalid and was skipped.");}}}catch{setMessage("Saved drafts could not be read from this browser. You can create a new draft or import from an export later.");}finally{setHydrated(true);}},[]);
-useEffect(()=>{if(!hydrated)return;try{window.localStorage.setItem("cooking-creator-v1-drafts",JSON.stringify(projects));}catch{setMessage("Browser storage is unavailable or full. Export your draft to keep a copy.");}},[projects,hydrated]);
-function create(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!name.trim())return;const normalizedUrl=url.trim();if(normalizedUrl){try{const source=new URL(normalizedUrl);if(source.protocol!=="http:"&&source.protocol!=="https:"){setMessage("Only http:// and https:// source links are allowed.");return;}}catch{setMessage("Please enter a valid http:// or https:// source link.");return;}}const p={id:Date.now(),name:name.trim(),url:normalizedUrl,notes:notes.trim(),scenes:template.map(s=>({...s}))};setProjects(old=>[p,...old]);setActive(p.id);setName("");setUrl("");setNotes("");setMessage("Draft saved on this device only. Source analysis and video generation are not connected yet.");}
-function editScene(i:number,field:keyof Scene,value:string){if(!current)return;setProjects(old=>old.map(p=>p.id===current.id?{...p,scenes:p.scenes.map((s,j)=>i===j?{...s,[field]:value}:s)}:p));}
-function exportProject(format:"markdown"|"json"){if(!current)return;const safeName=current.name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"recipe-draft";const exported={...current,status:"draft",published:false,exportedAt:new Date().toISOString(),notice:"Source URL has not been analyzed by this app. Recipe safety and nutrition have not been independently verified."};const markdown=[`# ${current.name}`,"","**Status:** Draft — not published","",`**Source:** ${current.url||"Manual entry"}`,"","## Notes",current.notes||"No notes supplied.","","## Scene plan",...current.scenes.flatMap((scene,i)=>[`### ${i+1}. ${scene.title}`,`Timing: ${scene.timing}`,scene.detail,""]),"## Verification notice",exported.notice].join("\n");const data=format==="json"?JSON.stringify(exported,null,2):markdown;const blob=new Blob([data],{type:format==="json"?"application/json;charset=utf-8":"text/markdown;charset=utf-8"});const objectUrl=URL.createObjectURL(blob);const anchor=document.createElement("a");anchor.href=objectUrl;anchor.download=`${safeName}.${format==="json"?"json":"md"}`;document.body.appendChild(anchor);anchor.click();anchor.remove();window.setTimeout(()=>URL.revokeObjectURL(objectUrl),1000);setMessage(`Exported ${format.toUpperCase()} draft. It has not been published.`);}
-function deleteCurrent(){if(!current)return;const remaining=projects.filter(p=>p.id!==current.id);setProjects(remaining);setActive(remaining[0]?.id??null);setMessage("Draft removed from this browser's local draft list.");}
-return <main className="shell"><aside className="sidebar"><a className="brand" href="#"><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>STUDIO · V1</small></span></a><p className="nav-label">WORKSPACE</p><a className="nav active" href="#dashboard">▦　Dashboard</a><a className="nav" href="#intake">＋　New recipe project</a><a className="nav" href="#planner">▤　Scene planner</a><div className="side-foot"><span className="dot"/> Starter workspace<br/><small>Local drafts · this browser</small></div></aside><section className="main" id="dashboard"><header className="top"><span>Workspace　/　Dashboard</span><span className="private">🔒 Private project</span></header><div className="content"><section className="hero"><div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Make every recipe a story.</h1><p>Start with a recipe or video link. Build a clear, complete cooking tutorial—one scene at a time.</p></div><div className="dish" aria-hidden="true">✿</div></section><div className="stats"><div><small>Recipe projects</small><strong>{projects.length}</strong><em>Saved on this device</em></div><div><small>Scene template</small><strong>6 scenes</strong><em>Ready to customize</em></div><div><small>Publishing</small><strong>Not connected</strong><em>Planned for later versions</em></div></div><section id="intake"><div className="section-head"><div><p className="eyebrow">STEP 01</p><h2>Start a recipe project</h2><p>Use a video link, recipe URL, or your own notes.</p></div><span className="step">01 / 06</span></div><div className="columns"><form className="panel" onSubmit={create}><h3>✦　Recipe intake</h3><p className="muted">Give your next tutorial a starting point.</p><label htmlFor="name">Recipe name <b>*</b></label><input id="name" value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Spicy chicken gravy" required maxLength={100}/><label htmlFor="url">Video or recipe URL <span>OPTIONAL</span></label><input id="url" type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://youtube.com/..."/><p className="hint">Links are saved with the draft; this version does not inspect videos automatically.</p><label htmlFor="notes">Ingredients, steps, or notes <span>OPTIONAL</span></label><textarea id="notes" value={notes} onChange={e=>setNotes(e.target.value)} rows={4} maxLength={5000} placeholder="Quantities, cook times, servings, or details you noticed…"/><button className="primary" type="submit">Create recipe draft　→</button>{message&&<p className="message" role="status">{message}</p>}</form><div className="right"><section className="panel"><h3>✓　Recipe quality checklist</h3><p className="muted">What every tutorial should verify.</p><ul className="checklist"><li><b>01</b><span><strong>Ingredient quantities</strong><small>Record exact amounts and serving size.</small></span></li><li><b>02</b><span><strong>Steps & timings</strong><small>Keep order and flag unclear details.</small></span></li><li><b>03</b><span><strong>Food safety</strong><small>Check doneness and safe handling.</small></span></li><li><b>04</b><span><strong>Nutrition estimate</strong><small>Calculate from actual ingredients.</small></span></li></ul><p className="warning">Planning checklist only—not a completed safety or nutrition review.</p></section><section className="chef"><p className="eyebrow">YOUR SIGNATURE CHEF</p><h3>Your character, your kitchen.</h3><p>Your existing chef and kitchen assets will be integrated later. V1 does not replace your character.</p><small>● Assets awaiting integration</small></section></div></div></section><section id="planner" className="planner"><div className="section-head"><div><p className="eyebrow">STEP 02</p><h2>Scene-by-scene planner</h2><p>Edit the tutorial structure for a complete cooking video.</p></div><span className="step">6-scene template</span></div>{current?<div className="panel"><div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">DRAFT</span></div>{current.url&&<p className="source">Source: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}{current.notes&&<p className="notes"><b>Your notes</b><br/>{current.notes}</p>}<div className="scenes">{current.scenes.map((s,i)=><div className="scene" key={i}><b className="number">{String(i+1).padStart(2,"0")}</b><div><input aria-label={`Scene ${i+1} title`} value={s.title} onChange={e=>editScene(i,"title",e.target.value)}/><textarea aria-label={`Scene ${i+1} details`} rows={2} value={s.detail} onChange={e=>editScene(i,"detail",e.target.value)}/></div><input className="timing" aria-label={`Scene ${i+1} timing`} value={s.timing} onChange={e=>editScene(i,"timing",e.target.value)}/></div>)}</div><div className="action-row"><button className="secondary" onClick={()=>exportProject("markdown")}>Export Markdown</button><button className="secondary" onClick={()=>exportProject("json")}>Export JSON</button><button className="danger" onClick={deleteCurrent}>Delete draft</button></div><p className="hint">Drafts are stored in this browser on this device only—not in a secured account or cloud backup. Exported files are drafts, not published posts.</p></div>:<div className="empty"><span>▤</span><h3>Your scene plan will appear here</h3><p>Create a recipe draft above to open its six editable scenes.</p><a href="#intake">Start a recipe project ↑</a></div>}</section>{projects.length>0&&<section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div></div><div className="recent-list">{projects.map(p=><button key={p.id} className={p.id===active?"recent-item selected":"recent-item"} onClick={()=>setActive(p.id)}><span>✦</span><strong>{p.name}</strong><small>Draft</small> →</button>)}</div></section>}<footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>Built for thoughtful cooking tutorials ♥</span></footer></div></section></main>;
+import {
+  buildTutorialDraft,
+  isHttpUrl,
+  SCENE_TEMPLATE,
+  validateRecipe,
+  type Ingredient,
+  type RecipeProject,
+  type RecipeStep,
+  type Scene,
+} from "@/lib/recipe";
+
+const STORAGE_KEY = "cooking-creator-v1-drafts";
+
+function migrateProject(value: unknown): RecipeProject | null {
+  if (typeof value !== "object" || value === null) return null;
+  const old = value as Partial<RecipeProject>;
+  if (typeof old.id !== "number" || typeof old.name !== "string" ||
+      typeof old.url !== "string" || typeof old.notes !== "string" || !Array.isArray(old.scenes)) return null;
+  const scenes = old.scenes.filter((scene): scene is Scene =>
+    typeof scene === "object" && scene !== null &&
+    typeof scene.title === "string" && typeof scene.detail === "string" && typeof scene.timing === "string"
+  );
+  if (scenes.length !== old.scenes.length) return null;
+  const ingredients = Array.isArray(old.ingredients) ? old.ingredients.filter((x): x is Ingredient =>
+    typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.amount === "string" &&
+    typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string"
+  ) : [];
+  const steps = Array.isArray(old.steps) ? old.steps.filter((x): x is RecipeStep =>
+    typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.action === "string" &&
+    typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string"
+  ) : [];
+  if (Array.isArray(old.ingredients) && ingredients.length !== old.ingredients.length) return null;
+  if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
+  return { id: old.id, name: old.name, url: old.url, notes: old.notes, servings: old.servings ?? "",
+    ingredients, steps, scenes };
+}
+
+function makeId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function downloadFile(name: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+export default function Home() {
+  const [name, setName] = useState("");
+  const [url, setUrl] = useState("");
+  const [notes, setNotes] = useState("");
+  const [servings, setServings] = useState("4");
+  const [projects, setProjects] = useState<RecipeProject[]>([]);
+  const [active, setActive] = useState<number | null>(null);
+  const [message, setMessage] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const current = projects.find((project) => project.id === active);
+  const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
+  const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
+  const errors = issues.filter((issue) => issue.level === "error");
+  const warnings = issues.filter((issue) => issue.level === "warning");
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const saved = parsed.map(migrateProject).filter((project): project is RecipeProject => project !== null);
+          setProjects(saved);
+          setActive(saved[0]?.id ?? null);
+          if (saved.length !== parsed.length) setMessage("Some saved data was invalid and was skipped. Export important drafts regularly.");
+        }
+      }
+    } catch {
+      setMessage("Saved drafts could not be read. Browser storage may be unavailable or the saved data may be damaged.");
+    } finally {
+      setHydrated(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    } catch {
+      setMessage("Browser storage is unavailable or full. Export your draft before leaving this page.");
+    }
+  }, [projects, hydrated]);
+
+  function createProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!name.trim()) {
+      setMessage("Enter a recipe name to continue.");
+      return;
+    }
+    if (!isHttpUrl(url)) {
+      setMessage("Enter a valid http:// or https:// source URL, or leave the URL blank.");
+      return;
+    }
+    const project: RecipeProject = {
+      id: Date.now(),
+      name: name.trim(),
+      url: url.trim(),
+      notes: notes.trim(),
+      servings: servings.trim(),
+      ingredients: [],
+      steps: [],
+      scenes: SCENE_TEMPLATE.map((scene) => ({ ...scene })),
+    };
+    setProjects((existing) => [project, ...existing]);
+    setActive(project.id);
+    setName("");
+    setUrl("");
+    setNotes("");
+    setServings("4");
+    setShowTutorial(false);
+    setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
+    document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function patchCurrent(patch: Partial<RecipeProject>) {
+    if (current) setProjects((existing) => existing.map((project) => project.id === current.id ? { ...project, ...patch } : project));
+  }
+
+  function patchIngredient(id: string, patch: Partial<Ingredient>) {
+    if (current) patchCurrent({ ingredients: current.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item) });
+  }
+
+  function patchStep(id: string, patch: Partial<RecipeStep>) {
+    if (current) patchCurrent({ steps: current.steps.map((item) => item.id === id ? { ...item, ...patch } : item) });
+  }
+
+  function patchScene(index: number, patch: Partial<Scene>) {
+    if (current) patchCurrent({ scenes: current.scenes.map((scene, i) => i === index ? { ...scene, ...patch } : scene) });
+  }
+
+  function exportProject(format: "markdown" | "json") {
+    if (!current) return;
+    const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe-draft";
+    const fileContent = format === "markdown" ? tutorial : JSON.stringify({
+      ...current,
+      status: "draft",
+      published: false,
+      exportedAt: new Date().toISOString(),
+      verification: {
+        sourceAnalyzed: false,
+        foodSafetyVerified: false,
+        nutritionCalculated: false,
+        warnings: warnings.map((issue) => issue.message),
+      },
+    }, null, 2);
+    downloadFile(`${safeName}.${format === "json" ? "json" : "md"}`, fileContent,
+      format === "json" ? "application/json;charset=utf-8" : "text/markdown;charset=utf-8");
+    setMessage(`Exported ${format.toUpperCase()} draft. Export does not publish or verify the recipe.`);
+  }
+
+  function deleteCurrent() {
+    if (!current) return;
+    const remaining = projects.filter((project) => project.id !== current.id);
+    setProjects(remaining);
+    setActive(remaining[0]?.id ?? null);
+    setShowTutorial(false);
+    setMessage("Draft removed from this browser's draft list.");
+  }
+
+  function clearAllDrafts() {
+    if (!window.confirm("Delete every saved recipe draft from this browser? Export anything you want to keep first.")) return;
+    setProjects([]);
+    setActive(null);
+    setMessage("All local recipe drafts were removed from this browser.");
+  }
+
+  return (
+    <main className="shell">
+      <aside className="sidebar">
+        <a className="brand" href="#dashboard"><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>STUDIO · V1</small></span></a>
+        <p className="nav-label">WORKSPACE</p>
+        <a className="nav active" href="#dashboard">▦　Dashboard</a>
+        <a className="nav" href="#intake">＋　New recipe</a>
+        <a className="nav" href="#recipe-editor">▤　Recipe editor</a>
+        <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small></div>
+      </aside>
+
+      <section className="main" id="dashboard">
+        <header className="top"><span>Workspace　/　Recipe Studio</span><span className="private">🔒 Private repository · local drafts</span></header>
+        <div className="content">
+          <section className="hero">
+            <div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Make every recipe a story.</h1><p>Build a clear, complete cooking tutorial from a recipe you supply. Missing details stay visible—never silently invented.</p></div>
+            <div className="dish" aria-hidden="true">✿</div>
+          </section>
+
+          <div className="stats">
+            <div><small>Recipe projects</small><strong>{projects.length}</strong><em>Saved in this browser</em></div>
+            <div><small>Creator outline</small><strong>6 scenes</strong><em>Editable template</em></div>
+            <div><small>Publishing</small><strong>Not connected</strong><em>Planned for V6</em></div>
+          </div>
+
+          <section id="intake">
+            <div className="section-head"><div><p className="eyebrow">STEP 01</p><h2>Start a recipe project</h2><p>Use a source link, a recipe, or your own notes.</p></div><span className="step">01 / 06</span></div>
+            <div className="columns">
+              <form className="panel" onSubmit={createProject}>
+                <h3>✦　Recipe intake</h3><p className="muted">Start with the details you know.</p>
+                <label htmlFor="name">Recipe name <b>*</b></label>
+                <input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Spicy chicken gravy" required maxLength={100} />
+                <label htmlFor="url">Video or recipe URL <span>OPTIONAL</span></label>
+                <input id="url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." />
+                <p className="hint">This saves the link only. V1 does not fetch, transcribe, or analyze linked videos.</p>
+                <label htmlFor="servings">Servings <b>*</b></label>
+                <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} />
+                <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
+                <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
+                <button className="primary" type="submit">Create recipe draft　→</button>
+                {message && <p className="message" role="status">{message}</p>}
+              </form>
+
+              <div className="right">
+                <section className="panel">
+                  <h3>✓　Quality checklist</h3><p className="muted">Checks that should be completed before a recipe is considered ready.</p>
+                  <ul className="checklist">
+                    <li><b>01</b><span><strong>Ingredient amounts</strong><small>Capture quantity, unit, and preparation.</small></span></li>
+                    <li><b>02</b><span><strong>Ordered method</strong><small>Record each action, timing, heat, and cue.</small></span></li>
+                    <li><b>03</b><span><strong>Food safety</strong><small>Verify doneness and safe handling using reliable guidance.</small></span></li>
+                    <li><b>04</b><span><strong>Nutrition estimate</strong><small>Calculate from actual ingredient quantities and servings.</small></span></li>
+                  </ul>
+                  <p className="warning">Checklist only. This version does not independently verify food safety or nutrition.</p>
+                </section>
+                <section className="chef"><p className="eyebrow">YOUR SIGNATURE CHEF</p><h3>Your character, your kitchen.</h3><p>Your existing male chef and kitchen background remain the intended assets. Video/character animation integration comes later.</p><small>● Asset integration not connected yet</small></section>
+              </div>
+            </div>
+          </section>
+
+          <section id="recipe-editor" className="planner">
+            <div className="section-head"><div><p className="eyebrow">STEP 02</p><h2>Recipe editor</h2><p>Record real quantities and method details before drafting narration.</p></div><span className="step">Structured recipe</span></div>
+            {!current ? <div className="empty"><span>▤</span><h3>Your recipe editor will appear here</h3><p>Create a recipe draft above to add ingredients and ordered cooking steps.</p><a href="#intake">Start a recipe project ↑</a></div> : (
+              <div className="panel">
+                <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
+                {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
+                <div className="editor-grid">
+                  <div><label htmlFor="edit-servings">Servings / yield</label><input id="edit-servings" value={current.servings} onChange={(event) => patchCurrent({ servings: event.target.value })} placeholder="e.g. 4 servings" /></div>
+                  <div><label htmlFor="edit-notes">Notes / source observations</label><textarea id="edit-notes" rows={2} value={current.notes} onChange={(event) => patchCurrent({ notes: event.target.value })} placeholder="Details to check or retain…" /></div>
+                </div>
+
+                <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "" }] })}>＋ Add ingredient</button></div>
+                {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
+                  <div className="ingredient-row" key={item.id}>
+                    <span className="row-number">{index + 1}</span>
+                    <input aria-label={`Ingredient ${index + 1} amount`} value={item.amount} onChange={(event) => patchIngredient(item.id, { amount: event.target.value })} placeholder="Amount" />
+                    <input aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => patchIngredient(item.id, { unit: event.target.value })} placeholder="Unit (g, cup, pieces)" />
+                    <input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => patchIngredient(item.id, { name: event.target.value })} placeholder="Ingredient name" />
+                    <input aria-label={`Ingredient ${index + 1} prep`} value={item.prep} onChange={(event) => patchIngredient(item.id, { prep: event.target.value })} placeholder="Prep (chopped…)" />
+                    <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id) })}>×</button>
+                  </div>
+                ))}</div>}
+
+                <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "" }] })}>＋ Add step</button></div>
+                {current.steps.length === 0 ? <p className="empty-inline">No method steps yet. Add steps in the exact order they happen.</p> : <div className="step-list">{current.steps.map((step, index) => (
+                  <div className="recipe-step" key={step.id}>
+                    <div className="recipe-step-top"><span className="row-number">STEP {index + 1}</span><button className="text-button" type="button" onClick={() => patchCurrent({ steps: current.steps.filter((x) => x.id !== step.id) })}>Remove</button></div>
+                    <label htmlFor={`action-${step.id}`}>Action / instruction</label><textarea id={`action-${step.id}`} rows={2} value={step.action} onChange={(event) => patchStep(step.id, { action: event.target.value })} placeholder="What exactly happens in this step?" />
+                    <div className="step-fields">
+                      <div><label htmlFor={`duration-${step.id}`}>Timing</label><input id={`duration-${step.id}`} value={step.duration} onChange={(event) => patchStep(step.id, { duration: event.target.value })} placeholder="e.g. 5 minutes" /></div>
+                      <div><label htmlFor={`heat-${step.id}`}>Heat / setting</label><input id={`heat-${step.id}`} value={step.heat} onChange={(event) => patchStep(step.id, { heat: event.target.value })} placeholder="e.g. medium heat" /></div>
+                      <div className="cue-field"><label htmlFor={`cue-${step.id}`}>Visual / doneness cue</label><input id={`cue-${step.id}`} value={step.cue} onChange={(event) => patchStep(step.id, { cue: event.target.value })} placeholder="What should the cook observe?" /></div>
+                    </div>
+                  </div>
+                ))}</div>}
+
+                <div className="subsection-head step-head"><div><h3>Creator scene plan</h3><p className="muted">Six editable scene beats for the future video script.</p></div><span className="step">6 scenes</span></div>
+                <div className="scenes">{current.scenes.map((scene, index) => (
+                  <div className="scene" key={index}><b className="number">{String(index + 1).padStart(2, "0")}</b><div><input aria-label={`Scene ${index + 1} title`} value={scene.title} onChange={(event) => patchScene(index, { title: event.target.value })} /><textarea aria-label={`Scene ${index + 1} details`} rows={2} value={scene.detail} onChange={(event) => patchScene(index, { detail: event.target.value })} /></div><input className="timing" aria-label={`Scene ${index + 1} timing`} value={scene.timing} onChange={(event) => patchScene(index, { timing: event.target.value })} /></div>
+                ))}</div>
+
+                <section className="validation-panel" aria-live="polite">
+                  <div className="subsection-head"><div><h3>Draft quality review</h3><p className="muted">Warnings identify missing details; they do not verify a recipe.</p></div><span className={errors.length ? "status status-error" : warnings.length ? "status status-warning" : "status"}>{errors.length ? `${errors.length} errors` : `${warnings.length} warnings`}</span></div>
+                  {errors.length > 0 && <ul className="issue-list issue-errors">{errors.map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message}</li>)}</ul>}
+                  {warnings.length > 0 ? <ul className="issue-list">{warnings.map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message}</li>)}</ul> : <p>No current validation warnings.</p>}
+                </section>
+
+                <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
+                {showTutorial && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Generated tutorial draft</h3><p className="muted">Deterministic outline using only your saved inputs. Not fact-checked, not published.</p></div><button className="secondary" type="button" onClick={() => { void navigator.clipboard?.writeText(tutorial).then(() => setMessage("Tutorial draft copied to clipboard.")).catch(() => setMessage("Clipboard permission was not available; use Export Markdown instead.")); }}>Copy text</button></div><pre>{tutorial}</pre></div>}
+                <p className="hint">Drafts are stored in this browser on this device only. There is no owner login, cloud backup, or multi-device sync yet. Export important work regularly.</p>
+              </div>
+            )}
+          </section>
+
+          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>Draft</small> →</button>)}</div></section>}
+
+          <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
+        </div>
+      </section>
+    </main>
+  );
 }
