@@ -301,7 +301,7 @@ export default function Home() {
   function exportContentPack() {
     if (!current) return;
     const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe";
-    downloadFile(`${safeName}.content-pack.txt`, buildSharePack(current), "text/plain;charset=utf-8");
+    downloadFile(`${safeName}.content-pack.txt`, buildSharePack(current, profile), "text/plain;charset=utf-8");
     setMessage("Content pack exported. It is not uploaded or published.");
   }
 
@@ -439,6 +439,30 @@ export default function Home() {
             <div><small>Publishing</small><strong>Not connected</strong><em>Planned for V6</em></div>
           </div>
 
+          <section className="profile-section" id="creator-profile">
+            <details className="profile-panel">
+              <summary><span><strong>Kitchen & creator profile</strong><small>Saved on this device · reused in every content pack</small></span><span className="profile-chevron">＋</span></summary>
+              <p className="muted">Set your voice and cooking constraints once. This V1 uses these details as content-pack guidance; it does not call an AI model or automatically translate captions.</p>
+              <div className="editor-grid profile-grid">
+                <div><label htmlFor="profile-tone">Voice / tone</label><input id="profile-tone" value={profile.tone} onChange={(event) => patchProfile({ tone: event.target.value })} maxLength={240} placeholder="Warm, confident, funny…" /></div>
+                <div><label htmlFor="profile-catchphrases">Catchphrases</label><input id="profile-catchphrases" value={profile.catchphrases} onChange={(event) => patchProfile({ catchphrases: event.target.value })} maxLength={300} placeholder="Your recurring words or sign-off" /></div>
+                <div><label htmlFor="profile-language">Main language</label><input id="profile-language" value={profile.language} onChange={(event) => patchProfile({ language: event.target.value })} maxLength={80} placeholder="English" /></div>
+                <div><label htmlFor="profile-cuisine">Cuisine focus</label><input id="profile-cuisine" value={profile.cuisineFocus} onChange={(event) => patchProfile({ cuisineFocus: event.target.value })} maxLength={300} placeholder="Indian, global home cooking…" /></div>
+                <div><label htmlFor="profile-skill">Audience skill level</label><select id="profile-skill" value={profile.skillLevel} onChange={(event) => patchProfile({ skillLevel: event.target.value })}><option>Beginner-friendly</option><option>Mixed experience</option><option>Experienced cooks</option><option>Professional culinary</option></select></div>
+                <div><label htmlFor="profile-equipment">Kitchen equipment</label><input id="profile-equipment" value={profile.equipment} onChange={(event) => patchProfile({ equipment: event.target.value })} maxLength={300} placeholder="Stove, oven, air fryer…" /></div>
+                <div><label htmlFor="profile-budget">Budget preference</label><input id="profile-budget" value={profile.budget} onChange={(event) => patchProfile({ budget: event.target.value })} maxLength={240} placeholder="Affordable / premium / mixed" /></div>
+                <div><label htmlFor="profile-diet">Diet/allergy constraints to check</label><input id="profile-diet" value={profile.dietLimits} onChange={(event) => patchProfile({ dietLimits: event.target.value })} maxLength={300} placeholder="Optional; list constraints to check" /></div>
+                <div><label htmlFor="profile-units">Units</label><select id="profile-units" value={profile.units} onChange={(event) => patchProfile({ units: event.target.value })}><option>Metric</option><option>US customary</option><option>Both metric and US customary</option></select></div>
+                <div><label htmlFor="profile-time">Usual cooking-time target</label><input id="profile-time" value={profile.usualCookingTime} onChange={(event) => patchProfile({ usualCookingTime: event.target.value })} maxLength={120} placeholder="e.g. under 45 minutes" /></div>
+                <div><label htmlFor="profile-platforms">Target platforms</label><input id="profile-platforms" value={profile.platforms} onChange={(event) => patchProfile({ platforms: event.target.value })} maxLength={300} placeholder="YouTube Shorts, Instagram Reels…" /></div>
+                <div><label htmlFor="profile-never">Never-say list</label><textarea id="profile-never" rows={2} value={profile.neverSay} onChange={(event) => patchProfile({ neverSay: event.target.value })} maxLength={800} placeholder="Claims, phrases, or tone to avoid" /></div>
+                <div className="profile-wide"><label htmlFor="profile-samples">3–5 sample captions in your real voice</label><textarea id="profile-samples" rows={4} value={profile.sampleCaptions} onChange={(event) => patchProfile({ sampleCaptions: event.target.value })} maxLength={2500} placeholder="Paste a few captions you wrote. Separate each caption with a new line." /></div>
+              </div>
+              <p className="hint">Profile saves locally in this browser and is not encrypted or synced. Avoid entering sensitive personal details. The current text generator includes profile guidance in the pack; it does not guarantee every wording rule is automatically enforced.</p>
+              <button className="secondary" type="button" onClick={() => { setProfile(DEFAULT_CREATOR_PROFILE); setMessage("Creator profile reset to defaults."); }}>Reset profile defaults</button>
+            </details>
+          </section>
+
           <section id="intake">
             <div className="section-head"><div><p className="eyebrow">STEP 01</p><h2>Start a recipe project</h2><p>Use a source link, a recipe, or your own notes.</p></div><span className="step">01 / 06</span></div>
             <div className="columns">
@@ -498,7 +522,7 @@ export default function Home() {
                     <button className="secondary" type="button" onClick={exportContentPack}>Export pack</button>
                   </div>
                   {current.trialStatus !== "tested" && <p className="warning">This recipe is Untested. Complete a real cooking trial before it can be approved or shared from this workflow.</p>}
-                  {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current)}</pre></div>}
+                  {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current, profile)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current, profile)}</pre></div>}
                 </section>
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
                 <div className="editor-grid">
