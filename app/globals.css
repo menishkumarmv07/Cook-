@@ -264,3 +264,19 @@ footer { color: #929791; }
   html { scroll-behavior: auto; }
   *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+
+/* Explicit ingredient-to-step mapping controls. */
+.step-ingredient-links { min-width: 0; margin: 14px 0 16px; padding: 12px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-soft); }
+.step-ingredient-links legend { padding: 0 5px; font-size: 11px; font-weight: 750; color: var(--app-ink); }
+.step-ingredient-links .hint { margin: 2px 0 10px; }
+.ingredient-link-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.ingredient-link-option { display: flex; align-items: flex-start; gap: 9px; min-width: 0; margin: 0; padding: 10px; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-panel); font-size: 11px; font-weight: 500; line-height: 1.45; cursor: pointer; }
+.ingredient-link-option input { flex: 0 0 16px; width: 16px; height: 16px; margin: 1px 0 0; accent-color: #363c36; }
+.ingredient-link-option span { min-width: 0; overflow-wrap: anywhere; }
+.ingredient-link-option small { display: block; margin-top: 3px; color: var(--app-muted); font-size: 10px; font-weight: 400; }
+[data-theme="dark"] .step-ingredient-links { background: var(--app-soft); border-color: var(--app-line); }
+[data-theme="dark"] .step-ingredient-links legend { color: var(--app-ink); }
+[data-theme="dark"] .ingredient-link-option { background: #171a16; border-color: #3a3e37; color: #f1f2ed; }
+[data-theme="dark"] .ingredient-link-option input { accent-color: #e2e4dc; }
+@media(max-width:560px) { .ingredient-link-list { grid-template-columns: 1fr; } .step-ingredient-links { padding: 10px; } }
