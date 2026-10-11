@@ -11,6 +11,11 @@ import {
 
 const project: RecipeProject = {
   id: 7,
+  trialStatus: "untested",
+  trialRating: "",
+  trialNotes: "",
+  approved: false,
+  approvedAt: "",
   name: "Lemon rice",
   url: "https://example.com/recipe?source=test",
   notes: "Keep the lemon zest; don't invent missing timings.",

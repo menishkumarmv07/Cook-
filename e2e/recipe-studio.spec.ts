@@ -155,3 +155,47 @@ test("narration script preserves recipe order and flags missing timing before re
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("lemon-rice.narration.txt");
 });
+
+
+test("tested recipe must be approved before share; recipe edits reset trust and approval", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#name").fill("Lemon rice");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+
+  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve pack" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+
+  await page.getByLabel("Your trial rating").selectOption("5");
+  await page.getByLabel("What happened when you cooked it?").fill("Cooked at home; texture and taste were good.");
+  await page.getByRole("button", { name: "Mark as Tested" }).click();
+  await expect(page.getByText("TESTED BY YOU")).toBeVisible();
+
+  await page.getByRole("button", { name: "Prepare content pack" }).click();
+  const pack = page.locator(".approval-panel .tutorial-preview pre");
+  await expect(pack).toContainText("HOOK OPTIONS");
+  await expect(pack).toContainText("1. Here's how to make Lemon rice step by step.");
+  await expect(pack).toContainText("#EasyRecipes");
+  await expect(pack).toContainText("does not create a video");
+
+  await page.getByRole("button", { name: "Approve pack" }).click();
+  await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share approved pack" })).toBeEnabled();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 name").fill("cooked rice");
+  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  await expect(page.getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+});
+
+test("content pack export downloads a text file without publishing", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#name").fill("Lemon rice");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export pack" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("lemon-rice.content-pack.txt");
+  await expect(page.getByRole("status")).toContainText("not uploaded or published");
+});

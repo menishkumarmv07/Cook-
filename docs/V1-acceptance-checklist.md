@@ -41,6 +41,13 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Narration preview/copy/export preserves ingredient and cooking-step order and uses recorded timings, heat settings, and visual cues only.
 - [ ] Missing quantities/actions/timings are explicitly flagged; no ingredient-to-step mapping or timing is silently invented.
 - [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, nutrition calculation, finished video, or post was created.
+- [ ] New recipes start Untested and cannot be approved/shared until a creator enters a trial rating and useful trial notes.
+- [ ] Marking a recipe Tested reflects the creator's own cooking trial only; it must not imply independent safety or source verification.
+- [ ] Prepare the short-form content pack and confirm it includes five hooks, narration/shot guidance, caption, hashtags, CTA, source, and limitations.
+- [ ] Approve the pack explicitly; confirm the share action remains disabled before approval.
+- [ ] Edit an ingredient, method, source, serving count, or scene after approval; confirm the recipe returns to Untested and approval resets.
+- [ ] Export the content pack and confirm the file is plain text and does not claim to upload or publish.
+- [ ] On Android Chrome, manually test the native share sheet where available and confirm choosing/cancelling a destination never causes silent publishing. If unavailable, verify the download fallback.
 - [ ] Export Markdown and open the file; check text and order.
 - [ ] Export JSON and check the file parses and keeps verification flags false.
 - [ ] Import a valid JSON backup and confirm its recipe details restore.

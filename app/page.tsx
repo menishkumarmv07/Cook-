@@ -46,11 +46,55 @@ function migrateProject(value: unknown): RecipeProject | null {
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
-    sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes };
+    sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
+    trialStatus: old.trialStatus === "tested" ? "tested" : "untested",
+    trialRating: typeof old.trialRating === "string" ? old.trialRating : "",
+    trialNotes: typeof old.trialNotes === "string" ? old.trialNotes : "",
+    approved: old.approved === true,
+    approvedAt: typeof old.approvedAt === "string" ? old.approvedAt : "" };
 }
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildSharePack(project: RecipeProject): string {
+  const slug = project.name.trim();
+  const hashtags = ["#Cooking", "#EasyRecipes", "#FoodTok", "#HomeCooking", "#RecipeIdeas"];
+  const hooks = [
+    `Here's how to make ${slug} step by step.`,
+    `Save this ${slug} recipe for your next cooking day.`,
+    `Let's make ${slug} with clear steps and no guesswork.`,
+    `Want to try ${slug}? Here's the complete method.`,
+    `From ingredients to the final plate: ${slug}.`,
+  ];
+  return [
+    `RECIPE: ${slug}`,
+    `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
+    `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
+    "",
+    "HOOK OPTIONS",
+    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
+    "",
+    "SHORT-FORM VOICEOVER / SHOT PLAN",
+    buildNarrationScript(project),
+    "",
+    "CAPTION DRAFT",
+    `Cook along with this ${slug} tutorial. Follow the recorded ingredients and steps, and adjust only after checking the recipe carefully. Save this post for later.`,
+    "",
+    hashtags.join(" "),
+    "",
+    "CALL TO ACTION",
+    "Save this recipe and tell me what you would serve with it.",
+    "",
+    "REVIEW NOTES",
+    project.trialNotes.trim() || "No cooking-trial notes recorded.",
+    "",
+    "SOURCE",
+    project.url || "No source URL recorded.",
+    "",
+    "IMPORTANT: This is an editable text pack. It does not create a video, add music, upload media, or publish a post. Confirm platform-specific captions, music rights, and disclosures before sharing.",
+  ].join("\n");
 }
 
 function downloadFile(name: string, content: string, type: string) {
@@ -76,6 +120,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNarration, setShowNarration] = useState(false);
+  const [showContentPack, setShowContentPack] = useState(false);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -128,6 +173,11 @@ export default function Home() {
       notes: notes.trim(),
       sourceEvidence: "",
       sourceReferences: [],
+      trialStatus: "untested",
+      trialRating: "",
+      trialNotes: "",
+      approved: false,
+      approvedAt: "",
       servings: servings.trim(),
       ingredients: [],
       steps: [],
@@ -139,13 +189,67 @@ export default function Home() {
     setUrl("");
     setNotes("");
     setServings("4");
-    setShowTutorial(false); setShowNarration(false);
+    setShowTutorial(false); setShowNarration(false); setShowContentPack(false);
     setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function patchCurrent(patch: Partial<RecipeProject>) {
-    if (current) setProjects((existing) => existing.map((project) => project.id === current.id ? { ...project, ...patch } : project));
+    if (!current) return;
+    const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
+    setProjects((existing) => existing.map((project) => project.id === current.id
+      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch) ? { approved: false, approvedAt: "" } : {})) }
+      : project));
+  }
+
+  function markRecipeTested() {
+    if (!current) return;
+    if (!current.trialRating) {
+      setMessage("Rate your real cooking trial before marking this recipe Tested.");
+      return;
+    }
+    if (current.trialNotes.trim().length < 10) {
+      setMessage("Add at least a short, useful cooking-trial note (10 characters or more) before marking Tested.");
+      return;
+    }
+    patchCurrent({ trialStatus: "tested" });
+    setMessage("Recipe marked Tested from your recorded trial. Any later recipe edits will reset approval.");
+  }
+
+  async function shareContentPack() {
+    if (!current) return;
+    if (current.trialStatus !== "tested") {
+      setMessage("This recipe is still Untested. Record a real cooking trial and mark it Tested before sharing.");
+      return;
+    }
+    if (!current.approved) {
+      setMessage("Approve this content pack first. Nothing is posted automatically.");
+      return;
+    }
+    const text = buildSharePack(current);
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: `${current.name} — Cooking Creator pack`, text });
+        setMessage("Share sheet opened. Choose a destination yourself; this app did not publish automatically.");
+      } else {
+        const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe";
+        downloadFile(`${safeName}.content-pack.txt`, text, "text/plain;charset=utf-8");
+        setMessage("Your phone/browser does not support text sharing here. Downloaded the content pack instead.");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setMessage("Share cancelled. Your approved content pack remains saved.");
+      } else {
+        setMessage("Sharing was unavailable. Export the content pack as a text file instead.");
+      }
+    }
+  }
+
+  function exportContentPack() {
+    if (!current) return;
+    const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe";
+    downloadFile(`${safeName}.content-pack.txt`, buildSharePack(current), "text/plain;charset=utf-8");
+    setMessage("Content pack exported. It is not uploaded or published.");
   }
 
   function patchIngredient(id: string, patch: Partial<Ingredient>) {
@@ -324,6 +428,25 @@ export default function Home() {
             {!current ? <div className="empty"><span>▤</span><h3>Your recipe editor will appear here</h3><p>Create a recipe draft above to add ingredients and ordered cooking steps.</p><a href="#intake">Start a recipe project ↑</a></div> : (
               <div className="panel">
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
+                <section className="trial-panel">
+                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
+                  <div className="editor-grid">
+                    <div><label htmlFor="trial-rating">Your trial rating</label><select id="trial-rating" value={current.trialRating} onChange={(event) => patchCurrent({ trialRating: event.target.value })}><option value="">Choose a rating</option><option value="1">1 — Needs work</option><option value="2">2 — Below expectations</option><option value="3">3 — Good</option><option value="4">4 — Very good</option><option value="5">5 — Excellent</option></select></div>
+                    <div><label htmlFor="trial-notes">What happened when you cooked it?</label><textarea id="trial-notes" rows={3} value={current.trialNotes} onChange={(event) => patchCurrent({ trialNotes: event.target.value })} placeholder="Record changes, actual timing, texture, taste, and any safety concerns…" /></div>
+                  </div>
+                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a rating and trial notes. Editing the recipe resets approval.</small></div>
+                </section>
+                <section className="approval-panel">
+                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
+                  <div className="action-row">
+                    <button className="primary" type="button" onClick={() => setShowContentPack((show) => !show)}>{showContentPack ? "Hide content pack" : "Prepare content pack"}</button>
+                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested"} onClick={() => { patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Content pack approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
+                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested" || !current.approved} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
+                    <button className="secondary" type="button" onClick={exportContentPack}>Export pack</button>
+                  </div>
+                  {current.trialStatus !== "tested" && <p className="warning">This recipe is Untested. Complete a real cooking trial before it can be approved or shared from this workflow.</p>}
+                  {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current)}</pre></div>}
+                </section>
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
                 <div className="editor-grid">
                   <div><label htmlFor="edit-servings">Servings / yield</label><input id="edit-servings" value={current.servings} onChange={(event) => patchCurrent({ servings: event.target.value })} placeholder="e.g. 4 servings" /></div>
@@ -391,7 +514,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>Draft</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
