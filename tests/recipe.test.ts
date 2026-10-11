@@ -66,3 +66,33 @@ test("scene template has six scenes with required headings", () => {
   assert.match(SCENE_TEMPLATE[0].title, /Hook/);
   assert.match(SCENE_TEMPLATE[5].title, /Taste/);
 });
+
+
+test("validates structured source references and flags invalid or duplicate URLs", () => {
+  const issues = validateRecipe({
+    ...base,
+    sourceReferences: [
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredients and method", notes: "" },
+      { id: "r2", url: "https://example.com/recipe/", kind: "video", checked: "", notes: "Timing unclear" },
+      { id: "r3", url: "javascript:alert(1)", kind: "other", checked: "", notes: "" },
+    ],
+  });
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-duplicate-1"));
+  assert.ok(issues.some((issue) => issue.level === "error" && issue.field === "source-url-2"));
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-checked-1"));
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-checked-2"));
+});
+
+test("exports structured source references without claiming verification", () => {
+  const draft = buildTutorialDraft({
+    ...base,
+    sourceReferences: [
+      { id: "r1", url: "https://example.com/a", kind: "recipe-page", checked: "Ingredient list", notes: "Salt quantity differs" },
+      { id: "r2", url: "https://example.org/b", kind: "video", checked: "Visible cooking order", notes: "No temperature shown" },
+    ],
+  });
+  assert.ok(draft.indexOf("https://example.com/a") < draft.indexOf("https://example.org/b"));
+  assert.match(draft, /Salt quantity differs/);
+  assert.match(draft, /have not been independently verified/);
+  assert.match(draft, /conflicts or missing details must be resolved/i);
+});
