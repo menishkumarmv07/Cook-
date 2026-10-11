@@ -1,18 +1,23 @@
 # Cooking Creator Studio
 
-Private V1 foundation for the AI Cooking Creator App. This project is separate from the App Market/MV and GKworks projects.
+Private V1 foundation for the AI Cooking Creator App. This repository and its notes are separate from the App Market/MV and GKworks projects.
 
-## Included in the current V1 prototype
-- Responsive creator dashboard
-- Recipe intake for recipe name, optional HTTP(S) source URL, and notes
-- Six-scene editable tutorial planner
-- Recipe-quality checklist for quantities, timings, food safety, and nutrition
-- Browser-local draft restore and autosave using localStorage
-- Markdown and JSON draft export
-- Delete action for a selected draft
-- Source URLs are validated as HTTP or HTTPS before being saved
+## Current V1 features
+
+- Responsive recipe creator dashboard.
+- Recipe intake with HTTP(S) source URL, servings/yield, and notes.
+- Structured ingredient rows: amount, unit, name, preparation note.
+- Ordered cooking-step editor: action, timing, heat/setting, and visual/doneness cue.
+- Six-scene creator outline that can be edited.
+- Rule-based validation warnings for missing amounts, units, steps, timings, serving count, source analysis, food safety, and nutrition.
+- Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
+- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts.
+- Delete one draft or clear all local drafts with confirmation.
+- Automated unit tests for URL validation, data shape, warnings, draft generation, and scene count.
+- GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
 
 ## Run locally
+
 Requires Node.js 20.9+ and npm.
 
 ```bash
@@ -22,17 +27,27 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Quality checks
+
+```bash
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
+
+The checks are configured, but do not consider them passed until the workflow or local commands actually complete successfully. The workflow does not use a lockfile yet; once CI has run successfully, commit a generated `package-lock.json` and switch CI to `npm ci` for reproducible installs.
+
 ## Important limitations
-This is still a prototype, not the finished AI video-production system. Local drafts are stored in this browser on this device only. This is **not** owner authentication, encrypted storage, cloud backup, or multi-device sync. Clearing browser storage can delete drafts, so export important work.
 
-The app does not yet inspect or transcribe linked videos, verify recipes against external sources, calculate nutrition, perform actual food-safety checks, generate the chef's voice/video, render a finished video, connect social accounts, schedule/publish posts, or provide analytics. Source URLs are not fetched or analyzed. The checklist and script/scene plan are not completed safety or nutrition reviews. Exports are drafts and must not be treated as published posts.
+This remains a V1 prototype, not the finished AI video-production system. Local drafts are stored in this browser on this device only. This is **not** owner authentication, encrypted storage, cloud backup, or multi-device sync. Clearing browser storage can delete drafts, so export important work.
 
-## Next
-- Build a structured recipe editor for servings, ingredients, units, and ordered steps
-- Generate a deterministic script/scene outline from saved recipe details
-- Add tests for draft validation, persistence, and exports; run lint, type-check, and production build
-- Review security and owner-only access before any shared deployment or real database
-- Later, evaluate permitted source analysis, nutrition evidence, character/video production and official publishing connections
+The app does **not** yet inspect or transcribe linked videos, verify recipes against multiple external sources, calculate nutrition, perform actual food-safety checks, generate the chef's voice/video, render a finished video, connect social accounts, schedule/publish posts, or provide analytics. Source URLs are not fetched or analyzed. Validation warnings are basic completeness checks, not proof that a recipe is correct or safe. Tutorial previews and exports are drafts and are not published content.
+
+## US-first product direction
+
+The app is being designed for a US-first creator workflow and publishing strategy, while allowing recipes from any cuisine or country. Actual US platform integrations, account eligibility, scheduling, audience analytics, and monetization features must be evaluated and connected in later stages using official supported APIs and explicit account authorization. Reach and revenue cannot be guaranteed. Publishing remains planned for V6.
 
 ## Cost and privacy
-No API keys or paid services are required for the current prototype. Check hosting, AI, video, and platform integration terms before enabling them; free tiers can change. Keep the repository private and never commit credentials or private character/background assets. Do not add a paid service or card requirement without explicit approval.
+
+The current prototype has no required AI API key or paid creative provider. GitHub Actions and Vercel availability/limits depend on account settings and may change. Do not add paid services, billing, card verification, credentials, or secret keys without explicit approval. Keep the repository private and do not commit credentials or private chef/background assets.
