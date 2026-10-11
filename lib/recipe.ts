@@ -49,7 +49,7 @@ export function normalizeSourceUrlForComparison(value: string): string {
   try {
     const url = new URL(value.trim());
     if (url.protocol !== "http:" && url.protocol !== "https:") return value.trim();
-    const path = url.pathname.replace(/\\/+$/, "");
+    const path = url.pathname.replace(/\/+$/, "");
     return `${url.origin}${path}${url.search}`;
   } catch {
     return value.trim();
