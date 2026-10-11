@@ -323,3 +323,35 @@ test("workspace backup exports all drafts and restores them with explicit confir
   await expect(page.locator(".recent-item strong")).toHaveCount(1);
   await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
 });
+
+
+test("light workspace theme is pure white with grayscale UI colors", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
+
+  const palette = await page.locator(".shell").evaluate((root) => {
+    const elements = [root, ...Array.from(root.querySelectorAll("*"))];
+    const properties = [
+      "color", "backgroundColor", "borderTopColor",
+      "borderRightColor", "borderBottomColor", "borderLeftColor", "outlineColor",
+    ];
+    const nonMonochrome: string[] = [];
+    for (const element of elements) {
+      const style = window.getComputedStyle(element);
+      for (const property of properties) {
+        const value = style[property as keyof CSSStyleDeclaration];
+        if (typeof value !== "string") continue;
+        const match = value.match(/rgba?\\(\\s*([0-9.]+)[,\\s]+([0-9.]+)[,\\s]+([0-9.]+)/i);
+        if (!match) continue;
+        const [red, green, blue] = match.slice(1, 4).map(Number);
+        if (red !== green || green !== blue) {
+          nonMonochrome.push(`${element.tagName.toLowerCase()}.${String(element.className || "").toString().replace(/\\s+/g, ".")}: ${property}=${value}`);
+          if (nonMonochrome.length >= 10) return { background: window.getComputedStyle(document.body).backgroundColor, nonMonochrome };
+        }
+      }
+    }
+    return { background: window.getComputedStyle(document.body).backgroundColor, nonMonochrome };
+  });
+  expect(palette.background).toBe("rgb(255, 255, 255)");
+  expect(palette.nonMonochrome).toEqual([]);
+});
