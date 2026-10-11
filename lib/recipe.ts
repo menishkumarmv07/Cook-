@@ -1,12 +1,20 @@
 export type Ingredient = { id: string; amount: string; unit: string; name: string; prep: string };
 export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string };
 export type Scene = { title: string; detail: string; timing: string };
+export type SourceReference = {
+  id: string;
+  url: string;
+  kind: "recipe-page" | "video" | "transcript" | "other";
+  checked: string;
+  notes: string;
+};
 export type RecipeProject = {
   id: number;
   name: string;
   url: string;
   notes: string;
   sourceEvidence: string;
+  sourceReferences: SourceReference[];
   servings: string;
   ingredients: Ingredient[];
   steps: RecipeStep[];
@@ -45,6 +53,10 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
     typeof p.sourceEvidence === "string" &&
+    Array.isArray(p.sourceReferences) && p.sourceReferences.every((source) => typeof source === "object" && source !== null &&
+      typeof source.id === "string" && typeof source.url === "string" &&
+      ["recipe-page", "video", "transcript", "other"].includes(source.kind) &&
+      typeof source.checked === "string" && typeof source.notes === "string") &&
     typeof p.servings === "string" &&
     Array.isArray(p.ingredients) &&
     p.ingredients.every((x) => typeof x === "object" && x !== null &&
@@ -75,7 +87,17 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
     if (!step.action.trim()) issues.push({ level: "warning", field: `step-${index}`, message: `Cooking step ${index + 1} has no action.` });
     if (!step.duration.trim()) issues.push({ level: "warning", field: `duration-${index}`, message: `Timing for step ${index + 1} is not recorded; do not invent a time.` });
   });
-  if (project.url.trim()) issues.push({ level: "warning", field: "source", message: project.sourceEvidence.trim() ? "Source evidence notes are user-entered and have not been independently checked by this app." : "The source link has not been fetched or analyzed by this app; record what you actually checked in source evidence notes." });
+  const seenSourceUrls = new Set<string>();
+  project.sourceReferences.forEach((source, index) => {
+    if (source.url.trim() && !isHttpUrl(source.url)) issues.push({ level: "error", field: `source-url-${index}`, message: `Source reference ${index + 1} must use a valid HTTP(S) URL.` });
+    const normalizedUrl = source.url.trim().replace(/\/$/, "").toLowerCase();
+    if (normalizedUrl && seenSourceUrls.has(normalizedUrl)) issues.push({ level: "warning", field: `source-duplicate-${index}`, message: `Source reference ${index + 1} duplicates another reference; keep distinct sources where possible.` });
+    if (normalizedUrl) seenSourceUrls.add(normalizedUrl);
+    if (!source.url.trim()) issues.push({ level: "warning", field: `source-url-${index}`, message: `Source reference ${index + 1} has no URL.` });
+    if (!source.checked.trim()) issues.push({ level: "warning", field: `source-checked-${index}`, message: `Record what was actually checked for source reference ${index + 1}.` });
+  });
+  if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source link has not been fetched or analyzed by this app; manual notes and checked items are user-entered and have not been independently checked or verified." });
+  else issues.push({ level: "warning", field: "source", message: "No source references have been recorded. Add multiple references and compare ingredient quantities, method order, and timings before treating the recipe as verified." });
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
   issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from ingredient quantities." });
   return issues;
@@ -99,6 +121,10 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "",
     "## Creator scene plan",
     ...project.scenes.flatMap((x, i) => [`### ${i + 1}. ${x.title}`, `Timing guide: ${x.timing}`, x.detail, ""]),
+    "## Source references (manual records)",
+    ...(project.sourceReferences.length ? project.sourceReferences.map((source, i) =>
+      `${i + 1}. ${source.kind} — ${source.url.trim() || "URL missing"}\n   Checked: ${source.checked.trim() || "Not recorded"}\n   Notes / disagreements: ${source.notes.trim() || "None recorded"}`) : ["No structured source references recorded."]),
+    "",
     "## Source evidence notes",
     project.sourceEvidence.trim() || "No manual source evidence notes recorded. The app has not fetched or analyzed the source content.",
     "",
@@ -109,6 +135,8 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "- This draft reflects only information entered by the user.",
     "- Source links have not been analyzed automatically.",
     "- Manual source evidence notes are user-provided and have not been independently verified.",
+    "- Source references and checked items are manually recorded and have not been independently verified.",
+    "- Compare references yourself; conflicts or missing details must be resolved before publishing.",
     "- Missing amounts/timings must be checked; do not guess.",
     "- Food safety and nutrition have not been independently verified.",
     "- This file is a draft and has not been published.",
@@ -129,6 +157,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   const candidate = {
     ...legacy,
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
+    sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences : [],
     servings: typeof legacy.servings === "string" ? legacy.servings : "",
     ingredients: Array.isArray(legacy.ingredients) ? legacy.ingredients : [],
     steps: Array.isArray(legacy.steps) ? legacy.steps : [],
