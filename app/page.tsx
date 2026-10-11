@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import {
   buildTutorialDraft,
   isHttpUrl,
+  parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
   type Ingredient,
@@ -191,6 +192,24 @@ export default function Home() {
     }
   }
 
+  async function importProject(file: File) {
+    try {
+      const imported = parseRecipeProjectJSON(await file.text());
+      if (!imported) {
+        setMessage("That file is not a valid Cooking Creator JSON draft, or it contains an invalid source URL. Nothing was imported.");
+        return;
+      }
+      const restored: RecipeProject = { ...imported, id: Date.now() };
+      setProjects((existing) => [restored, ...existing]);
+      setActive(restored.id);
+      setShowTutorial(false);
+      setMessage("JSON draft imported into this browser. Review all source, safety, and nutrition warnings before using it.");
+      document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch {
+      setMessage("The JSON file could not be read. Nothing was imported.");
+    }
+  }
+
   function deleteCurrent() {
     if (!current) return;
     const remaining = projects.filter((project) => project.id !== current.id);
@@ -247,6 +266,9 @@ export default function Home() {
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
                 <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
                 <button className="primary" type="submit">Create recipe draft　→</button>
+                <label htmlFor="import-backup">Import a JSON draft backup <span>OPTIONAL</span></label>
+                <input id="import-backup" type="file" accept="application/json,.json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importProject(file); }} />
+                <p className="hint">Imports a JSON draft exported by this app. Imported information is not independently verified.</p>
                 {message && <p className="message" role="status">{message}</p>}
               </form>
 
