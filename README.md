@@ -11,6 +11,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Six-scene creator outline that can be edited.
 - Rule-based validation warnings for missing amounts, units, steps, timings, serving count, source analysis, food safety, and nutrition.
 - Structured multi-source research desk for recipe pages, videos/Reels, transcripts, and other references; captures what was checked and unresolved differences, flags invalid/duplicate URLs, and exports the evidence log without claiming independent verification.
+- Deterministic narration-script draft that preserves ingredient and cooking-step order, uses only recorded timings/heat/cues, and flags missing details instead of inventing them.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
 - Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records.
 - JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
