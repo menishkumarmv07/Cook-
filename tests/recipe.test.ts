@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildNarrationScript,
   buildTutorialDraft,
   isHttpUrl,
   isRecipeProject,
@@ -142,4 +143,38 @@ test("source URL duplicate normalization preserves case-sensitive paths and quer
     normalizeSourceUrlForComparison("https://example.com/dish?variant=1"),
     normalizeSourceUrlForComparison("https://example.com/dish?variant=2"),
   );
+});
+
+
+test("narration script preserves entered ingredient and step order without inventing missing timings", () => {
+  const script = buildNarrationScript({
+    ...base,
+    name: "Tomato pasta",
+    ingredients: [
+      { id: "i1", amount: "200", unit: "g", name: "pasta", prep: "dry" },
+      { id: "i2", amount: "1", unit: "tbsp", name: "olive oil", prep: "" },
+    ],
+    steps: [
+      { id: "s1", action: "Boil the pasta", duration: "8 minutes", heat: "high", cue: "Pasta is tender" },
+      { id: "s2", action: "Drain the pasta", duration: "", heat: "", cue: "Water is drained" },
+    ],
+  });
+  assert.ok(script.indexOf("Prepare 200 g pasta") < script.indexOf("Prepare 1 tbsp olive oil"));
+  assert.ok(script.indexOf("Step 1: Boil the pasta") < script.indexOf("Step 2: Drain the pasta"));
+  assert.match(script, /The recorded timing is 8 minutes/);
+  assert.match(script, /timing is missing; confirm it rather than guessing/i);
+  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /Nutrition and calories have not been calculated/);
+  assert.doesNotMatch(script, /Step 2: Drain the pasta\. The recorded timing is \d+/);
+});
+
+test("narration script blocks incomplete ingredient names and quantities", () => {
+  const script = buildNarrationScript({
+    ...base,
+    ingredients: [{ id: "i1", amount: "", unit: "", name: "salt", prep: "" }],
+    steps: [],
+  });
+  assert.match(script, /DO NOT RECORD.*quantity not recorded.*salt/i);
+  assert.match(script, /No cooking steps have been recorded/);
+  assert.match(script, /Missing ingredient names, quantities, actions, or timings must be completed/);
 });
