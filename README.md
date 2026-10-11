@@ -5,7 +5,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 ## Current V1 features
 
 - Responsive recipe creator dashboard.
-- Device-local kitchen/creator profile for tone, catchphrases, language, cuisine, skill level, equipment, budget, diet/allergy constraints, units, time target, platforms, never-say list, and sample captions; profile guidance is included in content packs and JSON backups.
+- Device-local kitchen/creator profile for tone, catchphrases, language, cuisine, skill level, equipment, budget, diet/allergy constraints, units, time target, platforms, never-say list, and sample captions; fresh profiles default to English and US customary units for the US-first workflow, while Metric and dual-unit preferences remain selectable. Profile guidance is included in content packs and JSON backups.
 - Installable PWA manifest, SVG app icon, service-worker app-shell caching, and offline fallback page; offline reopening is verified in CI after the first connected visit.
 - Recipe intake with HTTP(S) source URL, servings/yield, and notes.
 - Structured ingredient rows: amount, unit, name, preparation note.

@@ -51,7 +51,7 @@ export const DEFAULT_CREATOR_PROFILE: CreatorProfile = {
   equipment: "Standard home kitchen",
   budget: "Affordable ingredients where practical",
   dietLimits: "",
-  units: "Metric",
+  units: "US customary",
   usualCookingTime: "Under 45 minutes when practical",
   platforms: "YouTube Shorts, Instagram Reels",
   neverSay: "Guaranteed viral; cures; miracle food; guaranteed weight loss",
