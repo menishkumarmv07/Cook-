@@ -46,11 +46,55 @@ function migrateProject(value: unknown): RecipeProject | null {
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
-    sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes };
+    sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
+    trialStatus: old.trialStatus === "tested" ? "tested" : "untested",
+    trialRating: typeof old.trialRating === "string" ? old.trialRating : "",
+    trialNotes: typeof old.trialNotes === "string" ? old.trialNotes : "",
+    approved: old.approved === true,
+    approvedAt: typeof old.approvedAt === "string" ? old.approvedAt : "" };
 }
 
 function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildSharePack(project: RecipeProject): string {
+  const slug = project.name.trim();
+  const hashtags = ["#Cooking", "#EasyRecipes", "#FoodTok", "#HomeCooking", "#RecipeIdeas"];
+  const hooks = [
+    `Here's how to make ${slug} step by step.`,
+    `Save this ${slug} recipe for your next cooking day.`,
+    `Let's make ${slug} with clear steps and no guesswork.`,
+    `Want to try ${slug}? Here's the complete method.`,
+    `From ingredients to the final plate: ${slug}.`,
+  ];
+  return [
+    `RECIPE: ${slug}`,
+    `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
+    `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
+    "",
+    "HOOK OPTIONS",
+    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
+    "",
+    "SHORT-FORM VOICEOVER / SHOT PLAN",
+    buildNarrationScript(project),
+    "",
+    "CAPTION DRAFT",
+    `Cook along with this ${slug} tutorial. Follow the recorded ingredients and steps, and adjust only after checking the recipe carefully. Save this post for later.`,
+    "",
+    hashtags.join(" "),
+    "",
+    "CALL TO ACTION",
+    "Save this recipe and tell me what you would serve with it.",
+    "",
+    "REVIEW NOTES",
+    project.trialNotes.trim() || "No cooking-trial notes recorded.",
+    "",
+    "SOURCE",
+    project.url || "No source URL recorded.",
+    "",
+    "IMPORTANT: This is an editable text pack. It does not create a video, add music, upload media, or publish a post. Confirm platform-specific captions, music rights, and disclosures before sharing.",
+  ].join("\\n");
 }
 
 function downloadFile(name: string, content: string, type: string) {
@@ -128,6 +172,11 @@ export default function Home() {
       notes: notes.trim(),
       sourceEvidence: "",
       sourceReferences: [],
+      trialStatus: "untested",
+      trialRating: "",
+      trialNotes: "",
+      approved: false,
+      approvedAt: "",
       servings: servings.trim(),
       ingredients: [],
       steps: [],
@@ -145,7 +194,47 @@ export default function Home() {
   }
 
   function patchCurrent(patch: Partial<RecipeProject>) {
-    if (current) setProjects((existing) => existing.map((project) => project.id === current.id ? { ...project, ...patch } : project));
+    if (!current) return;
+    const changesRecipe = ["name", "url", "notes", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes", "trialStatus", "trialRating", "trialNotes"].some((key) => key in patch);
+    setProjects((existing) => existing.map((project) => project.id === current.id
+      ? { ...project, ...patch, ...(changesRecipe ? { approved: false, approvedAt: "" } : {}) }
+      : project));
+  }
+
+  async function shareContentPack() {
+    if (!current) return;
+    if (current.trialStatus !== "tested") {
+      setMessage("This recipe is still Untested. Record a real cooking trial and mark it Tested before sharing.");
+      return;
+    }
+    if (!current.approved) {
+      setMessage("Approve this content pack first. Nothing is posted automatically.");
+      return;
+    }
+    const text = buildSharePack(current);
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: `${current.name} — Cooking Creator pack`, text });
+        setMessage("Share sheet opened. Choose a destination yourself; this app did not publish automatically.");
+      } else {
+        const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe";
+        downloadFile(`${safeName}.content-pack.txt`, text, "text/plain;charset=utf-8");
+        setMessage("Your phone/browser does not support text sharing here. Downloaded the content pack instead.");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        setMessage("Share cancelled. Your approved content pack remains saved.");
+      } else {
+        setMessage("Sharing was unavailable. Export the content pack as a text file instead.");
+      }
+    }
+  }
+
+  function exportContentPack() {
+    if (!current) return;
+    const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe";
+    downloadFile(`${safeName}.content-pack.txt`, buildSharePack(current), "text/plain;charset=utf-8");
+    setMessage("Content pack exported. It is not uploaded or published.");
   }
 
   function patchIngredient(id: string, patch: Partial<Ingredient>) {
