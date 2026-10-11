@@ -313,3 +313,20 @@ test("rejects oversized individual recipe imports and unreasonable collection co
     })),
   })), null);
 });
+
+
+test("rejects imported source references with non-HTTP(S) URLs", () => {
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    sourceReferences: [{
+      id: "bad-source", url: "file:///private/recipe.txt", kind: "other",
+      checked: "ingredients", notes: "",
+    }],
+  })), null);
+  assert.ok(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    sourceReferences: [{
+      id: "empty-source", url: "", kind: "other", checked: "", notes: "",
+    }],
+  })));
+});
