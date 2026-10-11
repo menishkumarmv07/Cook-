@@ -14,6 +14,11 @@ import {
 
 const base: RecipeProject = {
   id: 1,
+  trialStatus: "untested",
+  trialRating: "",
+  trialNotes: "",
+  approved: false,
+  approvedAt: "",
   name: "Tomato pasta",
   url: "",
   notes: "Keep the pasta water.",
