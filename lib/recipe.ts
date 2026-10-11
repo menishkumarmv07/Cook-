@@ -1,5 +1,5 @@
 export type Ingredient = { id: string; amount: string; unit: string; name: string; prep: string };
-export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string };
+export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string; ingredientIds: string[] };
 export type Scene = { title: string; detail: string; timing: string };
 export type SourceReference = {
   id: string;
@@ -121,7 +121,8 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Array.isArray(p.steps) &&
     p.steps.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.action === "string" &&
-      typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string") &&
+      typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string" &&
+      Array.isArray(x.ingredientIds) && x.ingredientIds.every((id) => typeof id === "string")) &&
     Array.isArray(p.scenes) &&
     p.scenes.every((x) => typeof x === "object" && x !== null &&
       typeof x.title === "string" && typeof x.detail === "string" && typeof x.timing === "string");
@@ -139,9 +140,18 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
     if (!ingredient.unit.trim() && ingredient.amount.trim()) issues.push({ level: "warning", field: `unit-${index}`, message: `Unit for ${ingredient.name.trim() || `ingredient ${index + 1}`} is not recorded; check whether the amount is count-based.` });
   });
   if (project.steps.length === 0) issues.push({ level: "warning", field: "steps", message: "Add the cooking method in the correct order." });
+  const ingredientIds = new Set(project.ingredients.map((ingredient) => ingredient.id));
+  project.ingredients.forEach((ingredient, index) => {
+    if (ingredient.name.trim() && !project.steps.some((step) => step.ingredientIds.includes(ingredient.id))) {
+      issues.push({ level: "warning", field: `ingredient-step-${index}`, message: `Ingredient ${ingredient.name.trim()} is not linked to a cooking step. Confirm where it is added, or note if it is only used for serving/garnish.` });
+    }
+  });
   project.steps.forEach((step, index) => {
     if (!step.action.trim()) issues.push({ level: "warning", field: `step-${index}`, message: `Cooking step ${index + 1} has no action.` });
     if (!step.duration.trim()) issues.push({ level: "warning", field: `duration-${index}`, message: `Timing for step ${index + 1} is not recorded; do not invent a time.` });
+    if (step.ingredientIds.some((id) => !ingredientIds.has(id))) {
+      issues.push({ level: "warning", field: `step-ingredients-${index}`, message: `Cooking step ${index + 1} links to an ingredient that is no longer in the ingredient list.` });
+    }
   });
   const seenSourceUrls = new Set<string>();
   project.sourceReferences.forEach((source, index) => {
@@ -172,8 +182,13 @@ export function buildTutorialDraft(project: RecipeProject): string {
       `${i + 1}. ${[x.amount, x.unit, x.name].filter(Boolean).join(" ")}${x.prep.trim() ? ` — ${x.prep.trim()}` : ""}`) : ["Ingredients not supplied."]),
     "",
     "## Cooking method",
-    ...(project.steps.length ? project.steps.map((x, i) =>
-      `${i + 1}. ${x.action.trim() || "[Action missing]"}${x.duration.trim() ? ` (recorded timing: ${x.duration.trim()})` : " (timing not provided)"}${x.heat.trim() ? ` Heat: ${x.heat.trim()}.` : ""}${x.cue.trim() ? ` Visual cue: ${x.cue.trim()}` : ""}`) : ["Cooking steps not supplied."]),
+    ...(project.steps.length ? project.steps.map((x, i) => {
+      const linked = project.ingredients.filter((ingredient) => x.ingredientIds.includes(ingredient.id));
+      const ingredientNote = linked.length
+        ? ` Ingredients added: ${linked.map((ingredient) => [ingredient.amount, ingredient.unit, ingredient.name].filter(Boolean).join(" ")).join(", ")}.`
+        : " Ingredients added: none linked — confirm whether this step adds any ingredient; unlinked steps may be valid for heating, waiting, or plating.";
+      return `${i + 1}. ${x.action.trim() || "[Action missing]"}${x.duration.trim() ? ` (recorded timing: ${x.duration.trim()})` : " (timing not provided)"}${x.heat.trim() ? ` Heat: ${x.heat.trim()}.` : ""}${x.cue.trim() ? ` Visual cue: ${x.cue.trim()}` : ""}${ingredientNote}`;
+    }) : ["Cooking steps not supplied."]),
     "",
     "## Creator scene plan",
     ...project.scenes.flatMap((x, i) => [`### ${i + 1}. ${x.title}`, `Timing guide: ${x.timing}`, x.detail, ""]),
@@ -244,6 +259,7 @@ export function buildNarrationScript(project: RecipeProject): string {
             ...(duration ? [] : ["PRODUCTION CHECK: timing is missing; confirm it rather than guessing."]),
             `HEAT: ${heat || "Not recorded — check the source and method."}`,
             `VISUAL CUE: ${cue || "Not recorded — add an observable cue if the source provides one."}`,
+            `INGREDIENTS ADDED: ${project.ingredients.filter((ingredient) => step.ingredientIds.includes(ingredient.id)).map((ingredient) => [oneLine(ingredient.amount), oneLine(ingredient.unit), oneLine(ingredient.name)].filter(Boolean).join(" ")).join(", ") || "None linked — confirm whether this step adds an ingredient before recording."}`,
             "",
           ].join("\n");
         })
@@ -267,7 +283,7 @@ export function buildNarrationScript(project: RecipeProject): string {
     "- Resolve source disagreements before filming.",
     "- Verify applicable food-safety guidance from an authoritative source.",
     "- Do not present uncalculated calories or unsupported health benefits as facts.",
-    "- Ingredient-to-step mapping is not inferred; confirm exactly when each ingredient is added.",
+    "- Ingredient-to-step mapping is recorded manually per step. Confirm all ingredient additions and resolve warnings for unassigned ingredients.",
     "- Missing ingredient names, quantities, actions, or timings must be completed before recording. Do not guess.",
     "- Nutrition and calories have not been calculated from ingredient quantities and servings.",
     "- This is a text script draft. It has not generated voice, animated the chef, rendered a video, or published anything.",
@@ -297,7 +313,11 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences : [],
     servings: typeof legacy.servings === "string" ? legacy.servings : "",
     ingredients: Array.isArray(legacy.ingredients) ? legacy.ingredients : [],
-    steps: Array.isArray(legacy.steps) ? legacy.steps : [],
+    steps: Array.isArray(legacy.steps) ? legacy.steps.map((step) => {
+      if (typeof step !== "object" || step === null) return step;
+      const record = step as Record<string, unknown>;
+      return { ...record, ingredientIds: record.ingredientIds === undefined ? [] : record.ingredientIds };
+    }) : [],
   };
   if (!isRecipeProject(candidate) || !isHttpUrl(candidate.url)) return null;
   return candidate;
