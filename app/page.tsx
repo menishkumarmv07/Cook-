@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   buildNarrationScript,
@@ -159,9 +159,8 @@ export default function Home() {
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!menuOpen) return;
-    drawerCloseRef.current?.focus();
     function handleDrawerKeydown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setMenuOpen(false);
@@ -188,6 +187,12 @@ export default function Home() {
       // The app remains usable if the browser blocks local storage.
     }
   }, [theme]);
+
+  function openWorkspaceMenu() {
+    setMenuOpen(true);
+    // Wait for the drawer to become visible before moving keyboard focus.
+    window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+  }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library") {
     setMenuOpen(false);
@@ -598,7 +603,7 @@ export default function Home() {
 
       <section className="main" id="dashboard">
         <header className="top">
-          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>☰</button>
+          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>
