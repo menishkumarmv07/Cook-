@@ -38,6 +38,9 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Reload and confirm source reference records persist.
 - [ ] Tutorial preview/export includes each source reference and explicitly says manual notes are unverified; it must not claim automated link/video analysis.
 - [ ] Tutorial preview preserves ingredient and step order and clearly says it is a draft.
+- [ ] Narration preview/copy/export preserves ingredient and cooking-step order and uses recorded timings, heat settings, and visual cues only.
+- [ ] Missing quantities/actions/timings are explicitly flagged; no ingredient-to-step mapping or timing is silently invented.
+- [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, nutrition calculation, finished video, or post was created.
 - [ ] Export Markdown and open the file; check text and order.
 - [ ] Export JSON and check the file parses and keeps verification flags false.
 - [ ] Import a valid JSON backup and confirm its recipe details restore.
