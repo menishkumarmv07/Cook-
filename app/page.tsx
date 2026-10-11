@@ -190,6 +190,13 @@ export default function Home() {
     setMessage(`Exported ${format.toUpperCase()} draft. Export does not publish or verify the recipe.`);
   }
 
+  function exportNarration() {
+    if (!current) return;
+    const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe-draft";
+    downloadFile(`${safeName}.narration.txt`, narration, "text/plain;charset=utf-8");
+    setMessage("Exported narration script. Export does not publish or verify the recipe.");
+  }
+
   async function copyTutorial() {
     try {
       if (!navigator.clipboard?.writeText) {
@@ -376,7 +383,7 @@ export default function Home() {
                   {warnings.length > 0 ? <ul className="issue-list">{warnings.map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message}</li>)}</ul> : <p>No current validation warnings.</p>}
                 </section>
 
-                <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="secondary" type="button" onClick={() => setShowNarration((show) => !show)}>{showNarration ? "Hide narration script" : "Generate narration script"}</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
+                <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="secondary" type="button" onClick={() => setShowNarration((show) => !show)}>{showNarration ? "Hide narration script" : "Generate narration script"}</button><button className="secondary" type="button" onClick={exportNarration}>Export narration</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
                 {showTutorial && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Generated tutorial draft</h3><p className="muted">Deterministic outline using only your saved inputs. Not fact-checked, not published.</p></div><button className="secondary" type="button" onClick={() => { void copyTutorial(); }}>Copy text</button></div><pre>{tutorial}</pre></div>}
                 {showNarration && <div className="tutorial-preview narration-preview"><div className="subsection-head"><div><h3>Generated narration script</h3><p className="muted">Uses saved ingredient and step order. Missing details are flagged rather than invented.</p></div><button className="secondary" type="button" onClick={() => { void copyNarration(); }}>Copy narration</button></div><pre>{narration}</pre></div>}
                 <p className="hint">Drafts are stored in this browser on this device only. There is no owner login, cloud backup, or multi-device sync yet. Export important work regularly.</p>
