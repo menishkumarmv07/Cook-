@@ -49,7 +49,7 @@ test("warns about missing quantities, steps, source analysis, safety and nutriti
   assert.match(messages, /Serving count is missing/);
   assert.match(messages, /Quantity for salt is missing/);
   assert.match(messages, /has no action/);
-  assert.match(messages, /source link has not been fetched/);
+  assert.match(messages, /source link has not been fetched/i);
   assert.match(messages, /Food-safety guidance has not been independently verified/);
   assert.match(messages, /Nutrition has not been calculated/);
 });
