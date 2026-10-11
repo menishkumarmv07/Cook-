@@ -64,6 +64,76 @@ export function isCreatorProfile(value: unknown): value is CreatorProfile {
   return Object.keys(DEFAULT_CREATOR_PROFILE).every((key) => typeof record[key] === "string");
 }
 
+export type CreatorWorkspaceBackup = {
+  format: "cooking-creator-workspace-backup";
+  version: 1;
+  exportedAt: string;
+  creatorProfile: CreatorProfile;
+  projects: RecipeProject[];
+};
+
+const MAX_WORKSPACE_BACKUP_PROJECTS = 500;
+const MAX_WORKSPACE_BACKUP_CHARACTERS = 15_000_000;
+
+export function createCreatorWorkspaceBackupJSON(
+  projects: RecipeProject[],
+  creatorProfile: CreatorProfile,
+  exportedAt = new Date().toISOString(),
+): string {
+  const backup: CreatorWorkspaceBackup = {
+    format: "cooking-creator-workspace-backup",
+    version: 1,
+    exportedAt,
+    creatorProfile,
+    projects,
+  };
+  return JSON.stringify(backup, null, 2);
+}
+
+export function parseCreatorWorkspaceBackupJSON(raw: string): CreatorWorkspaceBackup | null {
+  if (raw.length > MAX_WORKSPACE_BACKUP_CHARACTERS) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  const record = parsed as Record<string, unknown>;
+  if (
+    record.format !== "cooking-creator-workspace-backup" ||
+    record.version !== 1 ||
+    typeof record.exportedAt !== "string" ||
+    !isCreatorProfile(record.creatorProfile) ||
+    !Array.isArray(record.projects) ||
+    record.projects.length > MAX_WORKSPACE_BACKUP_PROJECTS
+  ) return null;
+
+  const projects: RecipeProject[] = [];
+  for (const candidate of record.projects) {
+    let candidateJSON: string;
+    try {
+      candidateJSON = JSON.stringify(candidate);
+    } catch {
+      return null;
+    }
+    if (typeof candidateJSON !== "string") return null;
+    const project = parseRecipeProjectJSON(candidateJSON);
+    if (!project) return null;
+    projects.push(project);
+  }
+
+  return {
+    format: "cooking-creator-workspace-backup",
+    version: 1,
+    exportedAt: record.exportedAt,
+    creatorProfile: record.creatorProfile,
+    projects,
+  };
+}
+
 export type ValidationIssue = { level: "warning" | "error"; field: string; message: string };
 
 export const SCENE_TEMPLATE: Scene[] = [
