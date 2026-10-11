@@ -81,6 +81,11 @@ test("navigation drawer, workspace command, and theme toggle work and persist", 
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByRole("button", { name: /Projects \/ new recipe/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close menu" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#workspace-drawer")).toHaveAttribute("aria-hidden", "true");
+  await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeFocused();
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
   await page.reload();
