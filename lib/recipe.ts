@@ -156,6 +156,60 @@ export function buildTutorialDraft(project: RecipeProject): string {
 }
 
 
+export function buildNarrationScript(project: RecipeProject): string {
+  const recipeName = project.name.trim() || "Untitled recipe";
+  const ingredientLines = project.ingredients.length
+    ? project.ingredients.map((ingredient, index) => {
+      const name = ingredient.name.trim() || `[ingredient ${index + 1} name missing]`;
+      const quantity = [ingredient.amount.trim(), ingredient.unit.trim()].filter(Boolean).join(" ");
+      const prep = ingredient.prep.trim() ? `, ${ingredient.prep.trim()}` : "";
+      if (!ingredient.name.trim() || !ingredient.amount.trim()) {
+        return `- [DO NOT RECORD] Ingredient ${index + 1}: ${[quantity || "[quantity not recorded]", name].join(" ")}${prep}. Confirm the missing name or quantity before recording.`;
+      }
+      return `- Narration: "Prepare ${[quantity, name].filter(Boolean).join(" ")}${prep}."${ingredient.unit.trim() ? "" : " Production check: confirm the unit or count-based amount before recording."}`;
+    })
+    : ["- [DO NOT RECORD] No ingredients have been recorded."];
+
+  const stepLines = project.steps.length
+    ? project.steps.map((step, index) => {
+      if (!step.action.trim()) return `- [DO NOT RECORD] Step ${index + 1}: action not recorded.`;
+      const spoken = [`Step ${index + 1}: ${step.action.trim()}.`];
+      if (step.duration.trim()) spoken.push(`The recorded timing is ${step.duration.trim()}.`);
+      if (step.heat.trim()) spoken.push(`Use ${step.heat.trim()} heat.`);
+      if (step.cue.trim()) spoken.push(`Look for this cue: ${step.cue.trim()}.`);
+      const lines = [`- Narration: "${spoken.join(" ")}"`];
+      if (!step.duration.trim()) lines.push("  - Production check: timing is missing; confirm it rather than guessing.");
+      return lines.join("\n");
+    })
+    : ["- [DO NOT RECORD] No cooking steps have been recorded."];
+
+  return [
+    `# Narration script: ${recipeName}`,
+    "",
+    "**Status:** Draft — not published",
+    "",
+    "## Opening narration",
+    `Today we're making ${recipeName}. I'll walk you through the recorded ingredients and cooking steps.`,
+    "",
+    "## Ingredient narration — keep the recorded order",
+    ...ingredientLines,
+    "",
+    "## Cooking-step narration — keep the recorded order",
+    ...stepLines,
+    "",
+    "## Closing narration",
+    "Before serving, check doneness and safe handling against reliable food-safety guidance.",
+    "",
+    "## Production checks — not spoken",
+    "- Ingredient-to-step mapping is not inferred; confirm exactly when each ingredient is added.",
+    "- Missing ingredient names, quantities, actions, or timings must be completed before recording. Do not guess.",
+    "- Source links have not been analyzed automatically; source notes are manually entered.",
+    "- Food safety has not been independently verified by this app.",
+    "- Nutrition and calories have not been calculated from ingredient quantities and servings.",
+    "- This is a draft script and has not been published.",
+  ].join("\n");
+}
+
 export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   let parsed: unknown;
   try {
