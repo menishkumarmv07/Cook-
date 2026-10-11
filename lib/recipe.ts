@@ -377,6 +377,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     steps: Array.isArray(legacy.steps) ? legacy.steps : [],
   };
   if (!isRecipeProject(candidate) || !isHttpUrl(candidate.url)) return null;
+  if (candidate.sourceReferences.some((source) => !isHttpUrl(source.url))) return null;
   if (
     candidate.ingredients.length > MAX_RECIPE_INGREDIENTS ||
     candidate.steps.length > MAX_RECIPE_STEPS ||
