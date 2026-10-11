@@ -15,6 +15,7 @@ const project: RecipeProject = {
   url: "https://example.com/recipe?source=test",
   notes: "Keep the lemon zest; don't invent missing timings.",
   sourceEvidence: "Recipe page text checked manually: ingredient list and method order.",
+  sourceReferences: [],
   servings: "3",
   ingredients: [
     { id: "i1", amount: "2", unit: "cups", name: "cooked rice", prep: "cooled" },
@@ -81,4 +82,23 @@ test("saved-project guard rejects missing fields and malformed nested records", 
   assert.equal(isRecipeProject(undefined), false);
   assert.equal(isRecipeProject({ ...project, steps: [{ action: "missing id" }] }), false);
   assert.equal(isRecipeProject({ ...project, scenes: [{ title: "Only a title" }] }), false);
+});
+
+
+test("malformed source-reference URLs are blocking errors and duplicate references are warnings", () => {
+  const issues = validateRecipe({
+    ...project,
+    sourceReferences: [
+      { id: "a", url: "https://recipes.example/dish", kind: "recipe-page", checked: "Ingredients", notes: "" },
+      { id: "b", url: "https://recipes.example/dish/", kind: "transcript", checked: "Spoken steps", notes: "" },
+      { id: "c", url: "file:///private/source", kind: "other", checked: "", notes: "" },
+    ],
+  });
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-duplicate-1"));
+  assert.ok(issues.some((issue) => issue.level === "error" && issue.field === "source-url-2"));
+});
+
+test("source reference schema rejects malformed records but accepts migrated empty lists", () => {
+  assert.equal(isRecipeProject({ ...project, sourceReferences: [] }), true);
+  assert.equal(isRecipeProject({ ...project, sourceReferences: [{ id: "x", url: 123, kind: "video", checked: "", notes: "" }] }), false);
 });
