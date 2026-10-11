@@ -37,13 +37,15 @@ function migrateProject(value: unknown): RecipeProject | null {
   ) : [];
   if (Array.isArray(old.ingredients) && ingredients.length !== old.ingredients.length) return null;
   if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
+  if (old.sourceReferences !== undefined && !Array.isArray(old.sourceReferences)) return null;
+  const sourceReferences = Array.isArray(old.sourceReferences) ? old.sourceReferences.filter((source): source is SourceReference =>
+    typeof source === "object" && source !== null && typeof source.id === "string" && typeof source.url === "string" &&
+    ["recipe-page", "video", "transcript", "other"].includes(source.kind) && typeof source.checked === "string" && typeof source.notes === "string"
+  ) : [];
+  if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
-    sourceReferences: Array.isArray(old.sourceReferences) ? old.sourceReferences.filter((source): source is SourceReference =>
-      typeof source === "object" && source !== null && typeof source.id === "string" && typeof source.url === "string" &&
-      ["recipe-page", "video", "transcript", "other"].includes(source.kind) && typeof source.checked === "string" && typeof source.notes === "string"
-    ) : [],
-    servings: old.servings ?? "", ingredients, steps, scenes };
+    sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes };
 }
 
 function makeId() {
