@@ -196,9 +196,9 @@ export default function Home() {
 
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
-    const changesRecipe = ["name", "url", "notes", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes", "trialStatus", "trialRating", "trialNotes"].some((key) => key in patch);
+    const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
     setProjects((existing) => existing.map((project) => project.id === current.id
-      ? { ...project, ...patch, ...(changesRecipe ? { approved: false, approvedAt: "" } : {}) }
+      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch) ? { approved: false, approvedAt: "" } : {})) }
       : project));
   }
 
