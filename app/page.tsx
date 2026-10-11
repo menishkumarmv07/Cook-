@@ -120,6 +120,7 @@ export default function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showNarration, setShowNarration] = useState(false);
+  const [showContentPack, setShowContentPack] = useState(false);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -188,7 +189,7 @@ export default function Home() {
     setUrl("");
     setNotes("");
     setServings("4");
-    setShowTutorial(false); setShowNarration(false);
+    setShowTutorial(false); setShowNarration(false); setShowContentPack(false);
     setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -199,6 +200,20 @@ export default function Home() {
     setProjects((existing) => existing.map((project) => project.id === current.id
       ? { ...project, ...patch, ...(changesRecipe ? { approved: false, approvedAt: "" } : {}) }
       : project));
+  }
+
+  function markRecipeTested() {
+    if (!current) return;
+    if (!current.trialRating) {
+      setMessage("Rate your real cooking trial before marking this recipe Tested.");
+      return;
+    }
+    if (current.trialNotes.trim().length < 10) {
+      setMessage("Add at least a short, useful cooking-trial note (10 characters or more) before marking Tested.");
+      return;
+    }
+    patchCurrent({ trialStatus: "tested" });
+    setMessage("Recipe marked Tested from your recorded trial. Any later recipe edits will reset approval.");
   }
 
   async function shareContentPack() {
@@ -413,6 +428,25 @@ export default function Home() {
             {!current ? <div className="empty"><span>▤</span><h3>Your recipe editor will appear here</h3><p>Create a recipe draft above to add ingredients and ordered cooking steps.</p><a href="#intake">Start a recipe project ↑</a></div> : (
               <div className="panel">
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
+                <section className="trial-panel">
+                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
+                  <div className="editor-grid">
+                    <div><label htmlFor="trial-rating">Your trial rating</label><select id="trial-rating" value={current.trialRating} onChange={(event) => patchCurrent({ trialRating: event.target.value })}><option value="">Choose a rating</option><option value="1">1 — Needs work</option><option value="2">2 — Below expectations</option><option value="3">3 — Good</option><option value="4">4 — Very good</option><option value="5">5 — Excellent</option></select></div>
+                    <div><label htmlFor="trial-notes">What happened when you cooked it?</label><textarea id="trial-notes" rows={3} value={current.trialNotes} onChange={(event) => patchCurrent({ trialNotes: event.target.value })} placeholder="Record changes, actual timing, texture, taste, and any safety concerns…" /></div>
+                  </div>
+                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a rating and trial notes. Editing the recipe resets approval.</small></div>
+                </section>
+                <section className="approval-panel">
+                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
+                  <div className="action-row">
+                    <button className="primary" type="button" onClick={() => setShowContentPack((show) => !show)}>{showContentPack ? "Hide content pack" : "Prepare content pack"}</button>
+                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested"} onClick={() => { patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Content pack approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
+                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested" || !current.approved} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
+                    <button className="secondary" type="button" onClick={exportContentPack}>Export pack</button>
+                  </div>
+                  {current.trialStatus !== "tested" && <p className="warning">This recipe is Untested. Complete a real cooking trial before it can be approved or shared from this workflow.</p>}
+                  {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current)}</pre></div>}
+                </section>
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
                 <div className="editor-grid">
                   <div><label htmlFor="edit-servings">Servings / yield</label><input id="edit-servings" value={current.servings} onChange={(event) => patchCurrent({ servings: event.target.value })} placeholder="e.g. 4 servings" /></div>
@@ -480,7 +514,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>Draft</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
