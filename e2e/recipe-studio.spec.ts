@@ -149,4 +149,9 @@ test("narration script preserves recipe order and flags missing timing before re
   await expect(preview).toContainText("Step 2: Fold in the rice.");
   await expect(preview).toContainText("timing is missing; confirm it rather than guessing");
   await expect(preview).toContainText("Nutrition and calories have not been calculated");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export narration" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("lemon-rice.narration.txt");
 });
