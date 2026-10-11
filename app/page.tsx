@@ -267,20 +267,24 @@ export default function Home() {
       setMessage("That photo is over 12 MB. Choose a smaller image so local browser storage is less likely to fill.");
       return;
     }
+    const objectUrl = URL.createObjectURL(file);
     try {
-      const bitmap = await createImageBitmap(file);
-      const scale = Math.min(1, 900 / Math.max(bitmap.width, bitmap.height));
+      const image = new Image();
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("Image decode failed"));
+        image.src = objectUrl;
+      });
+      const scale = Math.min(1, 900 / Math.max(image.naturalWidth, image.naturalHeight));
       const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
       const context = canvas.getContext("2d");
       if (!context) {
-        bitmap.close();
         setMessage("This browser could not prepare the photo. Try a JPG or PNG image.");
         return;
       }
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-      bitmap.close();
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
       const compressed = canvas.toDataURL("image/jpeg", 0.65);
       if (compressed.length > 500_000) {
         setMessage("The compressed photo is still too large for reliable local storage. Choose or crop a smaller photo.");
@@ -290,6 +294,8 @@ export default function Home() {
       setMessage("Cooking-trial photo saved locally with the recipe. It is not uploaded.");
     } catch {
       setMessage("Photo could not be processed in this browser. Try a smaller JPG or PNG.");
+    } finally {
+      URL.revokeObjectURL(objectUrl);
     }
   }
 
