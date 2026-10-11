@@ -55,7 +55,7 @@ test("tutorial draft preserves entered ingredient, step order, and honesty notic
   const draft = buildTutorialDraft(base);
   assert.ok(draft.indexOf("200 g pasta") < draft.indexOf("Boil pasta"));
   assert.match(draft, /recorded timing: 10 minutes/);
-  assert.match(draft, /has not been independently verified/);
+  assert.match(draft, /Food safety and nutrition have not been independently verified/);
   assert.match(draft, /has not been published/);
 });
 
