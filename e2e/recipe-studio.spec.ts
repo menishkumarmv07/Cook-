@@ -102,3 +102,24 @@ test("source research desk records references and exports uncertainty honestly",
   await expect(page.getByLabel("Reference URL").first()).toHaveValue("https://example.com/recipe");
   await expect(page.getByLabel("Reference URL").nth(1)).toHaveValue("https://example.org/video");
 });
+
+
+test("malformed saved source-reference records are skipped with a visible warning", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("cooking-creator-v1-drafts", JSON.stringify([{
+      id: 909,
+      name: "Corrupt saved draft",
+      url: "",
+      notes: "",
+      sourceEvidence: "",
+      servings: "2",
+      ingredients: [],
+      steps: [],
+      scenes: [{ title: "Hook", detail: "Show dish", timing: "0:00" }],
+      sourceReferences: [{ id: "bad", url: 123, kind: "video", checked: "", notes: "" }],
+    }]));
+  });
+  await page.goto("/");
+  await expect(page.getByRole("status")).toContainText("Some saved data was invalid and was skipped");
+  await expect(page.getByRole("heading", { name: "Corrupt saved draft" })).toHaveCount(0);
+});
