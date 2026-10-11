@@ -230,6 +230,7 @@ export default function Home() {
       setProjects((existing) => [restored, ...existing]);
       setActive(restored.id);
       setShowTutorial(false);
+      setShowNarration(false);
       setMessage("JSON draft imported into this browser. Review all source, safety, and nutrition warnings before using it.");
       document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
@@ -243,6 +244,7 @@ export default function Home() {
     setProjects(remaining);
     setActive(remaining[0]?.id ?? null);
     setShowTutorial(false);
+    setShowNarration(false);
     setMessage("Draft removed from this browser's draft list.");
   }
 
@@ -387,7 +389,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>Draft</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); setShowNarration(false); }}><span>✦</span><strong>{project.name}</strong><small>Draft</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
