@@ -16,6 +16,7 @@ const base: RecipeProject = {
   url: "",
   notes: "Keep the pasta water.",
   sourceEvidence: "",
+  sourceReferences: [],
   servings: "2",
   ingredients: [{ id: "i1", amount: "200", unit: "g", name: "pasta", prep: "dry" }],
   steps: [{ id: "s1", action: "Boil pasta", duration: "10 minutes", heat: "boiling", cue: "Pasta is tender" }],
@@ -92,4 +93,35 @@ test("imports older V1 draft exports with missing structured fields safely", () 
   assert.deepEqual(imported.ingredients, []);
   assert.deepEqual(imported.steps, []);
   assert.equal(imported.sourceEvidence, "");
+  assert.deepEqual(imported.sourceReferences, []);
+});
+
+
+test("validates structured source references and flags invalid or duplicate URLs", () => {
+  const issues = validateRecipe({
+    ...base,
+    sourceReferences: [
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredients and method", notes: "" },
+      { id: "r2", url: "https://example.com/recipe/", kind: "video", checked: "", notes: "Timing unclear" },
+      { id: "r3", url: "javascript:alert(1)", kind: "other", checked: "", notes: "" },
+    ],
+  });
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-duplicate-1"));
+  assert.ok(issues.some((issue) => issue.level === "error" && issue.field === "source-url-2"));
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-checked-1"));
+  assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source-checked-2"));
+});
+
+test("exports structured source references without claiming verification", () => {
+  const draft = buildTutorialDraft({
+    ...base,
+    sourceReferences: [
+      { id: "r1", url: "https://example.com/a", kind: "recipe-page", checked: "Ingredient list", notes: "Salt quantity differs" },
+      { id: "r2", url: "https://example.org/b", kind: "video", checked: "Visible cooking order", notes: "No temperature shown" },
+    ],
+  });
+  assert.ok(draft.indexOf("https://example.com/a") < draft.indexOf("https://example.org/b"));
+  assert.match(draft, /Salt quantity differs/);
+  assert.match(draft, /have not been independently verified/);
+  assert.match(draft, /conflicts or missing details must be resolved/i);
 });
