@@ -4,6 +4,7 @@ import {
   buildTutorialDraft,
   isHttpUrl,
   isRecipeProject,
+  normalizeSourceUrlForComparison,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
@@ -124,4 +125,20 @@ test("exports structured source references without claiming verification", () =>
   assert.match(draft, /Salt quantity differs/);
   assert.match(draft, /have not been independently verified/);
   assert.match(draft, /conflicts or missing details must be resolved/i);
+});
+
+
+test("source URL duplicate normalization preserves case-sensitive paths and query strings", () => {
+  assert.equal(
+    normalizeSourceUrlForComparison("https://example.com/dish/"),
+    normalizeSourceUrlForComparison("https://EXAMPLE.com/dish"),
+  );
+  assert.notEqual(
+    normalizeSourceUrlForComparison("https://example.com/Dish"),
+    normalizeSourceUrlForComparison("https://example.com/dish"),
+  );
+  assert.notEqual(
+    normalizeSourceUrlForComparison("https://example.com/dish?variant=1"),
+    normalizeSourceUrlForComparison("https://example.com/dish?variant=2"),
+  );
 });
