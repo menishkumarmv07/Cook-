@@ -170,8 +170,9 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await page.locator("#trial-photo").setInputFiles({
     name: "cooked-dish.png",
     mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADUlEQVR4nGP4z8AAAAMBAQDJ/pLvAAAAAElFTkSuQmCC", "base64"),
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"),
   });
+  await expect(page.getByRole("status")).toContainText("Cooking-trial photo saved locally");
   await expect(page.getByAltText("Your cooking-trial photo for Lemon rice")).toBeVisible();
 
   await page.getByLabel("Your trial rating").selectOption("5");
