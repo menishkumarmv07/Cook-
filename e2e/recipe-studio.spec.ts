@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 test("recipe draft can be created, edited, reordered, saved, and exported", async ({ page }) => {
   await page.goto("/");
@@ -226,7 +227,7 @@ test("PWA manifest and service worker support reopening the app offline after fi
 
 test("creator profile saves locally, shapes content-pack guidance, and travels with JSON backup", async ({ page }) => {
   await page.goto("/");
-  await page.getByText("Kitchen & creator profile", { exact: true }).click();
+  await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Professional and concise");
   await page.getByLabel("Main language").fill("English");
   await page.getByLabel("Target platforms").fill("YouTube Shorts, Instagram Reels");
@@ -246,4 +247,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   const path = await download.path();
   expect(download.suggestedFilename()).toBe("tomato-pasta.json");
   expect(path).toBeTruthy();
+  const exported = JSON.parse(await readFile(path!, "utf8")) as { creatorProfile?: { tone?: string; sampleCaptions?: string } };
+  expect(exported.creatorProfile?.tone).toBe("Professional and concise");
+  expect(exported.creatorProfile?.sampleCaptions).toContain("A simple dinner with clear steps.");
 });
