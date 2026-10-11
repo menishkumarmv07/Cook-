@@ -71,3 +71,34 @@ test("mobile layout exposes the intake and editor without horizontal overflow", 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
 });
+
+
+test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#name").fill("Source-checked soup");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+
+  await page.getByRole("button", { name: /Add source/ }).click();
+  await page.getByLabel("Reference URL").fill("https://example.com/recipe");
+  await page.getByLabel("What did you actually check?").fill("Ingredient list and method order");
+  await page.getByLabel("Differences, uncertainty, or missing details").fill("Cooking time is not specified");
+
+  await page.getByRole("button", { name: /Add source/ }).click();
+  await page.getByLabel("Source type").nth(1).selectOption("video");
+  await page.getByLabel("Reference URL").nth(1).fill("https://example.org/video");
+  await page.getByLabel("What did you actually check?").nth(1).fill("Visible cooking actions");
+  await page.getByLabel("Differences, uncertainty, or missing details").nth(1).fill("Exact temperature is unclear");
+
+  await page.getByRole("button", { name: "Generate tutorial draft" }).click();
+  const preview = page.locator(".tutorial-preview pre");
+  await expect(preview).toContainText("https://example.com/recipe");
+  await expect(preview).toContainText("https://example.org/video");
+  await expect(preview).toContainText("Cooking time is not specified");
+  await expect(preview).toContainText("Exact temperature is unclear");
+  await expect(preview).toContainText("Source references and checked items are manually recorded");
+  await expect(preview).toContainText("conflicts or missing details must be resolved before publishing");
+
+  await page.reload();
+  await expect(page.getByLabel("Reference URL").first()).toHaveValue("https://example.com/recipe");
+  await expect(page.getByLabel("Reference URL").nth(1)).toHaveValue("https://example.org/video");
+});
