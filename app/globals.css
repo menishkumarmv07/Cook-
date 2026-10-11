@@ -77,3 +77,9 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .profile-panel .profile-grid input,.profile-panel .profile-grid textarea,.profile-panel .profile-grid select{width:100%;box-sizing:border-box}
 .profile-wide{grid-column:1/-1}
 @media(max-width:640px){.profile-panel{padding:0 .85rem}.profile-panel .profile-grid{grid-template-columns:1fr}.profile-wide{grid-column:auto}}
+
+
+.trial-photo-field{display:grid;gap:.5rem;margin:.8rem 0 1rem;padding:1rem;border:1px dashed #d5dfd4;border-radius:10px;background:#fff}
+.trial-photo-field input{max-width:100%;font:inherit;font-size:.85rem}
+.trial-photo-preview{display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-top:.5rem}
+.trial-photo-preview img{display:block;width:min(100%,280px);max-height:260px;object-fit:contain;border-radius:10px;border:1px solid #dbe5dc;background:#f5f5ef}
