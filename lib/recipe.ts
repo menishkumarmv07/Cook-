@@ -345,7 +345,14 @@ export function buildNarrationScript(project: RecipeProject): string {
   return lines.join("\n");
 }
 
+const MAX_RECIPE_PROJECT_CHARACTERS = 2_000_000;
+const MAX_RECIPE_INGREDIENTS = 500;
+const MAX_RECIPE_STEPS = 500;
+const MAX_RECIPE_SCENES = 100;
+const MAX_RECIPE_SOURCE_REFERENCES = 100;
+
 export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
+  if (raw.length > MAX_RECIPE_PROJECT_CHARACTERS) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -370,5 +377,11 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     steps: Array.isArray(legacy.steps) ? legacy.steps : [],
   };
   if (!isRecipeProject(candidate) || !isHttpUrl(candidate.url)) return null;
+  if (
+    candidate.ingredients.length > MAX_RECIPE_INGREDIENTS ||
+    candidate.steps.length > MAX_RECIPE_STEPS ||
+    candidate.scenes.length > MAX_RECIPE_SCENES ||
+    candidate.sourceReferences.length > MAX_RECIPE_SOURCE_REFERENCES
+  ) return null;
   return candidate;
 }
