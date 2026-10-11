@@ -10,6 +10,11 @@ export type SourceReference = {
 };
 export type RecipeProject = {
   id: number;
+  trialStatus: "untested" | "tested";
+  trialRating: string;
+  trialNotes: string;
+  approved: boolean;
+  approvedAt: string;
   name: string;
   url: string;
   notes: string;
@@ -242,6 +247,11 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   if (legacy.sourceReferences !== undefined && !Array.isArray(legacy.sourceReferences)) return null;
   const candidate = {
     ...legacy,
+    trialStatus: legacy.trialStatus === "tested" ? "tested" : "untested",
+    trialRating: typeof legacy.trialRating === "string" ? legacy.trialRating : "",
+    trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
+    approved: legacy.approved === true,
+    approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
     sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences : [],
     servings: typeof legacy.servings === "string" ? legacy.servings : "",
