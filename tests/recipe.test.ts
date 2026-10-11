@@ -78,6 +78,7 @@ test("imports valid JSON exports and rejects malformed or unsafe backups", () =>
   assert.equal(parseRecipeProjectJSON("{not json"), null);
   assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, url: "javascript:alert(1)" })), null);
   assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, steps: [{ action: "malformed" }] })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, sourceReferences: "not-an-array" })), null);
 });
 
 test("imports older V1 draft exports with missing structured fields safely", () => {
