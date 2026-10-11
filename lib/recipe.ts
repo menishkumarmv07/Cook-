@@ -101,7 +101,7 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
   const seenSourceUrls = new Set<string>();
   project.sourceReferences.forEach((source, index) => {
     if (source.url.trim() && !isHttpUrl(source.url)) issues.push({ level: "error", field: `source-url-${index}`, message: `Source reference ${index + 1} must use a valid HTTP(S) URL.` });
-    const normalizedUrl = source.url.trim().replace(/\/$/, "").toLowerCase();
+    const normalizedUrl = normalizeSourceUrlForComparison(source.url);
     if (normalizedUrl && seenSourceUrls.has(normalizedUrl)) issues.push({ level: "warning", field: `source-duplicate-${index}`, message: `Source reference ${index + 1} duplicates another reference; keep distinct sources where possible.` });
     if (normalizedUrl) seenSourceUrls.add(normalizedUrl);
     if (!source.url.trim()) issues.push({ level: "warning", field: `source-url-${index}`, message: `Source reference ${index + 1} has no URL.` });
