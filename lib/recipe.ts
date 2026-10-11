@@ -165,6 +165,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
   const legacy = parsed as Record<string, unknown>;
+  if (legacy.sourceReferences !== undefined && !Array.isArray(legacy.sourceReferences)) return null;
   const candidate = {
     ...legacy,
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
