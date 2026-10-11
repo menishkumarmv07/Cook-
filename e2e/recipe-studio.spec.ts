@@ -85,7 +85,7 @@ test("navigation drawer, workspace command, and theme toggle work and persist", 
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
-  await page.getByLabel("Workspace command").fill("new recipe");
+  await page.locator("#workspace-command").fill("new recipe");
   await page.getByRole("button", { name: "Run workspace command" }).click();
   await expect(page.getByRole("heading", { name: "Start a recipe project" })).toBeVisible();
   await expect(page.locator("#workspace-command")).toHaveValue("");
@@ -241,12 +241,12 @@ test("PWA manifest and service worker support reopening the app offline after fi
   expect(await workerResponse.text()).toContain("caches.open");
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
   await page.context().setOffline(false);
 });
 
