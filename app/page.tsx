@@ -166,6 +166,19 @@ export default function Home() {
     setMessage(`Exported ${format.toUpperCase()} draft. Export does not publish or verify the recipe.`);
   }
 
+  async function copyTutorial() {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        setMessage("Clipboard access is unavailable; use Export Markdown instead.");
+        return;
+      }
+      await navigator.clipboard.writeText(tutorial);
+      setMessage("Tutorial draft copied to clipboard.");
+    } catch {
+      setMessage("Clipboard permission was not available; use Export Markdown instead.");
+    }
+  }
+
   function deleteCurrent() {
     if (!current) return;
     const remaining = projects.filter((project) => project.id !== current.id);
@@ -289,7 +302,7 @@ export default function Home() {
                 </section>
 
                 <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
-                {showTutorial && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Generated tutorial draft</h3><p className="muted">Deterministic outline using only your saved inputs. Not fact-checked, not published.</p></div><button className="secondary" type="button" onClick={() => { void navigator.clipboard?.writeText(tutorial).then(() => setMessage("Tutorial draft copied to clipboard.")).catch(() => setMessage("Clipboard permission was not available; use Export Markdown instead.")); }}>Copy text</button></div><pre>{tutorial}</pre></div>}
+                {showTutorial && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Generated tutorial draft</h3><p className="muted">Deterministic outline using only your saved inputs. Not fact-checked, not published.</p></div><button className="secondary" type="button" onClick={() => { void copyTutorial(); }}>Copy text</button></div><pre>{tutorial}</pre></div>}
                 <p className="hint">Drafts are stored in this browser on this device only. There is no owner login, cloud backup, or multi-device sync yet. Export important work regularly.</p>
               </div>
             )}
