@@ -115,3 +115,24 @@ export function buildTutorialDraft(project: RecipeProject): string {
   ];
   return lines.join("\n");
 }
+
+
+export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  const legacy = parsed as Record<string, unknown>;
+  const candidate = {
+    ...legacy,
+    sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
+    servings: typeof legacy.servings === "string" ? legacy.servings : "",
+    ingredients: Array.isArray(legacy.ingredients) ? legacy.ingredients : [],
+    steps: Array.isArray(legacy.steps) ? legacy.steps : [],
+  };
+  if (!isRecipeProject(candidate) || !isHttpUrl(candidate.url)) return null;
+  return candidate;
+}
