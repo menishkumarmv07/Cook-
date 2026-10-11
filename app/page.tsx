@@ -35,8 +35,9 @@ function migrateProject(value: unknown): RecipeProject | null {
   ) : [];
   if (Array.isArray(old.ingredients) && ingredients.length !== old.ingredients.length) return null;
   if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
-  return { id: old.id, name: old.name, url: old.url, notes: old.notes, servings: old.servings ?? "",
-    ingredients, steps, scenes };
+  return { id: old.id, name: old.name, url: old.url, notes: old.notes,
+    sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
+    servings: old.servings ?? "", ingredients, steps, scenes };
 }
 
 function makeId() {
@@ -114,6 +115,7 @@ export default function Home() {
       name: name.trim(),
       url: url.trim(),
       notes: notes.trim(),
+      sourceEvidence: "",
       servings: servings.trim(),
       ingredients: [],
       steps: [],
@@ -272,7 +274,8 @@ export default function Home() {
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
                 <div className="editor-grid">
                   <div><label htmlFor="edit-servings">Servings / yield</label><input id="edit-servings" value={current.servings} onChange={(event) => patchCurrent({ servings: event.target.value })} placeholder="e.g. 4 servings" /></div>
-                  <div><label htmlFor="edit-notes">Notes / source observations</label><textarea id="edit-notes" rows={2} value={current.notes} onChange={(event) => patchCurrent({ notes: event.target.value })} placeholder="Details to check or retain…" /></div>
+                  <div><label htmlFor="edit-notes">Recipe notes</label><textarea id="edit-notes" rows={2} value={current.notes} onChange={(event) => patchCurrent({ notes: event.target.value })} placeholder="Personal notes or details to retain…" /></div>
+                  <div><label htmlFor="edit-evidence">Manual source evidence notes</label><textarea id="edit-evidence" rows={3} value={current.sourceEvidence} onChange={(event) => patchCurrent({ sourceEvidence: event.target.value })} placeholder="For each reference, record its URL and what you actually checked (recipe text, transcript, video frames, or your own notes). The app does not verify links automatically." /></div>
                 </div>
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "" }] })}>＋ Add ingredient</button></div>
