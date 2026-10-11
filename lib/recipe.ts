@@ -156,6 +156,78 @@ export function buildTutorialDraft(project: RecipeProject): string {
 }
 
 
+
+/**
+ * Builds a narration-first script from recorded recipe data only.
+ * It flags absent timings and verification rather than filling them with guesses.
+ */
+export function buildNarrationScript(project: RecipeProject): string {
+  const recipeName = project.name.trim() || "this recipe";
+  const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
+  const lines = [
+    `# Voiceover script: ${recipeName}`,
+    "",
+    "**Status:** Script draft — not audio, not fact-checked, and not published",
+    `**Servings:** ${project.servings.trim() || "Not recorded"}`,
+    "",
+    "## Opening",
+    "ON SCREEN: Show the finished dish, then introduce the recipe.",
+    `NARRATION: Today we're making ${recipeName}. I'll walk you through the ingredients and each recorded cooking step in order.`,
+    "",
+    "## Ingredient callouts",
+    ...(project.ingredients.length
+      ? project.ingredients.map((ingredient, index) => {
+          const name = oneLine(ingredient.name);
+          const quantity = [oneLine(ingredient.amount), oneLine(ingredient.unit)].filter(Boolean).join(" ");
+          const prep = oneLine(ingredient.prep);
+          const label = name || `ingredient ${index + 1}`;
+          const narration = quantity && name
+            ? `Measure ${quantity} ${label}${prep ? `, prepared as ${prep}` : ""}.`
+            : `The quantity or name for ${label} is incomplete. Confirm it from a reliable source before filming; do not guess.`;
+          return `${index + 1}. ON SCREEN: Show ${quantity ? `${quantity} ` : ""}${label}${prep ? ` (${prep})` : ""}.\n   NARRATION: ${narration}`;
+        })
+      : ["No ingredients are recorded. Add the full ingredient list before filming."]),
+    "",
+    "## Ordered cooking narration",
+    ...(project.steps.length
+      ? project.steps.map((step, index) => {
+          const action = oneLine(step.action);
+          const duration = oneLine(step.duration);
+          const heat = oneLine(step.heat);
+          const cue = oneLine(step.cue);
+          return [
+            `### Step ${index + 1}`,
+            `ON SCREEN: ${action || "Cooking action missing — resolve before filming."}`,
+            `NARRATION: ${action ? `Step ${index + 1}: ${action}.` : `Step ${index + 1} is incomplete. Confirm the action before filming.`}`,
+            `TIMING: ${duration || "Not recorded — confirm from a reliable source; do not invent a time."}`,
+            `HEAT: ${heat || "Not recorded — check the source and method."}`,
+            `VISUAL CUE: ${cue || "Not recorded — add an observable cue if the source provides one."}`,
+            "",
+          ].join("\n");
+        })
+      : ["No cooking steps are recorded. Add the complete method in the correct order before filming."]),
+    "## Closing scene",
+    "ON SCREEN: Show the finished dish and final texture.",
+    `NARRATION: That's the recorded method for ${recipeName}. Review any unresolved details and food-safety guidance before cooking or publishing.`,
+    "TASTING: Add a reaction only after the intended tasting scene is reviewed; this generated script does not establish a real human taste test.",
+    "NUTRITION: Calories and health claims are omitted until calculated from confirmed ingredient quantities and servings.",
+    "",
+    "## Source uncertainties to resolve",
+    ...(project.sourceReferences.length
+      ? project.sourceReferences.map((source, index) =>
+          `${index + 1}. ${oneLine(source.url) || "Source URL missing"} — ${oneLine(source.notes) || "No disagreement or uncertainty notes recorded"} (manual entry; not independently verified)`)
+      : ["No structured source references recorded. The app has not fetched or verified source content."]),
+    "",
+    "## Pre-recording checks",
+    "- Confirm every ingredient name, amount, unit, and preparation note.",
+    "- Confirm missing cooking times and heat levels; don't invent details.",
+    "- Resolve source disagreements before filming.",
+    "- Verify applicable food-safety guidance from an authoritative source.",
+    "- Do not present uncalculated calories or unsupported health benefits as facts.",
+    "- This is a text script draft. It has not generated voice, animated the chef, rendered a video, or published anything.",
+  ];
+  return lines.join("\n");
+}
 export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   let parsed: unknown;
   try {
