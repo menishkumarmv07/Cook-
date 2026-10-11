@@ -11,6 +11,7 @@ import {
   type RecipeProject,
   type RecipeStep,
   type Scene,
+  type SourceReference,
 } from "@/lib/recipe";
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
@@ -37,6 +38,10 @@ function migrateProject(value: unknown): RecipeProject | null {
   if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
+    sourceReferences: Array.isArray(old.sourceReferences) ? old.sourceReferences.filter((source): source is SourceReference =>
+      typeof source === "object" && source !== null && typeof source.id === "string" && typeof source.url === "string" &&
+      ["recipe-page", "video", "transcript", "other"].includes(source.kind) && typeof source.checked === "string" && typeof source.notes === "string"
+    ) : [],
     servings: old.servings ?? "", ingredients, steps, scenes };
 }
 
@@ -116,6 +121,7 @@ export default function Home() {
       url: url.trim(),
       notes: notes.trim(),
       sourceEvidence: "",
+      sourceReferences: [],
       servings: servings.trim(),
       ingredients: [],
       steps: [],
@@ -277,6 +283,22 @@ export default function Home() {
                   <div><label htmlFor="edit-notes">Recipe notes</label><textarea id="edit-notes" rows={2} value={current.notes} onChange={(event) => patchCurrent({ notes: event.target.value })} placeholder="Personal notes or details to retain…" /></div>
                   <div><label htmlFor="edit-evidence">Manual source evidence notes</label><textarea id="edit-evidence" rows={3} value={current.sourceEvidence} onChange={(event) => patchCurrent({ sourceEvidence: event.target.value })} placeholder="For each reference, record its URL and what you actually checked (recipe text, transcript, video frames, or your own notes). The app does not verify links automatically." /></div>
                 </div>
+
+                <section className="panel source-research-panel">
+                  <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record separate references and exactly what you checked. This is a research log, not automatic link/video analysis.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "" }] })}>＋ Add source</button></div>
+                  {current.sourceReferences.length === 0 ? <p className="empty-inline">No structured references yet. Add at least two independent sources when possible.</p> : <div className="source-reference-list">{current.sourceReferences.map((source, index) => (
+                    <div className="source-reference" key={source.id}>
+                      <div className="source-reference-heading"><strong>Reference {index + 1}</strong><button className="text-button" type="button" onClick={() => patchCurrent({ sourceReferences: current.sourceReferences.filter((item) => item.id !== source.id) })}>Remove</button></div>
+                      <div className="editor-grid">
+                        <div><label htmlFor={`source-kind-${source.id}`}>Source type</label><select id={`source-kind-${source.id}`} value={source.kind} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, kind: event.target.value as SourceReference["kind"] } : item) })}><option value="recipe-page">Recipe page</option><option value="video">Video / Reel</option><option value="transcript">Transcript</option><option value="other">Other reference</option></select></div>
+                        <div><label htmlFor={`source-url-${source.id}`}>Reference URL</label><input id={`source-url-${source.id}`} type="url" inputMode="url" value={source.url} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, url: event.target.value } : item) })} placeholder="https://…" /></div>
+                        <div><label htmlFor={`source-checked-${source.id}`}>What did you actually check?</label><textarea id={`source-checked-${source.id}`} rows={2} value={source.checked} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, checked: event.target.value } : item) })} placeholder="Ingredients, quantities, method order, timings, transcript, visible actions…" /></div>
+                        <div><label htmlFor={`source-notes-${source.id}`}>Differences, uncertainty, or missing details</label><textarea id={`source-notes-${source.id}`} rows={2} value={source.notes} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, notes: event.target.value } : item) })} placeholder="Conflicting amounts, unclear step, missing timing; write 'none observed' only if checked." /></div>
+                      </div>
+                    </div>
+                  ))}</div>}
+                  <p className="warning">No source is fetched or verified automatically in this version. Never mark a recipe verified just because a URL was entered.</p>
+                </section>
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "" }] })}>＋ Add ingredient</button></div>
                 {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
