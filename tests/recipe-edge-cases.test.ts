@@ -15,6 +15,7 @@ const project: RecipeProject = {
   url: "https://example.com/recipe?source=test",
   notes: "Keep the lemon zest; don't invent missing timings.",
   sourceEvidence: "Recipe page text checked manually: ingredient list and method order.",
+  sourceReferences: [],
   servings: "3",
   ingredients: [
     { id: "i1", amount: "2", unit: "cups", name: "cooked rice", prep: "cooled" },
