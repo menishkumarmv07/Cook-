@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  buildNarrationScript,
   buildTutorialDraft,
   isHttpUrl,
   parseRecipeProjectJSON,
@@ -74,9 +75,11 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showNarration, setShowNarration] = useState(false);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
+  const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
 
@@ -137,6 +140,7 @@ export default function Home() {
     setNotes("");
     setServings("4");
     setShowTutorial(false);
+    setShowNarration(false);
     setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
@@ -167,10 +171,10 @@ export default function Home() {
     patchCurrent({ steps: reordered });
   }
 
-  function exportProject(format: "markdown" | "json") {
+  function exportProject(format: "markdown" | "json" | "narration") {
     if (!current) return;
     const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe-draft";
-    const fileContent = format === "markdown" ? tutorial : JSON.stringify({
+    const fileContent = format === "markdown" ? tutorial : format === "narration" ? narration : JSON.stringify({
       ...current,
       status: "draft",
       published: false,
@@ -182,9 +186,10 @@ export default function Home() {
         warnings: warnings.map((issue) => issue.message),
       },
     }, null, 2);
-    downloadFile(`${safeName}.${format === "json" ? "json" : "md"}`, fileContent,
-      format === "json" ? "application/json;charset=utf-8" : "text/markdown;charset=utf-8");
-    setMessage(`Exported ${format.toUpperCase()} draft. Export does not publish or verify the recipe.`);
+    const extension = format === "json" ? "json" : format === "narration" ? "txt" : "md";
+    const contentType = format === "json" ? "application/json;charset=utf-8" : format === "narration" ? "text/plain;charset=utf-8" : "text/markdown;charset=utf-8";
+    downloadFile(`${safeName}-${format === "narration" ? "narration" : "draft"}.${extension}`, fileContent, contentType);
+    setMessage(format === "narration" ? "Exported narration text. This is not generated audio and does not verify the recipe." : `Exported ${format.toUpperCase()} draft. Export does not publish or verify the recipe.`);
   }
 
   async function copyTutorial() {
@@ -197,6 +202,20 @@ export default function Home() {
       setMessage("Tutorial draft copied to clipboard.");
     } catch {
       setMessage("Clipboard permission was not available; use Export Markdown instead.");
+    }
+  }
+
+
+  async function copyNarration() {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        setMessage("Clipboard access is unavailable; use Export narration instead.");
+        return;
+      }
+      await navigator.clipboard.writeText(narration);
+      setMessage("Narration script copied. It is text only; no audio has been generated.");
+    } catch {
+      setMessage("Clipboard permission was not available; use Export narration instead.");
     }
   }
 
@@ -360,8 +379,9 @@ export default function Home() {
                   {warnings.length > 0 ? <ul className="issue-list">{warnings.map((issue, index) => <li key={`${issue.field}-${index}`}>{issue.message}</li>)}</ul> : <p>No current validation warnings.</p>}
                 </section>
 
-                <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
+                <div className="action-row"><button className="primary action-primary" type="button" onClick={() => setShowTutorial((show) => !show)}>{showTutorial ? "Hide tutorial draft" : "Generate tutorial draft"}</button><button className="primary action-primary" type="button" onClick={() => setShowNarration((show) => !show)}>{showNarration ? "Hide narration script" : "Generate narration script"}</button><button className="secondary" type="button" onClick={() => exportProject("markdown")}>Export Markdown</button><button className="secondary" type="button" onClick={() => exportProject("narration")}>Export narration (.txt)</button><button className="secondary" type="button" onClick={() => exportProject("json")}>Export JSON</button><button className="danger" type="button" onClick={deleteCurrent}>Delete this draft</button></div>
                 {showTutorial && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Generated tutorial draft</h3><p className="muted">Deterministic outline using only your saved inputs. Not fact-checked, not published.</p></div><button className="secondary" type="button" onClick={() => { void copyTutorial(); }}>Copy text</button></div><pre>{tutorial}</pre></div>}
+                {showNarration && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Structured narration script</h3><p className="muted">Generated from recorded fields only. Missing timings and unresolved sources are flagged; no voice audio is generated.</p></div><button className="secondary" type="button" onClick={() => { void copyNarration(); }}>Copy script</button></div><pre>{narration}</pre></div>}
                 <p className="hint">Drafts are stored in this browser on this device only. There is no owner login, cloud backup, or multi-device sync yet. Export important work regularly.</p>
               </div>
             )}
