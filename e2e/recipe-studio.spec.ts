@@ -65,12 +65,30 @@ test("JSON backup import restores a legacy draft and rejects unsafe source URLs"
   await expect(page.getByRole("heading", { name: "Unsafe URL draft" })).toHaveCount(0);
 });
 
-test("mobile layout exposes the intake and editor without horizontal overflow", async ({ page }) => {
+test("mobile workspace shows the screenshot-inspired home and no horizontal overflow", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Make every recipe a story." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Today's Plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Research & Trends" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Content Studio" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
   await expect(page.locator("#name")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
+});
+
+test("navigation drawer, workspace command, and theme toggle work and persist", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await expect(page.getByRole("button", { name: /Projects \/ new recipe/ })).toBeVisible();
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+  await page.locator("#workspace-command").fill("new recipe");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await expect(page.getByRole("heading", { name: "Start a recipe project" })).toBeVisible();
+  await expect(page.locator("#workspace-command")).toHaveValue("");
 });
 
 
@@ -223,12 +241,12 @@ test("PWA manifest and service worker support reopening the app offline after fi
   expect(await workerResponse.text()).toContain("caches.open");
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Make every recipe a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
   await page.context().setOffline(false);
 });
 
