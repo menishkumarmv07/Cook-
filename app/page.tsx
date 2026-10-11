@@ -146,6 +146,16 @@ export default function Home() {
     if (current) patchCurrent({ scenes: current.scenes.map((scene, i) => i === index ? { ...scene, ...patch } : scene) });
   }
 
+  function moveStep(id: string, direction: -1 | 1) {
+    if (!current) return;
+    const from = current.steps.findIndex((step) => step.id === id);
+    const to = from + direction;
+    if (from < 0 || to < 0 || to >= current.steps.length) return;
+    const reordered = [...current.steps];
+    [reordered[from], reordered[to]] = [reordered[to], reordered[from]];
+    patchCurrent({ steps: reordered });
+  }
+
   function exportProject(format: "markdown" | "json") {
     if (!current) return;
     const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe-draft";
@@ -280,7 +290,7 @@ export default function Home() {
                 <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "" }] })}>＋ Add step</button></div>
                 {current.steps.length === 0 ? <p className="empty-inline">No method steps yet. Add steps in the exact order they happen.</p> : <div className="step-list">{current.steps.map((step, index) => (
                   <div className="recipe-step" key={step.id}>
-                    <div className="recipe-step-top"><span className="row-number">STEP {index + 1}</span><button className="text-button" type="button" onClick={() => patchCurrent({ steps: current.steps.filter((x) => x.id !== step.id) })}>Remove</button></div>
+                    <div className="recipe-step-top"><span className="row-number">STEP {index + 1}</span><div className="step-controls"><button className="text-button" type="button" disabled={index === 0} onClick={() => moveStep(step.id, -1)} aria-label={`Move step ${index + 1} up`}>↑ Move up</button><button className="text-button" type="button" disabled={index === current.steps.length - 1} onClick={() => moveStep(step.id, 1)} aria-label={`Move step ${index + 1} down`}>↓ Move down</button><button className="text-button" type="button" onClick={() => patchCurrent({ steps: current.steps.filter((x) => x.id !== step.id) })}>Remove</button></div></div>
                     <label htmlFor={`action-${step.id}`}>Action / instruction</label><textarea id={`action-${step.id}`} rows={2} value={step.action} onChange={(event) => patchStep(step.id, { action: event.target.value })} placeholder="What exactly happens in this step?" />
                     <div className="step-fields">
                       <div><label htmlFor={`duration-${step.id}`}>Timing</label><input id={`duration-${step.id}`} value={step.duration} onChange={(event) => patchStep(step.id, { duration: event.target.value })} placeholder="e.g. 5 minutes" /></div>
