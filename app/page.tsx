@@ -94,7 +94,7 @@ function buildSharePack(project: RecipeProject, profile: CreatorProfile): string
     "",
     "CREATOR PROFILE GUIDANCE (saved locally; apply while editing; this is not an AI-generated translation)",
     ...voiceNotes,
-    `Sample captions in creator voice:\\n${profile.sampleCaptions.trim() || "No sample captions supplied yet."}`,
+    `Sample captions in creator voice:\n${profile.sampleCaptions.trim() || "No sample captions supplied yet."}`,
     "",
     "HOOK OPTIONS",
     ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
@@ -332,6 +332,7 @@ export default function Home() {
     const safeName = current.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "recipe-draft";
     const fileContent = format === "markdown" ? tutorial : JSON.stringify({
       ...current,
+      creatorProfile: profile,
       status: "draft",
       published: false,
       exportedAt: new Date().toISOString(),
@@ -382,7 +383,13 @@ export default function Home() {
 
   async function importProject(file: File) {
     try {
-      const imported = parseRecipeProjectJSON(await file.text());
+      const rawText = await file.text();
+      const parsedBackup: unknown = JSON.parse(rawText);
+      if (typeof parsedBackup === "object" && parsedBackup !== null && "creatorProfile" in parsedBackup) {
+        const importedProfile = (parsedBackup as { creatorProfile?: unknown }).creatorProfile;
+        if (isCreatorProfile(importedProfile)) setProfile(importedProfile);
+      }
+      const imported = parseRecipeProjectJSON(rawText);
       if (!imported) {
         setMessage("That file is not a valid Cooking Creator JSON draft, or it contains an invalid source URL. Nothing was imported.");
         return;
