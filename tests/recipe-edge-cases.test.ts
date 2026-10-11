@@ -14,6 +14,7 @@ const project: RecipeProject = {
   name: "Lemon rice",
   url: "https://example.com/recipe?source=test",
   notes: "Keep the lemon zest; don't invent missing timings.",
+  sourceEvidence: "Recipe page text checked manually: ingredient list and method order.",
   servings: "3",
   ingredients: [
     { id: "i1", amount: "2", unit: "cups", name: "cooked rice", prep: "cooled" },
@@ -57,6 +58,7 @@ test("validation separates blocking errors from incomplete-recipe warnings", () 
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "duration-1"));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source"));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "safety"));
+  assert.ok(issues.some((issue) => issue.field === "source" && /not been independently checked/.test(issue.message)));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "nutrition"));
 });
 
@@ -68,6 +70,9 @@ test("tutorial export preserves ingredient and step order and marks missing timi
   assert.match(draft, /Fold in the rice \(timing not provided\)/);
   assert.match(draft, /Keep the lemon zest; don't invent missing timings\./);
   assert.match(draft, /Draft — not published/);
+  assert.match(draft, /## Source evidence notes/);
+  assert.match(draft, /Recipe page text checked manually/);
+  assert.match(draft, /Manual source evidence notes are user-provided and have not been independently verified/);
   assert.match(draft, /Food safety and nutrition have not been independently verified/);
 });
 

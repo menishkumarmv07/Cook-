@@ -14,6 +14,7 @@ const base: RecipeProject = {
   name: "Tomato pasta",
   url: "",
   notes: "Keep the pasta water.",
+  sourceEvidence: "",
   servings: "2",
   ingredients: [{ id: "i1", amount: "200", unit: "g", name: "pasta", prep: "dry" }],
   steps: [{ id: "s1", action: "Boil pasta", duration: "10 minutes", heat: "boiling", cue: "Pasta is tender" }],
