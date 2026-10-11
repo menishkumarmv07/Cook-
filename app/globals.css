@@ -7,6 +7,7 @@ html{scroll-padding-top:18px}
 button:focus-visible,a:focus-visible{outline:3px solid #a7c779;outline-offset:3px}
 button:disabled{opacity:.55;cursor:not-allowed}
 .editor-grid{display:grid;grid-template-columns:.7fr 1.3fr;gap:14px;margin:18px 0}
+.editor-grid>div:last-child{grid-column:1/-1}
 .subsection-head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin:24px 0 12px}
 .subsection-head h3{font-size:15px;margin:0 0 5px}
 .subsection-head .muted{margin:0}
