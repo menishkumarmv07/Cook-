@@ -178,3 +178,36 @@ test("narration script blocks incomplete ingredient names and quantities", () =>
   assert.match(script, /No cooking steps have been recorded/);
   assert.match(script, /Missing ingredient names, quantities, actions, or timings must be completed/);
 });
+
+test("narration script carries manual source uncertainty and keeps voice/video claims honest", () => {
+  const script = buildNarrationScript({
+    ...base,
+    sourceEvidence: "Compared the ingredient lists; oil quantity differs.",
+    sourceReferences: [
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredient list and timing", notes: "Oil quantity differs" },
+      { id: "r2", url: "https://example.org/video", kind: "video", checked: "Visible cooking order", notes: "Exact temperature is unclear" },
+    ],
+    steps: [
+      { id: "s1", action: "Toast the spices", duration: "30 seconds", heat: "medium", cue: "Fragrant, not smoking" },
+    ],
+  });
+  assert.match(script, /Servings:\*\* 2/);
+  assert.ok(script.indexOf("https://example.com/recipe") < script.indexOf("https://example.org/video"));
+  assert.match(script, /Ingredient list and timing/);
+  assert.match(script, /Oil quantity differs/);
+  assert.match(script, /Exact temperature is unclear/);
+  assert.match(script, /manual entry; not independently verified/);
+  assert.match(script, /Manual source evidence notes: Compared the ingredient lists; oil quantity differs/);
+  assert.match(script, /Use medium heat/);
+  assert.match(script, /Look for this cue: Fragrant, not smoking/);
+  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /has not generated voice, animated the chef, rendered a video, or published anything/);
+});
+
+test("narration script makes empty ingredient and method states explicit", () => {
+  const script = buildNarrationScript({ ...base, ingredients: [], steps: [], sourceReferences: [] });
+  assert.match(script, /No ingredients are recorded/);
+  assert.match(script, /No cooking steps have been recorded/);
+  assert.match(script, /app has not fetched or verified source content/);
+  assert.match(script, /Nutrition and calories have not been calculated/);
+});
