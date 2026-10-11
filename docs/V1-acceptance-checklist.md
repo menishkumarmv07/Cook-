@@ -6,16 +6,18 @@
 
 ## A. Automated checks
 
-Run npm run check from the repository root. This runs the test suite, ESLint, TypeScript checking, and the Next.js production build in sequence.
+Run npm run check from the repository root. This runs the unit tests, ESLint, TypeScript checking, and production build. GitHub Actions additionally installs Chromium and runs `npm run e2e` against the production build.
 
 - [ ] Unit tests pass.
 - [ ] ESLint passes with no errors.
 - [ ] TypeScript check passes.
 - [ ] Production build passes.
+- [ ] Playwright desktop browser workflow passes (create/edit/reorder/reload/export and JSON import safety cases).
+- [ ] Playwright mobile-sized layout check passes without horizontal overflow.
 - [ ] GitHub Actions result is green for the exact commit being reviewed.
 - [ ] Record commit SHA, run URL, date, and any warnings.
 
-**Current state:** configured; this checklist does not claim any of these checks have passed. CI must confirm the result.
+**Current state:** automated CI has passed on earlier commits; re-check the latest Actions run for the exact current commit before marking this section complete. The real Android Chrome manual section remains not tested.
 
 ## B. Android Chrome manual test
 
@@ -34,6 +36,10 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Tutorial preview preserves ingredient and step order and clearly says it is a draft.
 - [ ] Export Markdown and open the file; check text and order.
 - [ ] Export JSON and check the file parses and keeps verification flags false.
+- [ ] Import a valid JSON backup and confirm its recipe details restore.
+- [ ] Import a legacy V1 JSON backup and confirm missing fields default safely.
+- [ ] Import malformed JSON and a JSON draft with a `javascript:` URL; confirm it is rejected without adding a project.
+- [ ] Reorder two cooking steps and confirm tutorial preview/export preserves the new order.
 - [ ] Copy action either works or presents a useful fallback message.
 - [ ] Reload the page; saved drafts restore on the same browser/device.
 - [ ] Delete one test draft and confirm the other drafts remain.
