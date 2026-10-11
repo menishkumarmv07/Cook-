@@ -123,3 +123,30 @@ test("malformed saved source-reference records are skipped with a visible warnin
   await expect(page.getByRole("status")).toContainText("Some saved data was invalid and was skipped");
   await expect(page.getByRole("heading", { name: "Corrupt saved draft" })).toHaveCount(0);
 });
+
+
+test("narration script preserves recipe order and flags missing timing before recording", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#name").fill("Lemon rice");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("2");
+  await page.getByLabel("Ingredient 1 unit").fill("cups");
+  await page.getByLabel("Ingredient 1 name").fill("cooked rice");
+  await page.getByLabel("Ingredient 1 prep").fill("cooled");
+
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Warm the pan");
+  await page.getByLabel("Timing").nth(0).fill("1 minute");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(1).fill("Fold in the rice");
+
+  await page.getByRole("button", { name: "Generate narration script" }).click();
+  const preview = page.locator(".narration-preview pre");
+  await expect(preview).toContainText("Prepare 2 cups cooked rice, cooled.");
+  await expect(preview).toContainText("Step 1: Warm the pan. The recorded timing is 1 minute.");
+  await expect(preview).toContainText("Step 2: Fold in the rice.");
+  await expect(preview).toContainText("timing is missing; confirm it rather than guessing");
+  await expect(preview).toContainText("Nutrition and calories have not been calculated");
+});
