@@ -242,8 +242,12 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
 });
 
 
-test("creator profile schema accepts complete defaults and rejects malformed values", () => {
+test("creator profile defaults support the US-first workflow and remain editable", () => {
+  assert.equal(DEFAULT_CREATOR_PROFILE.language, "English");
+  assert.equal(DEFAULT_CREATOR_PROFILE.units, "US customary");
+  assert.match(DEFAULT_CREATOR_PROFILE.platforms, /YouTube Shorts/);
   assert.equal(isCreatorProfile(DEFAULT_CREATOR_PROFILE), true);
+  assert.equal(isCreatorProfile({ ...DEFAULT_CREATOR_PROFILE, units: "Metric" }), true);
   assert.equal(isCreatorProfile({ ...DEFAULT_CREATOR_PROFILE, tone: 7 }), false);
   assert.equal(isCreatorProfile(null), false);
 });
