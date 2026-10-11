@@ -5,10 +5,13 @@ import type { FormEvent } from "react";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  DEFAULT_CREATOR_PROFILE,
+  isCreatorProfile,
   isHttpUrl,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
+  type CreatorProfile,
   type Ingredient,
   type RecipeProject,
   type RecipeStep,
@@ -17,6 +20,7 @@ import {
 } from "@/lib/recipe";
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
+const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 
 function migrateProject(value: unknown): RecipeProject | null {
   if (typeof value !== "object" || value === null) return null;
@@ -58,8 +62,23 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function buildSharePack(project: RecipeProject): string {
+function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
+  const tone = profile.tone.trim() || DEFAULT_CREATOR_PROFILE.tone;
+  const voiceNotes = [
+    `Tone: ${tone}`,
+    `Language preference: ${profile.language || "English"}`,
+    `Cuisine focus: ${profile.cuisineFocus || "Not specified"}`,
+    `Audience skill level: ${profile.skillLevel || "Not specified"}`,
+    `Equipment: ${profile.equipment || "Not specified"}`,
+    `Budget: ${profile.budget || "Not specified"}`,
+    `Diet/allergy constraints to check: ${profile.dietLimits || "None recorded; ask/check before making suitability claims"}`,
+    `Units: ${profile.units || "Not specified"}`,
+    `Usual cooking-time target: ${profile.usualCookingTime || "Not specified"}`,
+    `Target platforms: ${profile.platforms || "Not specified"}`,
+    `Catchphrases: ${profile.catchphrases || "None recorded"}`,
+    `Never-say list: ${profile.neverSay || "None recorded"}`,
+  ];
   const hashtags = ["#Cooking", "#EasyRecipes", "#FoodTok", "#HomeCooking", "#RecipeIdeas"];
   const hooks = [
     `Here's how to make ${slug} step by step.`,
@@ -73,6 +92,10 @@ function buildSharePack(project: RecipeProject): string {
     `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
     `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
     "",
+    "CREATOR PROFILE GUIDANCE (saved locally; apply while editing; this is not an AI-generated translation)",
+    ...voiceNotes,
+    `Sample captions in creator voice:\\n${profile.sampleCaptions.trim() || "No sample captions supplied yet."}`,
+    "",
     "HOOK OPTIONS",
     ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
     "",
@@ -80,7 +103,7 @@ function buildSharePack(project: RecipeProject): string {
     buildNarrationScript(project),
     "",
     "CAPTION DRAFT",
-    `Cook along with this ${slug} tutorial. Follow the recorded ingredients and steps, and adjust only after checking the recipe carefully. Save this post for later.`,
+    `${tone.toLowerCase().includes("professional") ? "Follow this step-by-step" : tone.toLowerCase().includes("energetic") ? "Let’s make" : "Come cook"} ${slug}${tone.toLowerCase().includes("professional") ? " tutorial" : ""}. Follow the recorded ingredients and steps, and save this post for later.`,
     "",
     hashtags.join(" "),
     "",
@@ -115,6 +138,7 @@ export default function Home() {
   const [notes, setNotes] = useState("");
   const [servings, setServings] = useState("4");
   const [projects, setProjects] = useState<RecipeProject[]>([]);
+  const [profile, setProfile] = useState<CreatorProfile>(DEFAULT_CREATOR_PROFILE);
   const [active, setActive] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [hydrated, setHydrated] = useState(false);
@@ -138,6 +162,16 @@ export default function Home() {
 
   useEffect(() => {
     try {
+      const rawProfile = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+      if (rawProfile) {
+        const parsedProfile: unknown = JSON.parse(rawProfile);
+        if (isCreatorProfile(parsedProfile)) setProfile(parsedProfile);
+        else setMessage("Saved creator profile was invalid; default profile loaded.");
+      }
+    } catch {
+      setMessage("Saved creator profile could not be read; default profile loaded.");
+    }
+    try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed: unknown = JSON.parse(raw);
@@ -154,6 +188,15 @@ export default function Home() {
       setHydrated(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    } catch {
+      setMessage("Creator profile could not be saved. Export/record the profile details before leaving this browser.");
+    }
+  }, [profile, hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -202,6 +245,8 @@ export default function Home() {
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  function patchProfile(patch: Partial<CreatorProfile>) { setProfile((existing) => ({ ...existing, ...patch })); }
+
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
     const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
@@ -234,7 +279,7 @@ export default function Home() {
       setMessage("Approve this content pack first. Nothing is posted automatically.");
       return;
     }
-    const text = buildSharePack(current);
+    const text = buildSharePack(current, profile);
     try {
       if (typeof navigator.share === "function") {
         await navigator.share({ title: `${current.name} — Cooking Creator pack`, text });
