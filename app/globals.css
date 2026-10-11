@@ -264,3 +264,42 @@ footer { color: #929791; }
   html { scroll-behavior: auto; }
   *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+
+/* Manual evidence-backed nutrition worksheet */
+.ingredient-list { gap: 12px; }
+.ingredient-card { min-width: 0; border: 1px solid #edf0e8; border-radius: 11px; padding: 8px; background: #fff; }
+.ingredient-card .ingredient-row { border: 0; padding: 2px; }
+.ingredient-nutrition { margin: 7px 1px 0; border-top: 1px solid #eff0ec; padding-top: 8px; }
+.ingredient-nutrition summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; padding: 6px 3px; color: #303630; font-size: 11px; font-weight: 700; }
+.ingredient-nutrition summary span { font-size: 9px; font-weight: 500; color: #8d938d; text-align: right; }
+.ingredient-nutrition .hint { margin: 7px 3px 12px; }
+.nutrition-fields { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 0 3px 7px; }
+.nutrition-fields>div { min-width: 0; }
+.nutrition-fields label { margin: 8px 0 6px; line-height: 1.4; font-size: 10px; }
+.nutrition-fields input { min-width: 0; font-size: 11px; }
+.nutrition-wide { grid-column: 1/-1; }
+.nutrition-summary { margin-top: 20px; padding: 17px; border: 1px solid #e6e9e2; border-radius: 13px; background: #fbfcf8; }
+.nutrition-summary .subsection-head { margin: 0 0 12px; }
+.nutrition-summary .subsection-head .muted { margin: 0; max-width: 480px; }
+.nutrition-result { display: grid; gap: 6px; padding: 16px; border: 1px solid #e3e7dd; border-radius: 12px; background: #fff; }
+.nutrition-result>strong { color: #19221b; font-size: 24px; letter-spacing: -.4px; }
+.nutrition-result>strong small { font-size: 11px; font-weight: 500; color: #757e75; letter-spacing: 0; }
+.nutrition-result>span { font-size: 11px; color: #737c73; }
+.nutrition-macros { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.nutrition-macros span { padding: 6px 8px; border: 1px solid #e7e9e3; border-radius: 8px; color: #414941; background: #f8f9f5; font-size: 10px; }
+.nutrition-summary a { color: #3e6747; text-underline-offset: 2px; }
+[data-theme="dark"] .ingredient-card { background: #191c18; border-color: #343930; }
+[data-theme="dark"] .ingredient-nutrition { border-color: #343930; }
+[data-theme="dark"] .ingredient-nutrition summary { color: #f1f2ed; }
+[data-theme="dark"] .nutrition-summary { background: #191c18; border-color: #343930; color: #f1f2ed; }
+[data-theme="dark"] .nutrition-result { background: #20241e; border-color: #3a3f36; }
+[data-theme="dark"] .nutrition-result>strong { color: #f1f2ed; }
+[data-theme="dark"] .nutrition-result>strong small,[data-theme="dark"] .nutrition-result>span { color: #b0b6ae; }
+[data-theme="dark"] .nutrition-macros span { background: #252a23; border-color: #3a3f36; color: #e1e4dc; }
+@media(max-width:700px) {
+  .nutrition-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+  .nutrition-wide { grid-column: 1/-1; }
+  .ingredient-card { padding: 6px; }
+  .ingredient-nutrition summary { align-items: flex-start; }
+}
