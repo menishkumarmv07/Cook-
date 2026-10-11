@@ -42,7 +42,6 @@ button:disabled{opacity:.55;cursor:not-allowed}
 
 .step-controls{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end}.step-controls .text-button{padding:5px;font-size:10px}.step-controls .text-button:disabled{color:#b6bcb3;cursor:not-allowed}
 
-
 /* Structured source research log */
 .source-research-panel{margin:1.25rem 0;padding:1.1rem;border:1px solid #dbe5dc;background:#fdfefb}
 .source-reference-list{display:grid;gap:1rem;margin-top:1rem}
