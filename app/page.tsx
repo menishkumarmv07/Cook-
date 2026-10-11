@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   buildNarrationScript,
@@ -159,7 +159,7 @@ export default function Home() {
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!menuOpen) return;
     drawerCloseRef.current?.focus();
     function handleDrawerKeydown(event: KeyboardEvent) {
