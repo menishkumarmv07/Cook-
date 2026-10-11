@@ -37,10 +37,14 @@ function migrateProject(value: unknown): RecipeProject | null {
     typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.amount === "string" &&
     typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string"
   ) : [];
-  const steps = Array.isArray(old.steps) ? old.steps.filter((x): x is RecipeStep =>
+  const steps = Array.isArray(old.steps) ? old.steps.filter((x) =>
     typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.action === "string" &&
-    typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string"
-  ) : [];
+    typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string" &&
+    (x.ingredientIds === undefined || (Array.isArray(x.ingredientIds) && x.ingredientIds.every((id) => typeof id === "string")))
+  ).map((value) => {
+    const step = value as RecipeStep;
+    return { ...step, ingredientIds: Array.isArray(step.ingredientIds) ? step.ingredientIds : [] };
+  }) : [];
   if (Array.isArray(old.ingredients) && ingredients.length !== old.ingredients.length) return null;
   if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
   if (old.sourceReferences !== undefined && !Array.isArray(old.sourceReferences)) return null;
@@ -730,15 +734,26 @@ export default function Home() {
                     <input aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => patchIngredient(item.id, { unit: event.target.value })} placeholder="Unit (g, cup, pieces)" />
                     <input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => patchIngredient(item.id, { name: event.target.value })} placeholder="Ingredient name" />
                     <input aria-label={`Ingredient ${index + 1} prep`} value={item.prep} onChange={(event) => patchIngredient(item.id, { prep: event.target.value })} placeholder="Prep (chopped…)" />
-                    <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id) })}>×</button>
+                    <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id), steps: current.steps.map((step) => ({ ...step, ingredientIds: step.ingredientIds.filter((id) => id !== item.id) })) })}>×</button>
                   </div>
                 ))}</div>}
 
-                <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "" }] })}>＋ Add step</button></div>
+                <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "", ingredientIds: [] }] })}>＋ Add step</button></div>
                 {current.steps.length === 0 ? <p className="empty-inline">No method steps yet. Add steps in the exact order they happen.</p> : <div className="step-list">{current.steps.map((step, index) => (
                   <div className="recipe-step" key={step.id}>
                     <div className="recipe-step-top"><span className="row-number">STEP {index + 1}</span><div className="step-controls"><button className="text-button" type="button" disabled={index === 0} onClick={() => moveStep(step.id, -1)} aria-label={`Move step ${index + 1} up`}>↑ Move up</button><button className="text-button" type="button" disabled={index === current.steps.length - 1} onClick={() => moveStep(step.id, 1)} aria-label={`Move step ${index + 1} down`}>↓ Move down</button><button className="text-button" type="button" onClick={() => patchCurrent({ steps: current.steps.filter((x) => x.id !== step.id) })}>Remove</button></div></div>
                     <label htmlFor={`action-${step.id}`}>Action / instruction</label><textarea id={`action-${step.id}`} rows={2} value={step.action} onChange={(event) => patchStep(step.id, { action: event.target.value })} placeholder="What exactly happens in this step?" />
+                    <fieldset className="step-ingredient-links">
+                      <legend>Ingredients added in this step</legend>
+                      <p className="hint">Select ingredients that are actually added or handled here. Leave this blank for steps that only heat, wait, rest, or plate—and resolve ingredient coverage warnings before approving.</p>
+                      {current.ingredients.length === 0 ? <p className="empty-inline">Add ingredients above before linking them to this step.</p> : <div className="ingredient-link-list">{current.ingredients.map((ingredient) => {
+                        const label = [ingredient.amount, ingredient.unit, ingredient.name].filter(Boolean).join(" ").trim() || "Unnamed ingredient";
+                        return <label className="ingredient-link-option" key={ingredient.id}>
+                          <input type="checkbox" checked={step.ingredientIds.includes(ingredient.id)} onChange={(event) => patchStep(step.id, { ingredientIds: event.target.checked ? [...step.ingredientIds, ingredient.id] : step.ingredientIds.filter((id) => id !== ingredient.id) })} />
+                          <span>{label}{ingredient.prep.trim() ? <small>{ingredient.prep}</small> : null}</span>
+                        </label>;
+                      })}</div>}
+                    </fieldset>
                     <div className="step-fields">
                       <div><label htmlFor={`duration-${step.id}`}>Timing</label><input id={`duration-${step.id}`} value={step.duration} onChange={(event) => patchStep(step.id, { duration: event.target.value })} placeholder="e.g. 5 minutes" /></div>
                       <div><label htmlFor={`heat-${step.id}`}>Heat / setting</label><input id={`heat-${step.id}`} value={step.heat} onChange={(event) => patchStep(step.id, { heat: event.target.value })} placeholder="e.g. medium heat" /></div>
