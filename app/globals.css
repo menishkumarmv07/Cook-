@@ -41,3 +41,14 @@ button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:700px){.editor-grid{grid-template-columns:1fr;gap:4px}.subsection-head{align-items:flex-start;flex-wrap:wrap}.ingredient-row{grid-template-columns:25px 1fr 1fr 32px;gap:6px}.ingredient-row input:nth-of-type(3),.ingredient-row input:nth-of-type(4){grid-column:span 2}.step-fields{grid-template-columns:1fr}.step-fields .cue-field{grid-column:auto}.action-row .primary{flex:1 1 100%}.tutorial-preview{padding:11px}}
 
 .step-controls{display:flex;align-items:center;gap:3px;flex-wrap:wrap;justify-content:flex-end}.step-controls .text-button{padding:5px;font-size:10px}.step-controls .text-button:disabled{color:#b6bcb3;cursor:not-allowed}
+
+
+/* Structured source research log */
+.source-research-panel{margin:1.25rem 0;padding:1.1rem;border:1px solid #dbe5dc;background:#fdfefb}
+.source-reference-list{display:grid;gap:1rem;margin-top:1rem}
+.source-reference{padding:1rem;border:1px solid #e0e7df;border-radius:12px;background:#fff}
+.source-reference-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.8rem}
+.source-reference-heading strong{font-size:.9rem;color:#234c39}
+.source-reference .editor-grid{margin-top:.4rem}
+.text-button{border:0;background:transparent;color:#8a3d30;text-decoration:underline;padding:.35rem;cursor:pointer;font:inherit;font-size:.85rem}
+@media(max-width:640px){.source-reference{padding:.75rem}.source-reference-heading{align-items:flex-start}}
