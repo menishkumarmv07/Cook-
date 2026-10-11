@@ -5,9 +5,11 @@ import type { FormEvent } from "react";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  createCreatorWorkspaceBackupJSON,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
   isHttpUrl,
+  parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
@@ -22,6 +24,8 @@ import {
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
+const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
+const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
 function migrateProject(value: unknown): RecipeProject | null {
   if (typeof value !== "object" || value === null) return null;
@@ -507,6 +511,16 @@ export default function Home() {
     setMessage("Exported narration script. Export does not publish or verify the recipe.");
   }
 
+  function exportWorkspaceBackup() {
+    if (projects.length === 0) {
+      setMessage("There are no recipe drafts to back up yet.");
+      return;
+    }
+    const backup = createCreatorWorkspaceBackupJSON(projects, profile);
+    downloadFile("cooking-creator-workspace-backup.json", backup, "application/json;charset=utf-8");
+    setMessage(`Exported ${projects.length} recipe draft(s) and the creator profile as a local workspace backup. Nothing was uploaded.`);
+  }
+
   async function copyTutorial() {
     try {
       if (!navigator.clipboard?.writeText) {
@@ -534,23 +548,67 @@ export default function Home() {
   }
 
   async function importProject(file: File) {
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setMessage("That backup is larger than 15 MB. Nothing was imported; export smaller groups of drafts or remove large trial photos first.");
+      return;
+    }
     try {
       const rawText = await file.text();
-      const parsedBackup: unknown = JSON.parse(rawText);
-      if (typeof parsedBackup === "object" && parsedBackup !== null && "creatorProfile" in parsedBackup) {
-        const importedProfile = (parsedBackup as { creatorProfile?: unknown }).creatorProfile;
-        if (isCreatorProfile(importedProfile)) setProfile(importedProfile);
-      }
-      const imported = parseRecipeProjectJSON(rawText);
-      if (!imported) {
-        setMessage("That file is not a valid Cooking Creator JSON draft, or it contains an invalid source URL. Nothing was imported.");
+      let parsedInput: unknown;
+      try {
+        parsedInput = JSON.parse(rawText);
+      } catch {
+        setMessage("The JSON file is malformed. Nothing was imported.");
         return;
       }
+
+      const workspaceBackup = parseCreatorWorkspaceBackupJSON(rawText);
+      if (workspaceBackup) {
+        const estimatedStoredCharacters = JSON.stringify(workspaceBackup.projects).length;
+        if (estimatedStoredCharacters > MAX_SAFE_LOCAL_DRAFT_CHARACTERS) {
+          setMessage("This workspace backup is too large to restore safely into browser storage. Nothing was changed; keep the archive and export smaller groups of drafts.");
+          return;
+        }
+        if (!window.confirm(`Restore ${workspaceBackup.projects.length} recipe draft(s) and the creator profile? This replaces all current local drafts and the saved profile in this browser. Export your current work first if you want to keep it.`)) {
+          setMessage("Workspace restore was cancelled. Your current drafts and profile were not changed.");
+          return;
+        }
+        const idBase = Date.now();
+        const restoredProjects = workspaceBackup.projects.map((project, index) => ({ ...project, id: idBase + index }));
+        setProjects(restoredProjects);
+        setProfile(workspaceBackup.creatorProfile);
+        setActive(restoredProjects[0]?.id ?? null);
+        setShowTutorial(false);
+        setShowNarration(false);
+        setShowContentPack(false);
+        setMessage(`Restored ${restoredProjects.length} recipe draft(s) and the creator profile from the workspace backup. Sources, food safety and nutrition remain unverified.`);
+        document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        return;
+      }
+
+      const imported = parseRecipeProjectJSON(rawText);
+      if (!imported) {
+        setMessage("That file is not a valid Cooking Creator JSON draft or workspace backup, or it contains an invalid source URL. Nothing was imported.");
+        return;
+      }
+
       const restored: RecipeProject = { ...imported, id: Date.now() };
-      setProjects((existing) => [restored, ...existing]);
+      const combinedProjects = [restored, ...projects];
+      if (JSON.stringify(combinedProjects).length > MAX_SAFE_LOCAL_DRAFT_CHARACTERS) {
+        setMessage("This import would make local drafts too large for a safe browser-storage estimate. Nothing was imported; export a backup and remove large trial photos or old drafts first.");
+        return;
+      }
+
+      const importedProfile = typeof parsedInput === "object" && parsedInput !== null && "creatorProfile" in parsedInput
+        ? (parsedInput as { creatorProfile?: unknown }).creatorProfile
+        : undefined;
+      if (isCreatorProfile(importedProfile)) setProfile(importedProfile);
+      setProjects(combinedProjects);
       setActive(restored.id);
       setShowTutorial(false);
-      setMessage("JSON draft imported into this browser. Review all source, safety, and nutrition warnings before using it.");
+      setShowNarration(false);
+      setShowContentPack(false);
+      setMessage("JSON recipe draft imported into this browser. Review all source, safety, and nutrition warnings before using it.");
       document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
       setMessage("The JSON file could not be read. Nothing was imported.");
@@ -672,9 +730,9 @@ export default function Home() {
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
                 <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
                 <button className="primary" type="submit">Create recipe draft　→</button>
-                <label htmlFor="import-backup">Import a JSON draft backup <span>OPTIONAL</span></label>
+                <label htmlFor="import-backup">Import a recipe draft or restore a workspace backup <span>OPTIONAL</span></label>
                 <input id="import-backup" type="file" accept="application/json,.json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importProject(file); }} />
-                <p className="hint">Imports a JSON draft exported by this app. Imported information is not independently verified.</p>
+                <p className="hint">A single recipe draft is added to this browser. A full workspace backup restores all included drafts and creator settings, replacing current local data only after confirmation. Imports are not independently verified and nothing is uploaded.</p>
                 {message && <p className="message" role="status">{message}</p>}
               </form>
 
@@ -786,7 +844,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>

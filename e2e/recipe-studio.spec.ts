@@ -285,3 +285,41 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   await page.locator("#import-backup").setInputFiles(path!);
   await expect(page.locator("#profile-tone")).toHaveValue("Professional and concise");
 });
+
+
+test("workspace backup exports all drafts and restores them with explicit confirmation", async ({ page }) => {
+  await page.goto("/");
+  await page.locator(".profile-panel summary").click();
+  await page.getByLabel("Voice / tone").fill("Workspace backup profile");
+  await page.locator("#name").fill("First backup recipe");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export all drafts" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-workspace-backup.json");
+  const path = await download.path();
+  expect(path).toBeTruthy();
+  const backup = JSON.parse(await readFile(path!, "utf8")) as {
+    format: string;
+    version: number;
+    projects: Array<{ name: string }>;
+    creatorProfile: { tone: string; units: string };
+  };
+  expect(backup.format).toBe("cooking-creator-workspace-backup");
+  expect(backup.version).toBe(1);
+  expect(backup.projects.map((project) => project.name)).toEqual(["First backup recipe"]);
+  expect(backup.creatorProfile.tone).toBe("Workspace backup profile");
+  expect(backup.creatorProfile.units).toBe("US customary");
+
+  await page.getByLabel("Voice / tone").fill("Changed before restore");
+  await page.locator("#name").fill("Temporary current draft");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.locator("#import-backup").setInputFiles(path!);
+
+  await expect(page.getByRole("heading", { name: "First backup recipe" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Temporary current draft" })).toHaveCount(0);
+  await expect(page.locator(".recent-item strong")).toHaveCount(1);
+  await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
+});

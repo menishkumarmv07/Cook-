@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  createCreatorWorkspaceBackupJSON,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
   isHttpUrl,
   isRecipeProject,
   normalizeSourceUrlForComparison,
+  parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
   validateRecipe,
@@ -241,6 +243,43 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
   assert.equal(restored.approvedAt, "");
 });
 
+
+test("workspace backup round-trips all drafts and profile, and rejects malformed archives", () => {
+  const second = { ...base, id: 2, name: "Lemon rice", notes: "Second draft" };
+  const exportedAt = "2026-10-12T00:00:00.000Z";
+  const backupJSON = createCreatorWorkspaceBackupJSON(
+    [base, second],
+    { ...DEFAULT_CREATOR_PROFILE, tone: "Backup profile", units: "US customary" },
+    exportedAt,
+  );
+
+  const restored = parseCreatorWorkspaceBackupJSON(backupJSON);
+  assert.ok(restored);
+  assert.equal(restored.format, "cooking-creator-workspace-backup");
+  assert.equal(restored.version, 1);
+  assert.equal(restored.exportedAt, exportedAt);
+  assert.equal(restored.creatorProfile.tone, "Backup profile");
+  assert.equal(restored.creatorProfile.units, "US customary");
+  assert.deepEqual(restored.projects.map((project) => project.name), ["Tomato pasta", "Lemon rice"]);
+  assert.equal(restored.projects[1].notes, "Second draft");
+
+  const invalidProjectBackup = JSON.stringify({
+    format: "cooking-creator-workspace-backup",
+    version: 1,
+    exportedAt,
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    projects: [{ ...base, url: "javascript:alert(1)" }],
+  });
+  assert.equal(parseCreatorWorkspaceBackupJSON(invalidProjectBackup), null);
+  assert.equal(parseCreatorWorkspaceBackupJSON(JSON.stringify({
+    format: "cooking-creator-workspace-backup",
+    version: 2,
+    exportedAt,
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    projects: [base],
+  })), null);
+  assert.equal(parseCreatorWorkspaceBackupJSON("not JSON"), null);
+});
 
 test("creator profile defaults support the US-first workflow and remain editable", () => {
   assert.equal(DEFAULT_CREATOR_PROFILE.language, "English");

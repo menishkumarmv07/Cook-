@@ -264,3 +264,12 @@ footer { color: #929791; }
   html { scroll-behavior: auto; }
   *,*::before,*::after { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
 }
+
+
+/* Workspace backup actions remain usable on narrow Android screens. */
+.backup-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.backup-actions .secondary,.backup-actions .text-button { font-size: 11px; }
+@media(max-width:600px) {
+  .backup-actions { justify-content: flex-start; width: 100%; }
+  .backup-actions button { min-height: 36px; }
+}

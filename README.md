@@ -20,7 +20,8 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Prepare-and-share workflow using the browser/Android share sheet when available, with a text download fallback. Sharing is manual; no direct platform API publishing is implemented.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
 - Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records. Service-worker caching supports reopening the shell offline after the app has first been loaded online; it does not add cloud sync.
-- JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
+- Single-recipe JSON import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
+- Whole-workspace JSON backup and restore: exports every local recipe draft plus the creator profile in one versioned archive; restore validates the entire archive, confirms before replacing current local drafts/profile, guards large files and estimated local-storage size, and leaves the archive on the user's device. This is a manual backup/restore flow, not cloud sync.
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for URL validation, data shape, warnings, draft generation, JSON backup recovery, and scene count.
 - Playwright browser tests for create/edit/reorder/reload/export, legacy JSON import and unsafe-URL rejection, plus a mobile-width overflow check.
