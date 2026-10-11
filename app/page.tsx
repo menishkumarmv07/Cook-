@@ -94,7 +94,7 @@ function buildSharePack(project: RecipeProject): string {
     project.url || "No source URL recorded.",
     "",
     "IMPORTANT: This is an editable text pack. It does not create a video, add music, upload media, or publish a post. Confirm platform-specific captions, music rights, and disclosures before sharing.",
-  ].join("\\n");
+  ].join("\n");
 }
 
 function downloadFile(name: string, content: string, type: string) {
