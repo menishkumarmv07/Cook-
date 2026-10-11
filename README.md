@@ -12,6 +12,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Rule-based validation warnings for missing amounts, units, steps, timings, serving count, source analysis, food safety, and nutrition.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
 - Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts.
+- JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for URL validation, data shape, warnings, draft generation, and scene count.
 - GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
@@ -30,7 +31,7 @@ Open http://localhost:3000.
 
 ## Quality checks
 
-Run the complete local gate:
+Run the complete local gate (tests, lint, type-check, and production build):
 
 ```bash
 npm run check
