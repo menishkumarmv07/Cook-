@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildNarrationScript,
   buildTutorialDraft,
   isHttpUrl,
   isRecipeProject,
@@ -61,6 +62,40 @@ test("tutorial draft preserves entered ingredient, step order, and honesty notic
   assert.match(draft, /recorded timing: 10 minutes/);
   assert.match(draft, /Food safety and nutrition have not been independently verified/);
   assert.match(draft, /has not been published/);
+});
+
+
+test("narration script follows recorded order and never invents missing timing, heat, nutrition, or source verification", () => {
+  const script = buildNarrationScript({
+    ...base,
+    name: "Lemon rice",
+    ingredients: [
+      { id: "i1", amount: "2", unit: "cups", name: "cooked rice", prep: "cooled" },
+      { id: "i2", amount: "", unit: "", name: "salt", prep: "" },
+    ],
+    steps: [
+      { id: "s1", action: "Warm the pan", duration: "1 minute", heat: "medium", cue: "Pan is warm" },
+      { id: "s2", action: "Add the rice", duration: "", heat: "", cue: "" },
+    ],
+    sourceReferences: [
+      { id: "ref1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredients", notes: "Salt quantity differs" },
+    ],
+  });
+  assert.ok(script.indexOf("2 cups cooked rice") < script.indexOf("Warm the pan"));
+  assert.ok(script.indexOf("Warm the pan") < script.indexOf("Add the rice"));
+  assert.match(script, /quantity or name for salt is incomplete/i);
+  assert.match(script, /Not recorded — confirm from a reliable source; do not invent a time/);
+  assert.match(script, /Salt quantity differs/);
+  assert.match(script, /not independently verified/);
+  assert.match(script, /Calories and health claims are omitted until calculated/);
+  assert.match(script, /has not generated voice, animated the chef, rendered a video, or published anything/);
+});
+
+test("narration script handles empty ingredients and method without pretending a recipe is complete", () => {
+  const script = buildNarrationScript({ ...base, ingredients: [], steps: [] });
+  assert.match(script, /No ingredients are recorded/);
+  assert.match(script, /No cooking steps are recorded/);
+  assert.match(script, /Verify applicable food-safety guidance/);
 });
 
 test("scene template has six scenes with required headings", () => {
