@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import {
   buildNarrationScript,
@@ -150,12 +150,26 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [command, setCommand] = useState("");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleDrawerKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleDrawerKeydown);
+    return () => window.removeEventListener("keydown", handleDrawerKeydown);
+  }, [menuOpen]);
 
   useEffect(() => {
     try {
@@ -173,6 +187,12 @@ export default function Home() {
       // The app remains usable if the browser blocks local storage.
     }
   }, [theme]);
+
+  function openWorkspaceMenu() {
+    setMenuOpen(true);
+    // Wait for the drawer to become visible before moving keyboard focus.
+    window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+  }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library") {
     setMenuOpen(false);
@@ -559,7 +579,7 @@ export default function Home() {
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
         <div className="drawer-head">
           <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>CREATOR WORKSPACE</small></span></a>
-          <button className="drawer-close" type="button" aria-label="Close menu" onClick={() => setMenuOpen(false)}>×</button>
+          <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
         <p className="nav-label">WORKSPACE</p>
         <button className="nav active" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">⌂</span> Home</button>
@@ -583,7 +603,7 @@ export default function Home() {
 
       <section className="main" id="dashboard">
         <header className="top">
-          <button className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={() => setMenuOpen(true)}>☰</button>
+          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>

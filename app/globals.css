@@ -155,9 +155,9 @@ footer { color: #929791; }
   position: fixed; z-index: 120; inset: 0 auto 0 0; width: min(88vw, 322px); height: 100vh; height: 100dvh;
   min-height: 0; padding: 19px 16px 28px; overflow-y: auto; overscroll-behavior: contain;
   background: #fff; color: #171a18; border-right: 1px solid #ededeb; box-shadow: 18px 0 60px rgba(0,0,0,.13);
-  transform: translateX(-105%); visibility: hidden; transition: transform .22s ease, visibility .22s ease;
+  transform: translateX(-105%); visibility: hidden; transition: transform .22s ease, visibility 0s linear .22s;
 }
-.sidebar.is-open { transform: translateX(0); visibility: visible; }
+.sidebar.is-open { transform: translateX(0); visibility: visible; transition-delay: 0s; }
 .drawer-backdrop { position: fixed; z-index: 110; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 0; background: rgba(18,21,19,.34); cursor: pointer; }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 28px; }
 .sidebar .brand { padding: 0; min-width: 0; gap: 10px; color: #171a18; text-decoration: none; }
