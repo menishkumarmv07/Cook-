@@ -96,7 +96,7 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
     if (!source.url.trim()) issues.push({ level: "warning", field: `source-url-${index}`, message: `Source reference ${index + 1} has no URL.` });
     if (!source.checked.trim()) issues.push({ level: "warning", field: `source-checked-${index}`, message: `Record what was actually checked for source reference ${index + 1}.` });
   });
-  if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source notes and checked items are user-entered; this app has not independently fetched or verified these sources." });
+  if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source notes and checked items are user-entered and have not been independently checked; this app has not fetched or verified these sources." });
   else issues.push({ level: "warning", field: "source", message: "No source references have been recorded. Add multiple references and compare ingredient quantities, method order, and timings before treating the recipe as verified." });
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
   issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from ingredient quantities." });
