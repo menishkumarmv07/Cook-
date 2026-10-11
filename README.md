@@ -13,8 +13,10 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Structured multi-source research desk for recipe pages, videos/Reels, transcripts, and other references; captures what was checked and unresolved differences, flags invalid/duplicate URLs, and exports the evidence log without claiming independent verification.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
 - Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records.
+- JSON backup import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Delete one draft or clear all local drafts with confirmation.
-- Automated unit tests for URL validation, data shape, warnings, draft generation, and scene count.
+- Automated unit tests for URL validation, data shape, warnings, draft generation, JSON backup recovery, and scene count.
+- Playwright browser tests for create/edit/reorder/reload/export, legacy JSON import and unsafe-URL rejection, plus a mobile-width overflow check.
 - GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
 - One-command quality gate: `npm run check` runs tests, lint, type-check and the production build in sequence.
 
@@ -31,10 +33,11 @@ Open http://localhost:3000.
 
 ## Quality checks
 
-Run the complete local gate:
+Run the complete local gate (tests, lint, type-check, and production build):
 
 ```bash
 npm run check
+npm run e2e
 ```
 
 Or run each stage separately:
@@ -46,7 +49,7 @@ npm run typecheck
 npm run build
 ```
 
-The checks are configured, but do not consider them passed until the workflow or local commands actually complete successfully. The workflow does not use a lockfile yet; once CI has run successfully, commit a generated `package-lock.json` and switch CI to `npm ci` for reproducible installs.
+The GitHub Actions workflow also installs Chromium and runs the Playwright end-to-end suite against the production build. The checks are configured, but do not consider them passed until the workflow or local commands actually complete successfully. The workflow does not use a lockfile yet; once CI has run successfully, commit a generated `package-lock.json` and switch CI to `npm ci` for reproducible installs.
 
 For the Android/Chrome manual acceptance pass, follow [the V1 acceptance checklist](docs/V1-acceptance-checklist.md). Automated checks do not replace real-device testing.
 
