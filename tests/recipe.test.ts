@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  calculateRecipeNutrition,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
   isHttpUrl,
@@ -70,6 +71,68 @@ test("tutorial draft preserves entered ingredient, step order, and honesty notic
   assert.match(draft, /recorded timing: 10 minutes/);
   assert.match(draft, /Food safety and nutrition have not been independently verified/);
   assert.match(draft, /has not been published/);
+});
+
+test("nutrition calculator sums exact-amount entries and divides by a clear serving count", () => {
+  const recipe: RecipeProject = {
+    ...base,
+    servings: "2 people",
+    ingredients: [{
+      ...base.ingredients[0],
+      nutritionCalories: "700",
+      nutritionProteinG: "20",
+      nutritionCarbsG: "140",
+      nutritionFatG: "8",
+      nutritionBasis: "Values for the exact 200 g dry pasta quantity listed above",
+      nutritionSourceUrl: "https://fdc.nal.usda.gov/",
+    }],
+  };
+  const result = calculateRecipeNutrition(recipe);
+  assert.equal(result.totalCalories, 700);
+  assert.equal(result.caloriesPerServing, 350);
+  assert.equal(result.proteinGPerServing, 10);
+  assert.equal(result.carbsGPerServing, 70);
+  assert.equal(result.fatGPerServing, 4);
+  assert.deepEqual(result.missingIngredients, []);
+});
+
+test("nutrition calculator refuses missing, negative, unsourced, or ambiguous values", () => {
+  const incomplete: RecipeProject = {
+    ...base,
+    servings: "2-4",
+    ingredients: [{
+      ...base.ingredients[0],
+      nutritionCalories: "700",
+      nutritionBasis: "Per exact amount used",
+      nutritionSourceUrl: "javascript:alert(1)",
+    }],
+  };
+  const result = calculateRecipeNutrition(incomplete);
+  assert.equal(result.totalCalories, null);
+  assert.equal(result.caloriesPerServing, null);
+  assert.deepEqual(result.missingIngredients, ["pasta"]);
+
+  const invalidServingCount = calculateRecipeNutrition({
+    ...incomplete,
+    servings: "2-4",
+    ingredients: [{
+      ...incomplete.ingredients[0],
+      nutritionSourceUrl: "https://fdc.nal.usda.gov/",
+    }],
+  });
+  assert.equal(invalidServingCount.totalCalories, 700);
+  assert.equal(invalidServingCount.caloriesPerServing, null);
+
+  const negative = calculateRecipeNutrition({
+    ...base,
+    ingredients: [{
+      ...base.ingredients[0],
+      nutritionCalories: "-4",
+      nutritionBasis: "Exact amount used",
+      nutritionSourceUrl: "https://fdc.nal.usda.gov/",
+    }],
+  });
+  assert.equal(negative.totalCalories, null);
 });
 
 test("scene template has six scenes with required headings", () => {
