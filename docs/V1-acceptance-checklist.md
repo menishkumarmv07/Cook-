@@ -24,6 +24,9 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 Use a real Android phone with Chrome. Check portrait layout first, then landscape if practical.
 
 - [ ] Dashboard loads without a blank screen or visible runtime error.
+- [ ] Manifest route returns valid PWA metadata and app icon.
+- [ ] After one successful online visit and service-worker activation, reload in offline mode and confirm the cached app shell opens.
+- [ ] From Android Chrome, use the browser menu's Install app / Add to Home screen option if offered; verify the installed icon and standalone launch. Record if Chrome does not offer installation.
 - [ ] Main navigation links scroll to the correct sections.
 - [ ] Recipe name is required; empty name shows a clear message.
 - [ ] Blank optional source URL is accepted.
