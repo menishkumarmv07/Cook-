@@ -93,6 +93,7 @@ test("imports older V1 draft exports with missing structured fields safely", () 
   assert.deepEqual(imported.ingredients, []);
   assert.deepEqual(imported.steps, []);
   assert.equal(imported.sourceEvidence, "");
+  assert.deepEqual(imported.sourceReferences, []);
 });
 
 
