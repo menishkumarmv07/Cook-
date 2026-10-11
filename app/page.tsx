@@ -223,10 +223,15 @@ export default function Home() {
       goToSection("plan");
       return;
     }
-    if (/profile|theme|settings/.test(request)) {
+    if (/theme|settings/.test(request)) {
+      setCommand("");
+      setMenuOpen(true);
+      setMessage("Use Appearance in this menu to switch the saved light/dark theme.");
+      return;
+    }
+    if (/profile/.test(request)) {
       setCommand("");
       goToSection("profile");
-      setMessage("Use Appearance in the side menu to switch the saved theme. The command bar navigates sections; it is not connected to an AI model yet.");
       return;
     }
     setMessage("This command bar navigates the current V1 workspace but is not connected to an AI model yet. Try “new recipe”, “research”, “content studio”, or “publish”.");
@@ -558,7 +563,8 @@ export default function Home() {
         </div>
         <p className="nav-label">WORKSPACE</p>
         <button className="nav active" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">⌂</span> Home</button>
-        <button className="nav" type="button" onClick={() => goToSection("profile")}><span aria-hidden="true">▧</span> Images & chef assets</button>
+        <button className="nav nav-unavailable" type="button" disabled title="An image library is planned but is not implemented in V1"><span aria-hidden="true">▧</span> Images <small>Later</small></button>
+        <button className="nav" type="button" onClick={() => goToSection("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
         <button className="nav" type="button" onClick={() => goToSection("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
         <button className="nav" type="button" onClick={() => goToSection("intake")}><span aria-hidden="true">＋</span> Projects / new recipe</button>
         <button className="nav" type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">◷</span> Publish queue</button>
