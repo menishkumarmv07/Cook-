@@ -17,7 +17,7 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 - [ ] GitHub Actions result is green for the exact commit being reviewed.
 - [ ] Record commit SHA, run URL, date, and any warnings.
 
-**Current state:** automated CI has passed on earlier commits; re-check the latest Actions run for the exact current commit before marking this section complete. The real Android Chrome manual section remains not tested.
+**Current state (12 October 2026):** GitHub Actions run #79 passed on main commit `42d7e60dbc32b59579857b3c61af5a19a59b01d7`: [run #79](https://github.com/menishkumarmv07/Cook-/actions/runs/38170646309). Re-check the latest Actions run for the exact reviewed commit before marking this section complete. The real Android Chrome manual section remains not tested.
 
 ## B. Android Chrome manual test
 
@@ -30,6 +30,10 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Manifest route returns valid PWA metadata and app icon.
 - [ ] After one successful online visit and service-worker activation, reload in offline mode and confirm the cached app shell opens.
 - [ ] From Android Chrome, use the browser menu's Install app / Add to Home screen option if offered; verify the installed icon and standalone launch. Record if Chrome does not offer installation.
+- [ ] Open the hamburger navigation drawer, use its close button and Escape key, and confirm keyboard focus returns to the menu trigger; verify the drawer traps/contains focus as designed.
+- [ ] Quick-action tiles (Today's Plan, Research & Trends, Content Studio, Publish) navigate to the intended existing sections; no unavailable feature should appear operational.
+- [ ] Switch between light and dark appearance, reload, and confirm the selected theme persists locally.
+- [ ] A fresh creator profile defaults to English and US customary units; Metric and both-unit preferences remain selectable. Existing saved preferences must not be silently overwritten.
 - [ ] Main navigation links scroll to the correct sections.
 - [ ] Recipe name is required; empty name shows a clear message.
 - [ ] Blank optional source URL is accepted.
@@ -57,8 +61,13 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] On Android Chrome, manually test the native share sheet where available and confirm choosing/cancelling a destination never causes silent publishing. If unavailable, verify the download fallback.
 - [ ] Export Markdown and open the file; check text and order.
 - [ ] Export JSON and check the file parses and keeps verification flags false.
-- [ ] Import a valid JSON backup and confirm its recipe details restore.
+- [ ] Import a valid single-recipe JSON backup and confirm its recipe details restore without silently replacing other drafts.
 - [ ] Import a legacy V1 JSON backup and confirm missing fields default safely.
+- [ ] Export all drafts and confirm the workspace JSON archive contains every current draft plus the creator profile, format/version metadata, and no upload/share side effect.
+- [ ] Restore a valid workspace archive; confirm the prompt accurately warns that all current local drafts/profile will be replaced, then confirm restoration restores all archived recipes and profile fields.
+- [ ] Cancel a workspace restore and confirm current drafts and profile remain unchanged.
+- [ ] Try a corrupted/wrong-version workspace archive and an archive containing an unsafe URL; confirm the archive is rejected atomically with no partial restore.
+- [ ] Try a backup above the file-size or estimated storage guard; confirm no existing data is replaced and the message explains the limitation.
 - [ ] Import malformed JSON and a JSON draft with a `javascript:` URL; confirm it is rejected without adding a project.
 - [ ] Reorder two cooking steps and confirm tutorial preview/export preserves the new order.
 - [ ] Copy action either works or presents a useful fallback message.
@@ -76,7 +85,8 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Create, edit, reload, export, and delete a draft.
 - [ ] Verify invalid or older local-storage data does not crash the app; confirm any skipped-data warning is understandable.
 - [ ] Confirm storage-full/unavailable messaging is visible where it can be reproduced.
-- [ ] Confirm an exported draft can be kept independently of browser storage.
+- [ ] Confirm an exported single draft and a full workspace archive can be kept independently of browser storage.
+- [ ] Confirm a full workspace restore requires confirmation, assigns fresh local draft IDs, and does not claim to add cloud sync.
 - [ ] Confirm clearing browser storage is documented as destructive and that drafts are device/browser-local only.
 
 ## D. Deployment checks (only after a Vercel project is found and linked)
