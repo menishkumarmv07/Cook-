@@ -779,6 +779,11 @@ export default function WorkspacePage() {
                 <label htmlFor="url">Video or recipe URL <span>OPTIONAL</span></label>
                 <input id="url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." />
                 <p className="hint">This saves the link only. V1 does not fetch, transcribe, or analyze linked videos.</p>
+                {url.trim() && isHttpUrl(url) && (
+                  <p className="source-open-wrap">
+                    <a className="source-open-link" href={url.trim()} target="_blank" rel="noopener noreferrer">Open source in a new tab ↗</a>
+                  </p>
+                )}
                 <label htmlFor="servings">Servings <b>*</b></label>
                 <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} required />
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
