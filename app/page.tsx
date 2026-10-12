@@ -60,7 +60,9 @@ export default function ChatHome() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [activeView, setActiveView] = useState<"chat" | "connections">("chat");
+  const [activeView, setActiveView] = useState<"chat" | "connections" | "settings">("chat");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [themeReady, setThemeReady] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
@@ -72,6 +74,26 @@ export default function ChatHome() {
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasText = draft.trim().length > 0;
+
+  useEffect(() => {
+    try {
+      const savedTheme = window.localStorage.getItem("cooking-creator-theme-v1");
+      if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
+    } catch {
+      // Light theme remains the default if browser storage is unavailable.
+    } finally {
+      setThemeReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!themeReady) return;
+    try {
+      window.localStorage.setItem("cooking-creator-theme-v1", theme);
+    } catch {
+      // Theme preference is optional; the UI remains usable without storage.
+    }
+  }, [theme, themeReady]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -220,7 +242,10 @@ export default function ChatHome() {
     }
     if (id === "settings") {
       setDrawerOpen(false);
-      setNotice("Settings will include theme and privacy controls. This first chat screen uses the requested light theme.");
+      setActiveView("settings");
+      setConnectInfo(null);
+      setNotice("");
+      return;
     }
   }
 
@@ -235,6 +260,7 @@ export default function ChatHome() {
   return (
     <main
       className="chat-app"
+      data-theme={theme}
       onTouchStart={(event) => setTouchStartX(event.touches[0]?.clientX ?? null)}
       onTouchEnd={handleTouchEnd}
     >
@@ -340,7 +366,7 @@ export default function ChatHome() {
               </form>
             </div>
           </>
-        ) : (
+        ) : activeView === "connections" ? (
           <section className="connections-view">
             <div className="connections-title-row">
               <div><p className="connections-eyebrow">ACCOUNT CONNECTIONS</p><h1>Connect your apps</h1><p>Link your creator accounts through their official sign-in and permission screens.</p></div>
@@ -372,6 +398,36 @@ export default function ChatHome() {
                 </section>
               </div>
             )}
+          </section>
+        ) : (
+          <section className="connections-view settings-view">
+            <div className="connections-title-row">
+              <div><p className="connections-eyebrow">PREFERENCES</p><h1>Settings</h1><p>Choose how the private cooking workspace looks on this device.</p></div>
+              <button className="chat-icon-button" type="button" aria-label="Back to chat" onClick={() => setActiveView("chat")}><X size={20} /></button>
+            </div>
+            <section className="settings-panel" aria-labelledby="settings-theme-title">
+              <div className="settings-panel-copy">
+                <h2 id="settings-theme-title">Appearance</h2>
+                <p>The same saved theme is used in the chat and recipe workspace.</p>
+              </div>
+              <div className="settings-theme-options" role="group" aria-label="Appearance theme">
+                <button type="button" aria-label="Use light theme" aria-pressed={theme === "light"} className={theme === "light" ? "settings-theme-choice selected" : "settings-theme-choice"} onClick={() => setTheme("light")}>
+                  <span className="theme-preview theme-preview-light" aria-hidden="true"><i /><i /><i /></span>
+                  <span>Light</span>
+                </button>
+                <button type="button" aria-label="Use dark theme" aria-pressed={theme === "dark"} className={theme === "dark" ? "settings-theme-choice selected" : "settings-theme-choice"} onClick={() => setTheme("dark")}>
+                  <span className="theme-preview theme-preview-dark" aria-hidden="true"><i /><i /><i /></span>
+                  <span>Dark</span>
+                </button>
+              </div>
+              <p className="settings-saved-note" role="status">{theme === "dark" ? "Dark theme selected. Your preference is saved in this browser." : "Light theme selected. Your preference is saved in this browser."}</p>
+            </section>
+            <section className="settings-panel" aria-labelledby="settings-privacy-title">
+              <div className="settings-panel-copy">
+                <h2 id="settings-privacy-title">Privacy basics</h2>
+                <p>Recipe drafts stay in this browser in V1. They are not encrypted or synced to a cloud account. Lock workspace ends your owner session but does not erase saved drafts.</p>
+              </div>
+            </section>
           </section>
         )}
 
