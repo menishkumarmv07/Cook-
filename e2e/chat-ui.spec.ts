@@ -62,3 +62,20 @@ test("login rejects an incorrect owner password without opening the workspace", 
   await expect(page.getByText("Password not accepted.")).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
 });
+
+test("owner logout clears the session and locks both the workspace and API", async ({ page }) => {
+  await signIn(page);
+
+  const logout = await page.evaluate(async () => {
+    const response = await fetch("/api/auth/logout", { method: "POST" });
+    return { status: response.status, body: await response.json() };
+  });
+  expect(logout.status).toBe(200);
+  expect(logout.body).toEqual({ ok: true });
+
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?from=%2F$/);
+
+  const apiStatus = await page.evaluate(async () => (await fetch("/api/recipe")).status);
+  expect(apiStatus).toBe(401);
+});
