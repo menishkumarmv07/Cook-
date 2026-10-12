@@ -157,7 +157,7 @@ test("explicit step ingredient mappings produce addition narration and warn abou
 
   const tutorial = buildTutorialDraft(recipe);
   assert.match(tutorial, /Ingredients explicitly assigned to add now: 1 cup diced onion/);
-  const issues = validateRecipe({ ...recipe, steps: [{ ...recipe.steps[0], ingredientIds: [] }] });
+  const issues = validateRecipe({ ...recipe, steps: recipe.steps.map((step) => ({ ...step, ingredientIds: [] })) });
   assert.match(issues.map((issue) => issue.message).join(" "), /Ingredients not explicitly assigned to a cooking step: diced onion, tomato paste/);
 });
 
@@ -273,7 +273,7 @@ test("narration script preserves entered ingredient and step order without inven
   assert.ok(script.indexOf("Step 1: Boil the pasta") < script.indexOf("Step 2: Drain the pasta"));
   assert.match(script, /The recorded timing is 8 minutes/);
   assert.match(script, /timing is missing; confirm it rather than guessing/i);
-  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /Only creator-selected ingredient-to-step mappings are narrated/);
   assert.match(script, /Nutrition and calories have not been calculated/);
   assert.doesNotMatch(script, /Step 2: Drain the pasta\. The recorded timing is \d+/);
 });
@@ -310,7 +310,7 @@ test("narration script carries manual source uncertainty and keeps voice/video c
   assert.match(script, /Manual source evidence notes: Compared the ingredient lists; oil quantity differs/);
   assert.match(script, /Use medium heat/);
   assert.match(script, /Look for this cue: Fragrant, not smoking/);
-  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /Only creator-selected ingredient-to-step mappings are narrated/);
   assert.match(script, /has not generated voice, animated the chef, rendered a video, or published anything/);
 });
 
