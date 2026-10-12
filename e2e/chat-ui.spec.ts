@@ -29,6 +29,29 @@ test("chat home follows the requested mobile-first layout and opens the drawer",
   await expect(page.getByRole("dialog")).toContainText("OAuth flow is not configured");
 });
 
+test("chat theme setting persists and is shared with the recipe workspace", async ({ page }) => {
+  await signIn(page);
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+
+  await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Use dark theme" }).click();
+  await expect(page.locator(".chat-app")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("status")).toContainText("Dark theme selected");
+
+  await page.reload();
+  await expect(page.locator(".chat-app")).toHaveAttribute("data-theme", "dark");
+
+  await page.goto("/workspace");
+  await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page.getByRole("button", { name: "Switch to light theme" }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
+
+  await page.goto("/");
+  await expect(page.locator(".chat-app")).toHaveAttribute("data-theme", "light");
+});
+
 test("chat accepts a video link and clearly reports current integration limits", async ({ page }) => {
   await signIn(page);
   await page.getByLabel("Ask cooking").fill("Please inspect this recipe https://youtu.be/dQw4w9WgXcQ");
