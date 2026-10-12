@@ -2,7 +2,12 @@ import { NextResponse } from "next/server";
 import { OWNER_COOKIE_NAME } from "@/lib/owner-session";
 
 export async function POST() {
-  const response = NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true }, {
+    headers: {
+      "Cache-Control": "no-store",
+      "Pragma": "no-cache",
+    },
+  });
   response.cookies.set(OWNER_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
