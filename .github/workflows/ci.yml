@@ -39,6 +39,13 @@ jobs:
         run: npm run build
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
+      - name: Owner-auth browser smoke (fast diagnostic gate)
+        # Run only auth-focused browser tests first so login regressions are diagnosed quickly.
+        env:
+          OWNER_PASSWORD: ci-test-only-owner-password-not-for-production-2026
+          AUTH_SECRET: ci-test-only-session-secret-never-use-in-production-2026
+          AUTH_TEST_DIAGNOSTICS: "1"
+        run: npx playwright test --grep "AUTH:" --workers=1
       - name: End-to-end browser tests
         # Disposable values used only by the CI test server. Never reuse in a deployment.
         env:
