@@ -227,6 +227,16 @@ export default function Home() {
     window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
   }
 
+  async function logOut() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) throw new Error("Sign-out request failed");
+      window.location.replace("/login");
+    } catch {
+      setMessage("Sign-out could not be confirmed. Check your connection and try again.");
+    }
+  }
+
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library") {
     setMenuOpen(false);
     const targetId =
@@ -718,6 +728,7 @@ export default function Home() {
         <header className="top">
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
+          <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>
         <div className="content">
