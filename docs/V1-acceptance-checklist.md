@@ -49,7 +49,7 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Tutorial preview/export includes each source reference and explicitly says manual notes are unverified; it must not claim automated link/video analysis.
 - [ ] Tutorial preview preserves ingredient and step order and clearly says it is a draft.
 - [ ] Narration preview/copy/export preserves ingredient and cooking-step order and uses recorded timings, heat settings, and visual cues only.
-- [ ] Missing quantities/actions/timings are explicitly flagged; no ingredient-to-step mapping or timing is silently invented.
+- [ ] Missing quantities/actions/timings are explicitly flagged. Ingredient additions are spoken only when explicitly mapped; all unassigned ingredients require a creator check before recording.
 - [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, automatic nutrition database lookup, finished video, or post was created. If a manual nutrition worksheet is complete, its estimate and the manual/unverified disclaimer must appear.
 - [ ] New recipes start Untested and cannot be approved/shared until a creator attaches a real-dish photo, enters a trial rating, and records useful trial notes.
 - [ ] Confirm trial photo is resized in-browser, previewed, stored locally, included in JSON backup, and never uploaded automatically.
@@ -109,6 +109,14 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Protein/carbohydrate/fat are shown only when each ingredient has a valid sourced value for that macro; incomplete macros are clearly marked.
 - [ ] Tutorial and narration exports include the manual estimate only when complete and disclose that the app does not fetch or independently verify nutrition data.
 - [ ] The UI states that it does not automatically convert units or infer whether a nutrition reference matches a raw/cooked/prepared ingredient.
+
+## Ingredient-to-step mapping checks
+
+- [ ] Assign an ingredient to a specific step and confirm the narration names the exact recorded amount, unit, ingredient, and prep note at that step.
+- [ ] Confirm unassigned ingredients are flagged; generated text tells the creator to resolve them instead of guessing.
+- [ ] Remove an ingredient and confirm its ID is removed from all step mappings.
+- [ ] Confirm old drafts and JSON exports without ingredient mappings still import; unknown imported ingredient IDs are cleared.
+- [ ] Confirm a mapped ingredient missing its amount, unit, or name is flagged as not ready to record.
 
 ## E. V1 feature honesty / release blockers
 
