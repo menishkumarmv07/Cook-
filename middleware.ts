@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { isAuthConfigurationReady, SESSION_COOKIE_NAME, verifySessionToken } from "./lib/session";
+import { inspectSessionToken, isAuthConfigurationReady, SESSION_COOKIE_NAME } from "./lib/session";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -16,8 +16,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  const valid = await verifySessionToken(token, process.env.AUTH_SECRET);
-  if (valid) return NextResponse.next();
+  const sessionCheck = await inspectSessionToken(token, process.env.AUTH_SECRET);
+  if (sessionCheck.valid) return NextResponse.next();
 
   if (pathname.startsWith("/api/")) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401, headers: { "Cache-Control": "no-store" } });
@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   const redirectResponse = NextResponse.redirect(loginUrl);
   // This header is enabled only during CI diagnostics; it never includes a token or secret.
   if (process.env.AUTH_TEST_DIAGNOSTICS === "1") {
-    redirectResponse.headers.set("X-Owner-Auth-Diagnostic", token ? "session-invalid" : "session-missing");
+    redirectResponse.headers.set("X-Owner-Auth-Diagnostic", sessionCheck.reason);
   }
   return redirectResponse;
 }
