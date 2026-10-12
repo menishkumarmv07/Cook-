@@ -4,7 +4,7 @@ async function signIn(page: import("@playwright/test").Page) {
   await page.goto("/login");
   await page.getByLabel("Owner password").fill("test-only-owner-password-123");
   await page.getByRole("button", { name: "Unlock workspace" }).click();
-  await expect(page).toHaveURL(/127\\.0\\.0\\.1:3000\\/$/);
+  await expect(page).toHaveURL(/127[.]0[.]0[.]1:3000[/]$/);
 }
 
 test("chat home follows the requested mobile-first layout and opens the drawer", async ({ page }) => {
@@ -15,7 +15,7 @@ test("chat home follows the requested mobile-first layout and opens the drawer",
   await expect(page.getByRole("button", { name: "Start a voice chat" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Create an image or sticker" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Write or edit" })).toBeVisible();
-  await expect(page.getByPlaceholder("Ask cooking")).toBeVisible();
+  await expect(page.getByPlaceholder("Ask ChatGPT")).toBeVisible();
 
   await page.getByRole("button", { name: "Open menu" }).click();
   await expect(page.getByRole("complementary", { name: "Main menu" })).toBeVisible();
