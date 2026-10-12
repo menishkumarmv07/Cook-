@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Headphones, Image as ImageIcon, Pencil, House, Plug, BookOpen, Settings2, Search, MessageSquarePlus } from "lucide-react";
+import { Headphones, Image as ImageIcon, Pencil, Plug, BookOpen, Settings2, Search, MessageSquarePlus } from "lucide-react";
 
 export const CHAT_APP_NAME = "cooking";
 
