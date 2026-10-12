@@ -2,10 +2,12 @@ import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
 async function signIn(page: Page) {
-  await page.goto("/login");
+  // Recipe-studio regression tests target the separate workspace route;
+  // the root route now intentionally serves the chat-first home.
+  await page.goto("/login?from=%2Fworkspace");
   await page.getByLabel("Owner password").fill("test-only-owner-password-123");
   await page.getByRole("button", { name: "Unlock workspace" }).click();
-  await expect(page).toHaveURL(/127\.0\.0\.1:3000\/$/);
+  await expect(page).toHaveURL(/127[.]0[.]0[.]1:3000[/]workspace$/);
   await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
 }
 
