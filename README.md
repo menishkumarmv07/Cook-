@@ -100,3 +100,29 @@ The login endpoint issues an HTTP-only, SameSite=Strict, eight-hour signed sessi
 - [ ] Rate limiting and HTTPS are enabled before hosting publicly.
 - [ ] Unit tests, lint, TypeScript, production build, and Android browser acceptance all pass.
 - [ ] Do not describe a deployment as private until the deployed routes are independently tested.
+
+
+## Private owner access — release blocker
+
+This is a single-owner personal project. There must be no public sign-up, invitations, shared workspaces, or other user accounts. A private GitHub repository does not make a deployed website private.
+
+**Current status:** owner authentication is not yet implemented in this branch. Do not expose or publicly deploy the app until server-enforced owner-only access is implemented and tested. A client-side PIN or hidden UI is not sufficient.
+
+## Zero-cost requirement
+
+The required app path must remain ₹0 / $0: no required paid subscriptions, metered APIs, paid credits, payment-card verification, auto-billing trials, or hidden charges. If a secure hosting/auth option cannot meet the requirements for free without a card, keep the app local-only.
+
+## Security acceptance checklist
+
+- [ ] Server-enforced owner-only authentication protects every private page and API route.
+- [ ] No registration, invitation, or additional-user functionality exists.
+- [ ] Password and session secrets are server-side environment variables, never committed or exposed to the browser.
+- [ ] Session cookies are HttpOnly, SameSite=Strict, Secure in production, and expire; logout invalidates the session.
+- [ ] Wrong password, missing secrets, expired/tampered sessions, logout, and unauthenticated page/API requests are tested.
+- [ ] Login attempts are rate-limited with a mechanism suitable for the actual hosting environment.
+- [ ] Unit tests, lint, TypeScript, production build, and Playwright tests pass.
+- [ ] Android Chrome and a clean browser profile are manually tested over HTTPS before release.
+- [ ] Browser-local recipes remain understood as unencrypted localStorage; authentication does not encrypt existing drafts or exported backups.
+- [ ] Hosting, auth, and all dependencies are confirmed ₹0 with no card requirement.
+
+Do not mark these checks complete until evidence exists. No deployment is authorized by this documentation alone.
