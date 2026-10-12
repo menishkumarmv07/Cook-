@@ -205,6 +205,7 @@ export default function ChatHome() {
 
   function startNewChat() {
     setMessages([]);
+    setActiveThreadId(null);
     setDraft("");
     setNotice("");
     setActiveView("chat");
@@ -212,6 +213,43 @@ export default function ChatHome() {
     setAttachOpen(false);
     setConnectInfo(null);
     inputRef.current?.focus();
+  }
+
+  function saveMessages(nextMessages: ChatMessage[]) {
+    const threadId = activeThreadId ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const safeMessages = nextMessages.slice(-MAX_MESSAGES_PER_THREAD);
+    const firstUserMessage = safeMessages.find((message) => message.role === "user")?.text ?? "New chat";
+    const existing = chatHistory.find((thread) => thread.id === threadId);
+    const thread: ChatThread = {
+      id: threadId,
+      title: existing?.title ?? (firstUserMessage.trim().slice(0, 48) || "New chat"),
+      updatedAt: Date.now(),
+      messages: safeMessages,
+    };
+    setMessages(safeMessages);
+    setActiveThreadId(threadId);
+    setChatHistory((history) => [
+      thread,
+      ...history.filter((savedThread) => savedThread.id !== threadId),
+    ].slice(0, MAX_SAVED_CHAT_THREADS));
+  }
+
+  function openChatThread(thread: ChatThread) {
+    setMessages(thread.messages);
+    setActiveThreadId(thread.id);
+    setActiveView("chat");
+    setDrawerOpen(false);
+    setNotice("");
+    setAttachOpen(false);
+    setConnectInfo(null);
+  }
+
+  function clearSavedChatHistory() {
+    setChatHistory([]);
+    setMessages([]);
+    setActiveThreadId(null);
+    setClearHistoryPrompt(false);
+    setNotice("Chat history has been cleared from this browser.");
   }
 
   function sendMessage(value = draft) {
@@ -236,7 +274,7 @@ export default function ChatHome() {
     } else if (/new recipe|recipe draft|start recipe/i.test(text)) {
       response = "I’ll carry your instruction into the Recipe notes field so you can structure it there. This version does not automatically turn chat text into a complete recipe draft.";
       next.push({ id: `${id}-a`, role: "assistant", text: response });
-      setMessages((existing) => [...existing, ...next]);
+      saveMessages([...messages, ...next]);
       setDraft("");
       if (text.length > 5000) {
         setNotice("This request is longer than the Recipe notes field can hold (5,000 characters). Shorten it and try again.");
@@ -440,6 +478,7 @@ export default function ChatHome() {
                   placeholder="Ask ChatGPT"
                   autoComplete="off"
                   enterKeyHint="send"
+                  maxLength={MAX_SAVED_MESSAGE_LENGTH}
                 />
                 {!hasText ? (
                   <>
@@ -517,8 +556,20 @@ export default function ChatHome() {
             <section className="settings-panel" aria-labelledby="settings-privacy-title">
               <div className="settings-panel-copy">
                 <h2 id="settings-privacy-title">Privacy basics</h2>
-                <p>Recipe drafts stay in this browser in V1. They are not encrypted or synced to a cloud account. Lock workspace ends your owner session but does not erase saved drafts.</p>
+                <p>Recent chat history and recipe drafts stay in this browser in V1. They are not encrypted or synced to a cloud account. Lock workspace ends your owner session but does not erase saved data.</p>
               </div>
+              {!clearHistoryPrompt ? (
+                <button className="settings-danger-action" type="button" onClick={() => setClearHistoryPrompt(true)}>Clear chat history</button>
+              ) : (
+                <div className="settings-confirm-clear" role="group" aria-label="Confirm clear chat history">
+                  <p>Clear saved conversations from this browser? This does not delete your recipe drafts.</p>
+                  <div>
+                    <button className="settings-danger-action" type="button" onClick={clearSavedChatHistory}>Clear saved chats</button>
+                    <button className="settings-cancel-action" type="button" onClick={() => setClearHistoryPrompt(false)}>Keep history</button>
+                  </div>
+                </div>
+              )}
+              {notice && <p className="settings-saved-note" role="status">{notice}</p>}
             </section>
           </section>
         )}
@@ -543,10 +594,21 @@ export default function ChatHome() {
               <div className="chat-drawer-divider" />
               <div className="chat-history">
                 <p className="chat-drawer-section-title">Your chats</p>
-                {messages.length > 0 && messages.filter((message) => message.role === "user").slice(-8).reverse().filter((message) => !searchText || message.text.toLowerCase().includes(searchText.toLowerCase())).map((message) => (
-                  <button className="chat-history-item" key={message.id} type="button" onClick={() => { setActiveView("chat"); setDrawerOpen(false); }}><MessageSquare size={17} /><span>{message.text.length > 32 ? message.text.slice(0, 32) + "…" : message.text}</span></button>
+                {chatHistory.filter((thread) => !searchText ||
+                  thread.title.toLowerCase().includes(searchText.toLowerCase()) ||
+                  thread.messages.some((message) => message.text.toLowerCase().includes(searchText.toLowerCase()))
+                ).map((thread) => (
+                  <button
+                    className="chat-history-item"
+                    key={thread.id}
+                    type="button"
+                    aria-current={activeThreadId === thread.id ? "page" : undefined}
+                    onClick={() => openChatThread(thread)}
+                  >
+                    <MessageSquare size={17} /><span>{thread.title}</span>
+                  </button>
                 ))}
-                {messages.length === 0 && <p className="chat-history-empty">Your recent conversations will appear here.</p>}
+                {chatHistoryReady && chatHistory.length === 0 && <p className="chat-history-empty">Your recent conversations will appear here.</p>}
               </div>
               <button className="chat-lock-button" type="button" onClick={() => void lockWorkspace()}>
                 <ShieldCheck size={20} strokeWidth={2} /> <span>Lock workspace</span>
