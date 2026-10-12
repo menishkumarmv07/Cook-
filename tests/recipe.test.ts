@@ -290,3 +290,43 @@ test("creator profile defaults support the US-first workflow and remain editable
   assert.equal(isCreatorProfile({ ...DEFAULT_CREATOR_PROFILE, tone: 7 }), false);
   assert.equal(isCreatorProfile(null), false);
 });
+
+
+test("rejects oversized individual recipe imports and unreasonable collection counts", () => {
+  assert.equal(parseRecipeProjectJSON(" ".repeat(2_000_001)), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    ingredients: Array.from({ length: 501 }, (_, index) => ({
+      id: String(index), amount: "1", unit: "g", name: "ingredient", prep: "",
+    })),
+  })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    steps: Array.from({ length: 501 }, (_, index) => ({
+      id: String(index), action: "Stir", duration: "1 minute", heat: "low", cue: "",
+    })),
+  })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    sourceReferences: Array.from({ length: 101 }, (_, index) => ({
+      id: String(index), url: "https://example.com", kind: "other", checked: "", notes: "",
+    })),
+  })), null);
+});
+
+
+test("rejects imported source references with non-HTTP(S) URLs", () => {
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    sourceReferences: [{
+      id: "bad-source", url: "file:///private/recipe.txt", kind: "other",
+      checked: "ingredients", notes: "",
+    }],
+  })), null);
+  assert.ok(parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    sourceReferences: [{
+      id: "empty-source", url: "", kind: "other", checked: "", notes: "",
+    }],
+  })));
+});
