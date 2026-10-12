@@ -22,8 +22,8 @@ test("chat home follows the requested mobile-first layout and opens the drawer",
   await expect(page.getByRole("button", { name: "Connect apps" })).toBeVisible();
   await page.getByRole("button", { name: "Connect apps" }).click();
   await expect(page.getByRole("heading", { name: "Connect your apps" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "YouTube" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Instagram" })).toBeVisible();
+  await expect(page.locator(".connection-copy").getByText("YouTube", { exact: true })).toBeVisible();
+  await expect(page.locator(".connection-copy").getByText("Instagram", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /Connect/ }).first().click();
   await expect(page.getByRole("dialog")).toContainText("OAuth flow is not configured");
 });
