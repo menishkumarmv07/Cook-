@@ -1,8 +1,16 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+async function signIn(page: Page) {
+  await page.goto("/login");
+  await page.getByLabel("Owner password").fill("test-only-owner-password-123");
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  await expect(page).toHaveURL(/127\.0\.0\.1:3000\/$/);
+  await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
+}
+
 test("recipe draft can be created, edited, reordered, saved, and exported", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Lemon rice");
   await page.locator("#servings").fill("3");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
@@ -39,7 +47,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
 });
 
 test("JSON backup import restores a legacy draft and rejects unsafe source URLs", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   const legacyDraft = {
     id: 17,
     name: "Imported legacy recipe",
@@ -66,7 +74,7 @@ test("JSON backup import restores a legacy draft and rejects unsafe source URLs"
 });
 
 test("mobile workspace shows the screenshot-inspired home and no horizontal overflow", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Today's Plan" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Research & Trends" })).toBeVisible();
@@ -78,7 +86,7 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
 });
 
 test("navigation drawer, workspace command, and theme toggle work and persist", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByRole("button", { name: /Projects \/ new recipe/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close menu" })).toBeFocused();
@@ -98,7 +106,7 @@ test("navigation drawer, workspace command, and theme toggle work and persist", 
 
 
 test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Source-checked soup");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -143,14 +151,14 @@ test("malformed saved source-reference records are skipped with a visible warnin
       sourceReferences: [{ id: "bad", url: 123, kind: "video", checked: "", notes: "" }],
     }]));
   });
-  await page.goto("/");
+  await signIn(page);
   await expect(page.getByRole("status")).toContainText("Some saved data was invalid and was skipped");
   await expect(page.getByRole("heading", { name: "Corrupt saved draft" })).toHaveCount(0);
 });
 
 
 test("narration script preserves recipe order and flags missing timing before recording", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -182,7 +190,7 @@ test("narration script preserves recipe order and flags missing timing before re
 
 
 test("tested recipe must be approved before share; recipe edits reset trust and approval", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -222,7 +230,7 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
 });
 
 test("content pack export downloads a text file without publishing", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   const downloadPromise = page.waitForEvent("download");
@@ -245,7 +253,7 @@ test("PWA manifest and service worker support reopening the app offline after fi
   expect(workerResponse.ok()).toBeTruthy();
   expect(await workerResponse.text()).toContain("caches.open");
 
-  await page.goto("/");
+  await signIn(page);
   await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
@@ -257,7 +265,7 @@ test("PWA manifest and service worker support reopening the app offline after fi
 
 
 test("creator profile saves locally, shapes content-pack guidance, and travels with JSON backup", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Professional and concise");
   await page.getByLabel("Main language").fill("English");
@@ -288,7 +296,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
 
 
 test("workspace backup exports all drafts and restores them with explicit confirmation", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Workspace backup profile");
   await page.locator("#name").fill("First backup recipe");
@@ -327,7 +335,7 @@ test("workspace backup exports all drafts and restores them with explicit confir
 
 
 test("light workspace theme is pure white with grayscale UI colors", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "light");
 
   const palette = await page.locator(".shell").evaluate((root) => {
@@ -362,7 +370,7 @@ test("light workspace theme is pure white with grayscale UI colors", async ({ pa
 
 
 test("manual sourced nutrition worksheet calculates exact entries and labels the estimate honestly", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Pasta nutrition check");
   await page.locator("#servings").fill("4");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
@@ -398,7 +406,7 @@ test("manual sourced nutrition worksheet calculates exact entries and labels the
 
 
 test("ingredient additions are explicitly mapped to cooking steps and spoken in narration", async ({ page }) => {
-  await page.goto("/");
+  await signIn(page);
   await page.locator("#name").fill("Tomato onion base");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
