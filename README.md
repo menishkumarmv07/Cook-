@@ -25,7 +25,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Single-recipe JSON import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Whole-workspace JSON backup and restore: exports every local recipe draft plus the creator profile in one versioned archive; restore validates the entire archive, confirms before replacing current local drafts/profile, guards large files and estimated local-storage size, and leaves the archive on the user's device. This is a manual backup/restore flow, not cloud sync.
 - Delete one draft or clear all local drafts with confirmation.
-- Automated unit tests for URL validation, data shape, warnings, draft generation, JSON backup recovery, and scene count.
+- Automated unit tests for IPv4/IPv6 special-purpose blocking, external URL validation, HTML/Schema.org Recipe extraction, data shape, warnings, draft generation, JSON backup recovery, and scene count.
 - Playwright browser tests for create/edit/reorder/reload/export, legacy JSON import and unsafe-URL rejection, plus a mobile-width overflow check.
 - GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
 - One-command quality gate: `npm run check` runs tests, lint, type-check and the production build in sequence.
@@ -43,7 +43,7 @@ The login route includes a best-effort in-process failed-attempt throttle. This 
 Requires Node.js 20.9+ and npm. After setting `.env.local` as described above:
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
