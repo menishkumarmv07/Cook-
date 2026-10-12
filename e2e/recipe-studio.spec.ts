@@ -545,8 +545,8 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(preview).toContainText("2 cups cooked rice");
   await expect(preview).toContainText("not independently verified");
   await page.getByRole("button", { name: "Add extracted details to recipe notes" }).click();
-  await expect(page.locator("#notes")).toContainText("Ingredients (extracted; not independently verified)");
-  await expect(page.locator("#notes")).toContainText("2 cups cooked rice");
+  await expect(page.locator("#notes")).toHaveValue(/Ingredients \(extracted; not independently verified\)/);
+  await expect(page.locator("#notes")).toHaveValue(/2 cups cooked rice/);
 
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   await expect(page.locator("#edit-notes")).toHaveValue(/2 cups cooked rice/);
@@ -581,7 +581,6 @@ test("AUTH: logged-out source inspection requests are rejected", async ({ page }
     data: { url: "https://recipes.example/lemon-rice" },
   });
   expect(response.status()).toBe(401);
-  await expect(response).not.toBeNull();
 });
 
 test("AUTH: logged-out requests are redirected to the owner login page", async ({ page }) => {
