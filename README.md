@@ -67,7 +67,7 @@ npm run typecheck
 npm run build
 ```
 
-The GitHub Actions workflow also installs Chromium and runs the Playwright end-to-end suite against the production build. The checks are configured, but do not consider them passed until the workflow or local commands actually complete successfully. The workflow does not use a lockfile yet; once CI has run successfully, commit a generated `package-lock.json` and switch CI to `npm ci` for reproducible installs.
+The GitHub Actions workflow installs Chromium and runs the Playwright end-to-end suite against the production build. CI uses the committed `package-lock.json` with `npm ci` for reproducible dependency installation. Treat each check as passed only when the workflow or local command actually completes successfully; historical green runs do not verify later changes.
 
 For the Android/Chrome manual acceptance pass, follow [the V1 acceptance checklist](docs/V1-acceptance-checklist.md). Automated checks do not replace real-device testing.
 

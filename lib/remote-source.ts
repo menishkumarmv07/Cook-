@@ -76,7 +76,17 @@ export function isPublicIPAddress(address: string): boolean {
   const first = words[0];
   const second = words[1];
   if (first < 0x2000 || first > 0x3fff) return false;
-  if (first === 0x2001 && (second === 0x0000 || second === 0x0002 || second === 0x0db8 || (second >= 0x0010 && second <= 0x001f))) return false;
+  // Reject protocol-specific ranges even when they sit inside global-unicast space.
+  // 2001:30::/28 is registered for Drone Remote ID identifiers; 3fff::/20 is
+  // reserved for documentation. Neither should be treated as a generic public web host.
+  if (first === 0x2001 && (
+    second === 0x0000 ||
+    second === 0x0002 ||
+    second === 0x0db8 ||
+    (second >= 0x0010 && second <= 0x001f) ||
+    (second >= 0x0030 && second <= 0x003f)
+  )) return false;
+  if (first === 0x3fff && second <= 0x000f) return false;
   if (first === 0x2002) return false;
   return true;
 }
