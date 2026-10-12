@@ -17,6 +17,18 @@ type ChatMessage = {
   linkLabel?: string;
 };
 
+type ChatThread = {
+  id: string;
+  title: string;
+  updatedAt: number;
+  messages: ChatMessage[];
+};
+
+const CHAT_HISTORY_KEY = "cooking-chat-history-v1";
+const MAX_SAVED_CHAT_THREADS = 12;
+const MAX_MESSAGES_PER_THREAD = 40;
+const MAX_SAVED_MESSAGE_LENGTH = 5000;
+
 type SocialPlatform = {
   id: string;
   name: string;
@@ -46,6 +58,63 @@ function findHttpUrl(text: string): string | null {
   }
 }
 
+function sanitizeSavedMessage(value: unknown): ChatMessage | null {
+  if (typeof value !== "object" || value === null) return null;
+  const candidate = value as Record<string, unknown>;
+  if (
+    typeof candidate.id !== "string" || candidate.id.length > 120 ||
+    (candidate.role !== "user" && candidate.role !== "assistant") ||
+    typeof candidate.text !== "string" || candidate.text.length === 0
+  ) return null;
+
+  const safeLink = typeof candidate.link === "string" ? findHttpUrl(candidate.link) : null;
+  const link = safeLink && safeLink === candidate.link ? safeLink : undefined;
+  return {
+    id: candidate.id,
+    role: candidate.role,
+    text: candidate.text.slice(0, MAX_SAVED_MESSAGE_LENGTH),
+    ...(link ? { link } : {}),
+    ...(link && typeof candidate.linkLabel === "string" ? { linkLabel: candidate.linkLabel.slice(0, 100) } : {}),
+  };
+}
+
+function parseSavedChatHistory(raw: string | null): ChatThread[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  const threads: ChatThread[] = [];
+  for (const item of parsed) {
+    if (typeof item !== "object" || item === null) continue;
+    const candidate = item as Record<string, unknown>;
+    if (
+      typeof candidate.id !== "string" || candidate.id.length > 120 ||
+      typeof candidate.title !== "string" || !Array.isArray(candidate.messages) ||
+      typeof candidate.updatedAt !== "number" || !Number.isFinite(candidate.updatedAt)
+    ) continue;
+
+    const messages = candidate.messages
+      .map(sanitizeSavedMessage)
+      .filter((message): message is ChatMessage => message !== null)
+      .slice(-MAX_MESSAGES_PER_THREAD);
+    if (!messages.some((message) => message.role === "user")) continue;
+
+    const firstUserMessage = messages.find((message) => message.role === "user")?.text ?? "New chat";
+    threads.push({
+      id: candidate.id,
+      title: firstUserMessage.trim().slice(0, 48) || "New chat",
+      updatedAt: candidate.updatedAt,
+      messages,
+    });
+  }
+  return threads.sort((a, b) => b.updatedAt - a.updatedAt).slice(0, MAX_SAVED_CHAT_THREADS);
+}
+
 function sourcePlatform(url: string): string {
   const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
   if (host === "youtube.com" || host === "youtu.be" || host.endsWith(".youtube.com")) return "YouTube";
@@ -60,6 +129,10 @@ export default function ChatHome() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [chatHistory, setChatHistory] = useState<ChatThread[]>([]);
+  const [chatHistoryReady, setChatHistoryReady] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [clearHistoryPrompt, setClearHistoryPrompt] = useState(false);
   const [activeView, setActiveView] = useState<"chat" | "connections" | "settings">("chat");
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [themeReady, setThemeReady] = useState(false);
@@ -74,6 +147,25 @@ export default function ChatHome() {
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasText = draft.trim().length > 0;
+
+  useEffect(() => {
+    try {
+      setChatHistory(parseSavedChatHistory(window.localStorage.getItem(CHAT_HISTORY_KEY)));
+    } catch {
+      setNotice("Saved chat history could not be read from this browser.");
+    } finally {
+      setChatHistoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatHistoryReady) return;
+    try {
+      window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(chatHistory));
+    } catch {
+      setNotice("Browser storage may be full; recent chat history could not be saved. Recipe drafts are stored separately.");
+    }
+  }, [chatHistory, chatHistoryReady]);
 
   useEffect(() => {
     try {
