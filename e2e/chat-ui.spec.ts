@@ -34,6 +34,13 @@ test("chat accepts a video link and clearly reports current integration limits",
   await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.getByText(/I recognized this as a YouTube link/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open YouTube link" })).toHaveAttribute("href", "https://youtu.be/dQw4w9WgXcQ");
+
+  // Save the link into the recipe form without sending it to a server or
+  // implying that the linked video has been fetched or analysed.
+  await page.getByRole("button", { name: "Add link to recipe workspace" }).click();
+  await expect(page).toHaveURL(/\/workspace$/);
+  await expect(page.locator("#url")).toHaveValue("https://youtu.be/dQw4w9WgXcQ");
+  await expect(page.getByRole("status")).toContainText("V1 saves the URL only");
 });
 
 test("mobile chat interface does not introduce horizontal overflow", async ({ page }) => {
