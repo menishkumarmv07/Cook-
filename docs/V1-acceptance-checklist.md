@@ -127,7 +127,7 @@ Do not enter private passwords, API keys, real personal information, or valuable
 
 - [ ] Each source record can independently store ingredient/quantity, method/order, timing/heat, and safety/storage findings.
 - [ ] Coverage counts change as manual notes are entered and are explicitly labelled as note coverage, not correctness or verification.
-- [ ] A source with missing structured notes triggers a validation warning; recording findings never claims the source itself was automatically fetched or analyzed.
+- [ ] A source with missing structured notes triggers a validation warning; the warning says source claims remain unverified. If explicit public-page inspection occurred, its record is retained, but extraction is not verification and video/audio are not analyzed.
 - [ ] Tutorial/narration exports retain findings next to the exact source URL and label all source notes as manually entered/unverified.
 - [ ] Legacy recipe drafts and JSON archives with existing references but no new findings restore with blank fields.
 - [ ] Malformed non-string values for optional comparison fields are rejected by structured validation.
