@@ -98,12 +98,22 @@ test("login rejects an incorrect owner password without opening the workspace", 
   await expect(page).toHaveURL(/\/login$/);
 });
 
-test("owner can lock the workspace from the chat menu and the session is revoked", async ({ page }) => {
+test("owner lock revokes the session and clears temporary handoffs", async ({ page }) => {
   await signIn(page);
+  await page.evaluate(() => {
+    sessionStorage.setItem("cooking-pending-source-url-v1", "https://example.com/source");
+    sessionStorage.setItem("cooking-pending-recipe-prompt-v1", "temporary recipe prompt");
+  });
 
   await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("button", { name: "Lock workspace" }).click();
   await expect(page).toHaveURL(/\/login$/);
+
+  const transientState = await page.evaluate(() => ({
+    source: sessionStorage.getItem("cooking-pending-source-url-v1"),
+    prompt: sessionStorage.getItem("cooking-pending-recipe-prompt-v1"),
+  }));
+  expect(transientState).toEqual({ source: null, prompt: null });
 
   const apiStatus = await page.evaluate(async () => (await fetch("/api/recipe")).status);
   expect(apiStatus).toBe(401);
