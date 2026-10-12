@@ -65,7 +65,7 @@ test("validation separates blocking errors from incomplete-recipe warnings", () 
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "duration-1"));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "source"));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "safety"));
-  assert.ok(issues.some((issue) => issue.field === "source" && /not been independently checked/.test(issue.message)));
+  assert.ok(issues.some((issue) => issue.field === "source" && /source claims have not been independently verified/i.test(issue.message)));
   assert.ok(issues.some((issue) => issue.level === "warning" && issue.field === "nutrition"));
 });
 
