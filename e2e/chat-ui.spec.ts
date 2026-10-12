@@ -40,6 +40,10 @@ test("chat accepts a video link and clearly reports current integration limits",
   await page.getByRole("button", { name: "Add link to recipe workspace" }).click();
   await expect(page).toHaveURL(/\/workspace$/);
   await expect(page.locator("#url")).toHaveValue("https://youtu.be/dQw4w9WgXcQ");
+  const sourceLink = page.getByRole("link", { name: "Open source in a new tab" });
+  await expect(sourceLink).toHaveAttribute("href", "https://youtu.be/dQw4w9WgXcQ");
+  await expect(sourceLink).toHaveAttribute("target", "_blank");
+  await expect(sourceLink).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.getByRole("status")).toContainText("V1 saves the URL only");
 });
 
