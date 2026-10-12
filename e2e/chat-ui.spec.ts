@@ -128,6 +128,31 @@ test("login rejects an incorrect owner password without opening the workspace", 
   await expect(page).toHaveURL(/\/login$/);
 });
 
+test("login throttles repeated incorrect-password attempts for one client key", async ({ request }) => {
+  const clientKey = `rate-limit-test-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const headers = {
+    "content-type": "application/json",
+    "x-real-ip": clientKey,
+  };
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const response = await request.post("/api/auth/login", {
+      headers,
+      data: { password: "incorrect-rate-limit-test-password" },
+    });
+    expect(response.status()).toBe(401);
+    expect(response.headers()["cache-control"]).toBe("no-store");
+  }
+
+  const limited = await request.post("/api/auth/login", {
+    headers,
+    data: { password: "incorrect-rate-limit-test-password" },
+  });
+  expect(limited.status()).toBe(429);
+  expect(Number(limited.headers()["retry-after"])).toBeGreaterThan(0);
+  expect(limited.headers()["cache-control"]).toBe("no-store");
+});
+
 test("owner lock revokes the session and clears temporary handoffs", async ({ page }) => {
   await signIn(page);
   await page.evaluate(() => {
