@@ -6,7 +6,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 
 - Responsive recipe creator dashboard.
 - Device-local kitchen/creator profile for tone, catchphrases, language, cuisine, skill level, equipment, budget, diet/allergy constraints, units, time target, platforms, never-say list, and sample captions; fresh profiles default to English and US customary units for the US-first workflow, while Metric and dual-unit preferences remain selectable. Profile guidance is included in content packs and JSON backups.
-- Installable PWA manifest, SVG app icon, service-worker app-shell caching, and offline fallback page; offline reopening is verified in CI after the first connected visit.
+- Installable PWA manifest, SVG app icon, and a generic offline fallback page. The service worker caches only static assets and the generic fallback; it does not cache authenticated workspace HTML, so the private app must reconnect to verify the owner session.
 - Recipe intake with HTTP(S) source URL, servings/yield, and notes.
 - Structured ingredient rows: amount, unit, name, preparation note.
 - Ordered cooking-step editor: action, timing, heat/setting, visual/doneness cue, and explicit ingredient-addition mapping. Ingredient timing is never inferred; unassigned ingredients are flagged.
@@ -20,7 +20,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Short-form text content pack with five hook options, a caption draft, hashtags, CTA, narration/shot guidance, and manual source/review notes.
 - Prepare-and-share workflow using the browser/Android share sheet when available, with a text download fallback. Sharing is manual; no direct platform API publishing is implemented.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
-- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records. Service-worker caching supports reopening the shell offline after the app has first been loaded online; it does not add cloud sync.
+- Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records. The service worker caches static assets and a generic offline fallback only; private HTML routes are network-only and are not available offline. This is intentional so a signed-in workspace page is not left in Cache Storage after logout. It does not add cloud sync.
 - Single-recipe JSON import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
 - Whole-workspace JSON backup and restore: exports every local recipe draft plus the creator profile in one versioned archive; restore validates the entire archive, confirms before replacing current local drafts/profile, guards large files and estimated local-storage size, and leaves the archive on the user's device. This is a manual backup/restore flow, not cloud sync.
 - Delete one draft or clear all local drafts with confirmation.
