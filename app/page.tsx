@@ -31,6 +31,8 @@ const SOCIAL_PLATFORMS: SocialPlatform[] = [
   { id: "facebook", name: "Facebook", detail: "Pages and video content available to the approved integration.", icon: Facebook },
 ];
 
+const PENDING_SOURCE_KEY = "cooking-pending-source-url-v1";
+
 function findHttpUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s<>"']+/i);
   if (!match) return null;
@@ -133,6 +135,22 @@ export default function ChatHome() {
     setActiveView("chat");
   }
 
+  function saveLinkToWorkspace(link: string) {
+    const url = findHttpUrl(link);
+    if (!url) {
+      setNotice("That source link could not be validated. Copy it into the workspace URL field and review it before using it.");
+      return;
+    }
+    try {
+      // Session storage keeps the handoff out of browser URL history and server logs.
+      // The workspace still stores the value locally and does not fetch the page.
+      window.sessionStorage.setItem(PENDING_SOURCE_KEY, url);
+      router.push("/workspace");
+    } catch {
+      setNotice("Your browser blocked temporary link handoff. Copy the URL into the workspace’s Video or recipe URL field instead.");
+    }
+  }
+
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     sendMessage();
@@ -217,9 +235,14 @@ export default function ChatHome() {
                   <div className="chat-message-content">
                     <p>{message.text}</p>
                     {message.link && (
-                      <a className="chat-source-link" href={message.link} target="_blank" rel="noreferrer">
-                        <ExternalLink size={15} /> {message.linkLabel ?? "Open source"}
-                      </a>
+                      <>
+                        <a className="chat-source-link" href={message.link} target="_blank" rel="noreferrer">
+                          <ExternalLink size={15} /> {message.linkLabel ?? "Open source"}
+                        </a>
+                        <button className="chat-source-transfer" type="button" onClick={() => saveLinkToWorkspace(message.link ?? "")}>
+                          Add link to recipe workspace
+                        </button>
+                      </>
                     )}
                   </div>
                 </article>
