@@ -145,6 +145,20 @@ export default function ChatHome() {
     setActiveView("chat");
   }
 
+  async function lockWorkspace() {
+    setDrawerOpen(false);
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setNotice("The session could not be locked. Please retry while connected.");
+        return;
+      }
+      window.location.replace("/login");
+    } catch {
+      setNotice("The app could not confirm that the session ended. Stay connected and retry Lock workspace.");
+    }
+  }
+
   function saveLinkToWorkspace(link: string) {
     const url = findHttpUrl(link);
     if (!url) {
@@ -380,6 +394,9 @@ export default function ChatHome() {
                 ))}
                 {messages.length === 0 && <p className="chat-history-empty">Your recent conversations will appear here.</p>}
               </div>
+              <button className="chat-lock-button" type="button" onClick={() => void lockWorkspace()}>
+                <ShieldCheck size={20} strokeWidth={2} /> <span>Lock workspace</span>
+              </button>
               <div className="chat-drawer-footer">
                 <div className="chat-profile-avatar">C</div>
                 <div><strong>Private cooking studio</strong><small>Owner workspace · local prototype</small></div>
