@@ -226,12 +226,20 @@ export default function ChatHome() {
       updatedAt: Date.now(),
       messages: safeMessages,
     };
+    const updatedHistory = [
+      thread,
+      ...chatHistory.filter((savedThread) => savedThread.id !== threadId),
+    ].slice(0, MAX_SAVED_CHAT_THREADS);
+
     setMessages(safeMessages);
     setActiveThreadId(threadId);
-    setChatHistory((history) => [
-      thread,
-      ...history.filter((savedThread) => savedThread.id !== threadId),
-    ].slice(0, MAX_SAVED_CHAT_THREADS));
+    setChatHistory(updatedHistory);
+    try {
+      // Write immediately so navigation from a recipe prompt cannot race the history save effect.
+      window.localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(updatedHistory));
+    } catch {
+      setNotice("Browser storage may be full; recent chat history could not be saved. Recipe drafts are stored separately.");
+    }
   }
 
   function openChatThread(thread: ChatThread) {
