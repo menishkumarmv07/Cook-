@@ -139,11 +139,9 @@ test("social connection center shows honest OAuth readiness without collecting s
   const center = page.locator("#social-connections");
   await expect(center.getByRole("heading", { name: "Connect your social accounts" })).toBeVisible();
   const platformNames = ["YouTube", "Instagram", "TikTok", "Facebook", "Pinterest", "Snapchat", "X"];
-  for (const platformName of platformNames) {
-    const card = center.locator(".connection-card").filter({
-      has: center.getByRole("heading", { name: platformName, exact: true }),
-    });
-    await expect(card).toHaveCount(1);
+  for (const [index, platformName] of platformNames.entries()) {
+    const card = center.locator(".connection-card").nth(index);
+    await expect(card.getByRole("heading", { name: platformName, exact: true })).toBeVisible();
     await expect(card.getByText("Not connected", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: "Connect when available" })).toBeDisabled();
   }
