@@ -461,3 +461,111 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .logout-trigger { flex: 0 0 auto; border: 1px solid #dedede; border-radius: 9px; padding: 8px 10px; background: #ffffff; color: #404040; font-size: 11px; cursor: pointer; }
 .logout-trigger:hover { background: #f5f5f5; }
 @media(max-width:600px) { .login-shell { padding: 16px; } .login-card { padding: 23px; border-radius: 15px; } .login-card h1 { font-size: 25px; } .logout-trigger { padding: 7px 8px; font-size: 10px; } }
+
+
+/* Social connection readiness: neutral states until official OAuth is configured. */
+.connection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.connection-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
+}
+.connection-card-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+.connection-platform-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: #f5f5f5;
+  color: #333333;
+  font-size: 13px;
+  font-weight: 750;
+}
+.connection-card-heading h3 {
+  margin: 2px 0 5px;
+  font-size: 14px;
+}
+.connection-card-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.connection-card-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #707070;
+  font-size: 11px;
+}
+.connection-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #a8a8a8;
+}
+.connection-action {
+  width: 100%;
+  margin-top: auto;
+}
+.connection-action:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  background: #f6f6f6;
+  color: #777777;
+  border-color: #e4e4e4;
+}
+.connection-notice {
+  margin: 16px 0 12px;
+  padding: 13px 15px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafafa;
+  color: #686868;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.connection-notice strong { color: #303030; }
+.shell[data-theme="dark"] .connection-card {
+  background: #222222;
+  border-color: #3a3a3a;
+  color: #f2f2f2;
+}
+.shell[data-theme="dark"] .connection-card-heading p,
+.shell[data-theme="dark"] .connection-card-status { color: #bcbcbc; }
+.shell[data-theme="dark"] .connection-platform-mark,
+.shell[data-theme="dark"] .connection-action:disabled,
+.shell[data-theme="dark"] .connection-notice {
+  background: #2b2b2b;
+  border-color: #414141;
+  color: #cdcdcd;
+}
+.shell[data-theme="dark"] .connection-notice strong { color: #f0f0f0; }
+@media (max-width: 900px) {
+  .connection-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .connection-grid { grid-template-columns: 1fr; }
+  .connection-card { padding: 14px; }
+  .connection-notice { padding: 12px; }
+}

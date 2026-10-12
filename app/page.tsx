@@ -28,6 +28,16 @@ const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
+const SOCIAL_PLATFORMS = [
+  { name: "YouTube", mark: "YT", description: "Channels and Shorts" },
+  { name: "Instagram", mark: "IG", description: "Reels and food posts" },
+  { name: "TikTok", mark: "TT", description: "Short-form cooking videos" },
+  { name: "Facebook", mark: "f", description: "Pages and video posts" },
+  { name: "Pinterest", mark: "P", description: "Recipe pins and idea boards" },
+  { name: "Snapchat", mark: "S", description: "Spotlight and stories" },
+  { name: "X", mark: "X", description: "Posts and video clips" },
+] as const;
+
 function migrateProject(value: unknown): RecipeProject | null {
   if (typeof value !== "object" || value === null) return null;
   const old = value as Partial<RecipeProject>;
@@ -237,11 +247,12 @@ export default function Home() {
     }
   }
 
-  function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library") {
+  function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
     setMenuOpen(false);
     const targetId =
       section === "plan" ? "daily-plan" :
       section === "research" ? (current ? "research-desk" : "research-trends") :
+      section === "connections" ? "social-connections" :
       section === "studio" ? "recipe-editor" :
       section === "publish" ? (current ? "publish-queue" : "recipe-editor") :
       section === "intake" ? "intake" :
@@ -274,6 +285,11 @@ export default function Home() {
       setCommand("");
       goToSection("intake");
       setMessage("Source link copied into recipe intake. This saves the URL only; V1 does not open or analyze linked content. Add a recipe name and create the draft.");
+      return;
+    }
+    if (/connect|accounts?|integration|social/.test(request)) {
+      setCommand("");
+      goToSection("connections");
       return;
     }
     if (/new recipe|create recipe|start recipe|add recipe/.test(request)) {
@@ -711,6 +727,7 @@ export default function Home() {
         <button className="nav" type="button" onClick={() => goToSection("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
         <button className="nav" type="button" onClick={() => goToSection("intake")}><span aria-hidden="true">＋</span> Projects / new recipe</button>
         <button className="nav" type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">◷</span> Publish queue</button>
+        <button className="nav" type="button" onClick={() => goToSection("connections")}><span aria-hidden="true">◎</span> Connect social accounts</button>
         <button className="nav" type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span> Explore research</button>
         <button className="nav nav-unavailable" type="button" disabled title="Remote workspace is not implemented in V1"><span aria-hidden="true">▱</span> Remote <small>Later</small></button>
         <div className="drawer-theme">
@@ -755,6 +772,31 @@ export default function Home() {
           <section className="research-hub panel" id="research-trends">
             <div className="section-head"><div><p className="eyebrow">RESEARCH & TRENDS</p><h2>Build from evidence, not guesses.</h2><p>Record recipe sources, compare the details you actually checked, and flag gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
             <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Link access and full video analysis are not automated in V1. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
+          </section>
+
+          <section className="connection-hub panel" id="social-connections">
+            <div className="section-head">
+              <div>
+                <p className="eyebrow">SOCIAL CONNECTIONS</p>
+                <h2>Connect your social accounts</h2>
+                <p>Keep your publishing accounts in one place. Each connection must use the platform&apos;s official sign-in and approved permissions.</p>
+              </div>
+              <span className="step">OAUTH REQUIRED</span>
+            </div>
+            <p className="connection-notice"><strong>Private by design.</strong> This build never asks for social passwords or stores them. Official OAuth integrations have not been configured yet, so these accounts remain disconnected and publishing stays manual.</p>
+            <div className="connection-grid">
+              {SOCIAL_PLATFORMS.map((platform) => (
+                <article className="connection-card" key={platform.name}>
+                  <div className="connection-card-heading">
+                    <span className="connection-platform-mark" aria-hidden="true">{platform.mark}</span>
+                    <div><h3>{platform.name}</h3><p>{platform.description}</p></div>
+                  </div>
+                  <div className="connection-card-status"><span className="connection-dot" aria-hidden="true" />Not connected</div>
+                  <button className="secondary connection-action" type="button" disabled title={`Official OAuth setup for ${platform.name} has not been configured in this build.`}>Connect when available</button>
+                </article>
+              ))}
+            </div>
+            <p className="hint">Connection support depends on each platform&apos;s current API rules, approved scopes, and developer credentials. No token or account permission is assumed, and no post is sent from this screen.</p>
           </section>
 
           <section className="profile-section" id="creator-profile">

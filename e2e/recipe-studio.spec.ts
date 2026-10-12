@@ -131,6 +131,27 @@ test("navigation drawer, workspace command, and theme toggle work and persist", 
 });
 
 
+test("social connection center shows honest OAuth readiness without collecting social passwords", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#workspace-command").fill("connect my social accounts");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+
+  const center = page.locator("#social-connections");
+  await expect(center.getByRole("heading", { name: "Connect your social accounts" })).toBeVisible();
+  const platformNames = ["YouTube", "Instagram", "TikTok", "Facebook", "Pinterest", "Snapchat", "X"];
+  for (const [index, platformName] of platformNames.entries()) {
+    const card = center.locator(".connection-card").nth(index);
+    await expect(card.getByRole("heading", { name: platformName, exact: true })).toBeVisible();
+    await expect(card.getByText("Not connected", { exact: true })).toBeVisible();
+    await expect(card.getByRole("button", { name: "Connect when available" })).toBeDisabled();
+  }
+  await expect(center.locator('input[type="password"]')).toHaveCount(0);
+  await expect(center.getByText(/never asks for social passwords/i)).toBeVisible();
+
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await expect(page.getByRole("button", { name: "Connect social accounts" })).toBeVisible();
+});
+
 test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
   await page.goto("/");
   await page.locator("#name").fill("Source-checked soup");
