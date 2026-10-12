@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { CHAT_APP_NAME } from "@/lib/chat-config";
 import {
   buildNarrationScript,
   buildTutorialDraft,
@@ -731,7 +732,7 @@ export default function WorkspacePage() {
       <section className="main" id="dashboard">
         <header className="top">
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
-          <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
+          <span className="top-context"><strong>{CHAT_APP_NAME}</strong><small>Workspace / Home</small></span>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>
         <div className="content">
