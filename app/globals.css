@@ -641,3 +641,15 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .chat-app[data-theme="dark"] .settings-panel-copy p,.chat-app[data-theme="dark"] .settings-saved-note{color:#aaa}
 .chat-app[data-theme="dark"] .settings-theme-choice{background:#282828;border-color:#444;color:#eee}
 .chat-app[data-theme="dark"] .settings-theme-choice.selected{border-color:#eee;box-shadow:0 0 0 1px #eee}
+.settings-danger-action,.settings-cancel-action{min-height:38px;margin-top:15px;padding:8px 12px;border:1px solid #dcdcdc;border-radius:9px;background:#f7f7f7;color:#292929;font:inherit;font-size:12px;font-weight:650;cursor:pointer}
+.settings-danger-action{border-color:#cfcfcf}
+.settings-danger-action:hover,.settings-cancel-action:hover{background:#eee}
+.settings-cancel-action{background:#fff}
+.settings-confirm-clear{margin-top:15px;padding:12px;border:1px solid #dedede;border-radius:11px;background:#fafafa}
+.settings-confirm-clear p{margin:0;color:#555;font-size:12px;line-height:1.55}
+.settings-confirm-clear>div{display:flex;gap:8px;flex-wrap:wrap}
+.settings-danger-action:focus-visible,.settings-cancel-action:focus-visible{outline:2px solid #777;outline-offset:3px}
+.chat-app[data-theme="dark"] .settings-danger-action,.chat-app[data-theme="dark"] .settings-cancel-action{background:#292929;border-color:#484848;color:#eee}
+.chat-app[data-theme="dark"] .settings-danger-action:hover,.chat-app[data-theme="dark"] .settings-cancel-action:hover{background:#363636}
+.chat-app[data-theme="dark"] .settings-confirm-clear{background:#262626;border-color:#444}
+.chat-app[data-theme="dark"] .settings-confirm-clear p{color:#ccc}
