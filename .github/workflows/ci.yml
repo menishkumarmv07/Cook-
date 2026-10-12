@@ -24,6 +24,14 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: Export generated lockfile for repository pinning
+        if: github.event_name == 'pull_request' && github.head_ref == 'build/npm-lockfile-2026-10-12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: generated-package-lock
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Unit tests
         run: npm test
       - name: ESLint
