@@ -266,7 +266,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
       typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string" &&
       ((x as Record<string, unknown>).ingredientIds === undefined ||
         (Array.isArray((x as Record<string, unknown>).ingredientIds) &&
-          ((x as Record<string, unknown>).ingredientIds as unknown[]).every((id) => typeof id === "string"))) &&
+          ((x as Record<string, unknown>).ingredientIds as unknown[]).every((id) => typeof id === "string")))) &&
     Array.isArray(p.scenes) &&
     p.scenes.every((x) => typeof x === "object" && x !== null &&
       typeof x.title === "string" && typeof x.detail === "string" && typeof x.timing === "string");
