@@ -27,7 +27,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Delete one draft or clear all local drafts with confirmation.
 - Automated unit tests for IPv4/IPv6 special-purpose blocking, external URL validation, HTML/Schema.org Recipe extraction, data shape, warnings, draft generation, JSON backup recovery, and scene count.
 - Playwright browser tests for create/edit/reorder/reload/export, legacy JSON import and unsafe-URL rejection, plus a mobile-width overflow check.
-- GitHub Actions workflow intended to run unit tests, ESLint, TypeScript check, and production build on pushes and pull requests.
+- GitHub Actions CI runs on pushes and pull requests, with `npm ci`, unit tests, ESLint, TypeScript check, production build, Chromium installation, owner-auth browser smoke tests, and full Playwright E2E. Latest verified main commit `eeee9a84df4c224376c8846ac57d0995b5bd3e5d` passed workflow [#230](https://github.com/menishkumarmv07/Cook-/actions/runs/38301041790). CI uses `actions/checkout@v7`, `actions/setup-node@v7`, and Node.js 22.
 - One-command quality gate: `npm run check` runs tests, lint, type-check and the production build in sequence.
 
 ## Owner-only sign-in and local setup
