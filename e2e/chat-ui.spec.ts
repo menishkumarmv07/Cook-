@@ -76,6 +76,8 @@ test("owner-only middleware redirects anonymous workspace requests and blocks an
   expect(workspace?.url()).toContain("/login?from=%2F");
   const api = await request.get("/api/recipe");
   expect(api.status()).toBe(401);
+  expect(api.headers()["cache-control"]).toContain("no-store");
+  expect(api.headers().pragma).toBe("no-cache");
 });
 
 test("logout endpoint response is explicitly non-cacheable", async ({ request }) => {
@@ -105,6 +107,16 @@ test("owner session cookie uses HttpOnly, Strict same-site, path scope, and an e
   expect(cookie?.sameSite).toBe("Strict");
   expect(cookie?.path).toBe("/");
   expect(cookie?.expires).toBeGreaterThan(Date.now() / 1000);
+
+  const privateApiCacheControl = await page.evaluate(async () => {
+    const response = await fetch("/api/recipe");
+    return {
+      cacheControl: response.headers.get("cache-control"),
+      pragma: response.headers.get("pragma"),
+    };
+  });
+  expect(privateApiCacheControl.cacheControl).toContain("no-store");
+  expect(privateApiCacheControl.pragma).toBe("no-cache");
 });
 
 test("login rejects an incorrect owner password without opening the workspace", async ({ page }) => {
