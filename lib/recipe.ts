@@ -426,7 +426,7 @@ export function buildNarrationScript(project: RecipeProject): string {
             const quantity = [oneLine(ingredient.amount), oneLine(ingredient.unit)].filter(Boolean).join(" ");
             const ingredientName = oneLine(ingredient.name);
             const prep = oneLine(ingredient.prep);
-            if (!quantity || !ingredientName) return `[DO NOT RECORD: confirm quantity/name for ingredient ${project.ingredients.indexOf(ingredient) + 1}]`;
+            if (!quantity || !oneLine(ingredient.unit) || !ingredientName) return `[DO NOT RECORD: confirm quantity/unit/name for ingredient ${project.ingredients.indexOf(ingredient) + 1}]`;
             return `${quantity} ${ingredientName}${prep ? ` (${prep})` : ""}`;
           });
           const hasCompleteAdditions = mappedIngredients.length > 0 && formattedAdditions.every((text) => !text.startsWith("[DO NOT RECORD:"));
