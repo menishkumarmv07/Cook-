@@ -188,7 +188,7 @@ test("source research desk records references and exports uncertainty honestly",
   await expect(preview).toContainText("Food-safety/storage notes: No storage directions provided");
   await expect(page.locator(".source-comparison-summary")).toContainText("Ingredient quantities 2/2");
   await expect(page.locator(".source-comparison-summary")).toContainText("Timing / heat 2/2");
-  await expect(preview).toContainText("Source references and checked items are manually recorded");
+  await expect(preview).toContainText("Source references may include manual notes or an explicit public-HTML inspection record");
   await expect(preview).toContainText("conflicts or missing details must be resolved before publishing");
 
   await page.reload();
@@ -551,6 +551,9 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   await expect(page.locator("#edit-notes")).toHaveValue(/2 cups cooked rice/);
   await expect(page.locator(".source")).toContainText(sourceUrl);
+  await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/Public HTML fetched by the app/);
+  await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/not independently verified/);
+  await expect(page.locator('.source-reference textarea[id^="source-notes-"]')).toHaveValue(/recipe details are not independently verified/);
 });
 
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
