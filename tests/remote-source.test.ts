@@ -5,9 +5,9 @@ import { isPublicIPAddress, RemoteSourceError, validateExternalSourceUrl } from 
 test("rejects IPv6 documentation and protocol-specific destinations", () => {
   for (const address of [
     "2001:0::1",
-    "2001:1::1",
-    "2001:1::2",
-    "2001:1::3",
+    "2001:1::4",
+    "2001:100::1",
+    "2001:1ff:ffff::1",
     "2001:2::1",
     "2001:3::1",
     "2001:4:112::1",
@@ -35,6 +35,9 @@ test("accepts ordinary globally reachable IP addresses", () => {
     "8.8.8.8",
     "2606:4700:4700::1111",
     "2001:4860:4860::8888",
+    "2001:1::1",
+    "2001:1::2",
+    "2001:1::3",
   ]) {
     assert.equal(isPublicIPAddress(address), true, address);
   }
