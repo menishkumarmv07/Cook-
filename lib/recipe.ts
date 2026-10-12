@@ -531,13 +531,17 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
-    sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences.map((source) => ({
-      ...source,
-      ingredientFindings: typeof source.ingredientFindings === "string" ? source.ingredientFindings : "",
-      methodFindings: typeof source.methodFindings === "string" ? source.methodFindings : "",
-      timingFindings: typeof source.timingFindings === "string" ? source.timingFindings : "",
-      safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
-    })) : [],
+    sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences.map((source) => {
+      // Preserve malformed entries long enough for isRecipeProject to reject them; migration must never throw first.
+      if (typeof source !== "object" || source === null || Array.isArray(source)) return source;
+      return {
+        ...source,
+        ingredientFindings: typeof source.ingredientFindings === "string" ? source.ingredientFindings : "",
+        methodFindings: typeof source.methodFindings === "string" ? source.methodFindings : "",
+        timingFindings: typeof source.timingFindings === "string" ? source.timingFindings : "",
+        safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
+      };
+    }) : [],
     servings: typeof legacy.servings === "string" ? legacy.servings : "",
     ingredients: Array.isArray(legacy.ingredients) ? legacy.ingredients : [],
     steps: Array.isArray(legacy.steps) ? legacy.steps : [],
