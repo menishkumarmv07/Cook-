@@ -23,7 +23,7 @@ export default function LoginPage() {
         return;
       }
       const requested = new URLSearchParams(window.location.search).get("from") ?? "/";
-      const destination = requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\\\") ? requested : "/";
+      const destination = requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/\\") ? requested : "/";
       window.location.replace(destination);
     } catch {
       setError("Connection failed. Please try again.");
