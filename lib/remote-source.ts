@@ -82,8 +82,9 @@ export function isPublicIPAddress(address: string): boolean {
   // blocking unrelated ordinary addresses more broadly than necessary.
   if (first === 0x2001 && (
     second === 0x0000 || // 2001::/32 — Teredo
-    (second === 0x0001 && third === 0x0000 && [1, 2, 3].includes(words[3]) &&
-      words.slice(4).every((word) => word === 0)) || // 2001:1::1/128, ::2/128, ::3/128
+    (second === 0x0001 && third === 0x0000 &&
+      words[3] === 0 && words[4] === 0 && words[5] === 0 && words[6] === 0 &&
+      [1, 2, 3].includes(words[7])) || // 2001:1::1/128, ::2/128, ::3/128
     (second === 0x0002 && third === 0x0000) || // 2001:2::/48 — benchmarking
     second === 0x0003 || // 2001:3::/32 — AMT
     (second === 0x0004 && third === 0x0112) || // 2001:4:112::/48 — AS112-v6
