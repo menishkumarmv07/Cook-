@@ -76,6 +76,10 @@ The app is being designed for a US-first creator workflow and publishing strateg
 
 **Required budget: ₹0 / $0.** The required app workflow must not depend on paid subscriptions, metered API calls, paid credits, payment-card verification, or a trial that later bills. If a feature cannot be delivered reliably at zero cost, keep it out of the required path and provide a local/manual fallback where practical. Never silently add a paid fallback. Review [the mandatory zero-cost policy](docs/ZERO-COST-POLICY.md) before adding dependencies or services. Free-tier quotas and terms can change; verify them before relying on a provider. GitHub Actions and any hosting service are subject to current account limits, so deployment must not be described as guaranteed free without checking the exact account and plan.
 
+## Private, owner-only access
+
+This app is intended for **one owner only**, not public users. The repository should remain private, but repository privacy does not protect a website if that website is deployed publicly. The current prototype has **no owner sign-in or server-side access control**, and browser-local data is stored in localStorage without encryption. Therefore, it is **not yet safe to describe the app as a high-security private web app**. Do not deploy or share a live URL until the owner-only security requirements in [docs/PRIVATE-APP-SECURITY.md](docs/PRIVATE-APP-SECURITY.md) are implemented and tested. If a secure hosted path cannot be verified at ₹0, keep it local rather than weakening access controls or adding paid services.
+
 ## Privacy and credentials
 
-The current prototype has no required AI API key or paid creative provider. Do not add billing, card verification, credentials, or secret keys without explicit approval. Never commit credentials or private chef/background assets. Keep the repository private. The local app is not encrypted storage or cloud backup; export backups to protect drafts.
+The current prototype has no required AI API key or paid creative provider. Do not add billing, card verification, credentials, or secret keys without explicit approval. Never commit credentials or private chef/background assets. Keep the repository private. The local app is not encrypted storage or cloud backup; export backups to protect drafts, and treat exported JSON files and trial photos as private.
