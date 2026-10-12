@@ -25,6 +25,9 @@ test("chat home follows the requested mobile-first layout and opens the drawer",
   await expect(page.getByRole("heading", { name: "Connect your apps" })).toBeVisible();
   await expect(page.locator(".connection-copy").getByText("YouTube", { exact: true })).toBeVisible();
   await expect(page.locator(".connection-copy").getByText("Instagram", { exact: true })).toBeVisible();
+  await expect(page.locator(".connection-copy").getByText("TikTok", { exact: true })).toBeVisible();
+  await expect(page.locator(".connection-copy").getByText("Facebook", { exact: true })).toBeVisible();
+  await expect(page.getByText("Connections are not live yet.", { exact: false })).toBeVisible();
   await page.getByRole("button", { name: /Connect/ }).first().click();
   await expect(page.getByRole("dialog")).toContainText("OAuth flow is not configured");
 });
