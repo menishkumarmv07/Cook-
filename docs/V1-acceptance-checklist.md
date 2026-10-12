@@ -128,6 +128,15 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Malformed non-string values for optional comparison fields are rejected by structured validation.
 - [ ] Source disagreements such as different ingredient quantities, order, or timing remain visible; no result is chosen automatically.
 
+## Workspace chat-dock link intake checks
+
+- [ ] Paste a complete valid YouTube, Instagram, or recipe-page HTTP(S) URL into the bottom workspace/chat dock; confirm the exact URL is copied into the recipe-intake source field and intake is brought into view.
+- [ ] Confirm the user-facing status clearly says the URL is only saved and the current V1 does not open, fetch, transcribe, or analyze linked content.
+- [ ] Enter a recipe name and create a draft; verify the source URL is retained on that recipe.
+- [ ] Paste an unsupported scheme such as `ftp://`; confirm it is rejected, is not inserted into the source field, and a clear HTTP(S)-only message appears.
+- [ ] Confirm ordinary commands such as `research`, `new recipe`, `content studio`, and `publish` retain their existing navigation behavior.
+- [ ] Confirm the updated chat-dock placeholder says a recipe/video link can be pasted.
+
 ## E. V1 feature honesty / release blockers
 
 The following are **not implemented or not verified** in the current prototype and must remain clearly labelled as such:
