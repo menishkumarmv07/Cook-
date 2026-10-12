@@ -126,3 +126,14 @@ The required app path must remain ₹0 / $0: no required paid subscriptions, met
 - [ ] Hosting, auth, and all dependencies are confirmed ₹0 with no card requirement.
 
 Do not mark these checks complete until evidence exists. No deployment is authorized by this documentation alone.
+
+
+## Responsive design requirement
+
+The app must work on both mobile and desktop, with mobile-first behavior and no loss of recipe-editing functionality:
+- Phone: compact navigation, readable text, full-width form controls, stacked panels, touch-friendly actions, no sideways page scrolling.
+- Tablet: layouts adapt without cramped recipe fields or overlapping navigation.
+- Desktop: spacious content width, useful multi-column layouts, consistent alignment and keyboard focus visibility.
+- Keep the white background, black text, grayscale surfaces, and theme tokens so a customizable theme can be added later without redesigning each component.
+
+The existing dashboard stylesheet uses responsive breakpoints around 900px, 650px, and 390px. These breakpoints are not a substitute for testing. Playwright is configured for Desktop Chrome and Pixel 7 mobile Chromium; both projects must pass, and manual Android Chrome checks remain required before release.
