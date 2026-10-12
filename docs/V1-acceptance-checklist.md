@@ -24,6 +24,18 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 
 **Open release gates:** A Vercel project named `cook` is visible in the connected team listing, but project inspection returns HTTP 404, deployment listing returns HTTP 403, and filtering projects by `menishkumarmv07/Cook-` returns no linked project. Its repository connection, deployment protection, and live deployment therefore remain unverified; do not assume the project is connected or private. The owner must confirm the intended project and grant the connected integration sufficient read/deployment permissions. Real Android Chrome acceptance and a documented one-recipe acceptance trial are also still required. Do not mark V1 complete until these gates are resolved.
 
+## Current verified repository state — 13 October 2026
+
+**Latest verified main commit:** `fa52d7a619532be0cb4bd5db79fa23778ece4950`. Its post-merge GitHub Actions workflow [#221](https://github.com/menishkumarmv07/Cook-/actions/runs/38293398470) completed successfully. The CI job includes the clean dependency install, unit tests, ESLint, TypeScript, production build, Chromium setup, owner-auth browser smoke, and Playwright end-to-end tests.
+
+Additional merged improvements and their verification:
+- **PR #41 — truthful source-inspection evidence:** merge commit `cbd0f859e710fdd7aa93ffb1bf15ac2095cfdaba`; PR-head workflow [#212](https://github.com/menishkumarmv07/Cook-/actions/runs/38290927887) passed. The draft records explicitly inspected public HTML separately from manual notes and labels extracted claims unverified; it does not add extracted text to structured ingredients/steps or claim video/audio analysis.
+- **PR #42 — complete IPv6 documentation prefix block:** merge commit `0aa58f39c29cde7d8497601584a3383f6418fde2`; final PR-head workflow [#214](https://github.com/menishkumarmv07/Cook-/actions/runs/38291368510) passed. This fixes the boundary for the IANA documentation prefix `3fff::/20` and tests addresses across the prefix.
+- **Baseline response security headers:** current main commit `fa52d7a619532be0cb4bd5db79fa23778ece4950` adds X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy to all routes; its unit regression test passed in run #221. These are baseline protections, not a full production security review.
+- Earlier PR #40 adds additional special-purpose IPv4 checks and was merged as `f7344a86a77f6b511db65c0a676192508de3be51`; post-merge main workflows [#205](https://github.com/menishkumarmv07/Cook-/actions/runs/38289022274) and [#206](https://github.com/menishkumarmv07/Cook-/actions/runs/38289061560) passed.
+
+**Important:** green automated CI proves the tested repository state only. It does not prove that Vercel is linked/protected, that the deployed app is reachable, or that physical Android Chrome and real cooking acceptance have passed. Those gates below remain open.
+
 ## B. Android Chrome manual test
 
 Use a real Android phone with Chrome. Check portrait layout first, then landscape if practical.
