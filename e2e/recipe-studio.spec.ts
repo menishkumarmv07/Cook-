@@ -106,12 +106,20 @@ test("source research desk records references and exports uncertainty honestly",
   await page.getByLabel("Reference URL").fill("https://example.com/recipe");
   await page.getByLabel("What did you actually check?").fill("Ingredient list and method order");
   await page.getByLabel("Differences, uncertainty, or missing details").fill("Cooking time is not specified");
+  await page.getByLabel("Ingredient quantities & differences").fill("Oil is 1 tbsp in this reference");
+  await page.getByLabel("Method / step-order findings").fill("Add onions before tomato");
+  await page.getByLabel("Cooking timing & heat findings").fill("Medium heat for 5 minutes");
+  await page.getByLabel("Food safety & storage notes").fill("No storage directions provided");
 
   await page.getByRole("button", { name: /Add source/ }).click();
   await page.getByLabel("Source type").nth(1).selectOption("video");
   await page.getByLabel("Reference URL").nth(1).fill("https://example.org/video");
   await page.getByLabel("What did you actually check?").nth(1).fill("Visible cooking actions");
   await page.getByLabel("Differences, uncertainty, or missing details").nth(1).fill("Exact temperature is unclear");
+  await page.getByLabel("Ingredient quantities & differences").nth(1).fill("Oil is 2 tbsp in the video description");
+  await page.getByLabel("Method / step-order findings").nth(1).fill("Add onions after tomato paste");
+  await page.getByLabel("Cooking timing & heat findings").nth(1).fill("Exact temperature is unclear");
+  await page.getByLabel("Food safety & storage notes").nth(1).fill("Storage directions not shown");
 
   await page.getByRole("button", { name: "Generate tutorial draft" }).click();
   const preview = page.locator(".tutorial-preview pre");
@@ -119,12 +127,20 @@ test("source research desk records references and exports uncertainty honestly",
   await expect(preview).toContainText("https://example.org/video");
   await expect(preview).toContainText("Cooking time is not specified");
   await expect(preview).toContainText("Exact temperature is unclear");
+  await expect(preview).toContainText("Ingredient/quantity findings: Oil is 1 tbsp in this reference");
+  await expect(preview).toContainText("Method/order findings: Add onions before tomato");
+  await expect(preview).toContainText("Timing/heat findings: Medium heat for 5 minutes");
+  await expect(preview).toContainText("Food-safety/storage notes: No storage directions provided");
+  await expect(page.locator(".source-comparison-summary")).toContainText("Ingredient quantities 2/2");
+  await expect(page.locator(".source-comparison-summary")).toContainText("Timing / heat 2/2");
   await expect(preview).toContainText("Source references and checked items are manually recorded");
   await expect(preview).toContainText("conflicts or missing details must be resolved before publishing");
 
   await page.reload();
   await expect(page.getByLabel("Reference URL").first()).toHaveValue("https://example.com/recipe");
   await expect(page.getByLabel("Reference URL").nth(1)).toHaveValue("https://example.org/video");
+  await expect(page.getByLabel("Ingredient quantities & differences").first()).toHaveValue("Oil is 1 tbsp in this reference");
+  await expect(page.getByLabel("Method / step-order findings").nth(1)).toHaveValue("Add onions after tomato paste");
 });
 
 

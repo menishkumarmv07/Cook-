@@ -64,8 +64,15 @@ function migrateProject(value: unknown): RecipeProject | null {
   if (old.sourceReferences !== undefined && !Array.isArray(old.sourceReferences)) return null;
   const sourceReferences = Array.isArray(old.sourceReferences) ? old.sourceReferences.filter((source): source is SourceReference =>
     typeof source === "object" && source !== null && typeof source.id === "string" && typeof source.url === "string" &&
-    ["recipe-page", "video", "transcript", "other"].includes(source.kind) && typeof source.checked === "string" && typeof source.notes === "string"
-  ) : [];
+    ["recipe-page", "video", "transcript", "other"].includes(source.kind) && typeof source.checked === "string" && typeof source.notes === "string" &&
+    ["ingredientFindings", "methodFindings", "timingFindings", "safetyStorageFindings"].every((field) => (source as Record<string, unknown>)[field] === undefined || typeof (source as Record<string, unknown>)[field] === "string")
+  ).map((source) => ({
+    ...source,
+    ingredientFindings: typeof source.ingredientFindings === "string" ? source.ingredientFindings : "",
+    methodFindings: typeof source.methodFindings === "string" ? source.methodFindings : "",
+    timingFindings: typeof source.timingFindings === "string" ? source.timingFindings : "",
+    safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
+  })) : [];
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
@@ -177,6 +184,13 @@ export default function Home() {
   const nutrition = useMemo(() => current ? calculateRecipeNutrition(current) : null, [current]);
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
+  const sourceReferences = current?.sourceReferences ?? [];
+  const sourceCoverage = {
+    ingredient: sourceReferences.filter((source) => source.ingredientFindings?.trim()).length,
+    method: sourceReferences.filter((source) => source.methodFindings?.trim()).length,
+    timing: sourceReferences.filter((source) => source.timingFindings?.trim()).length,
+    safety: sourceReferences.filter((source) => source.safetyStorageFindings?.trim()).length,
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -811,8 +825,19 @@ export default function Home() {
                 </div>
 
                 <section className="panel source-research-panel" id="research-desk">
-                  <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record separate references and exactly what you checked. This is a research log, not automatic link/video analysis.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "" }] })}>＋ Add source</button></div>
-                  {current.sourceReferences.length === 0 ? <p className="empty-inline">No structured references yet. Add at least two independent sources when possible.</p> : <div className="source-reference-list">{current.sourceReferences.map((source, index) => (
+                  <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record separate references and exactly what you checked. This is a research log, not automatic link/video analysis.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "", ingredientFindings: "", methodFindings: "", timingFindings: "", safetyStorageFindings: "" }] })}>＋ Add source</button></div>
+                  {current.sourceReferences.length === 0 ? <p className="empty-inline">No structured references yet. Add at least two independent sources when possible.</p> : <>
+                    <div className="source-comparison-summary" aria-label="Source comparison coverage">
+                      <strong>Structured comparison coverage</strong>
+                      <div className="source-coverage-grid">
+                        <span>Ingredient quantities <b>{sourceCoverage.ingredient}/{sourceReferences.length}</b></span>
+                        <span>Method / order <b>{sourceCoverage.method}/{sourceReferences.length}</b></span>
+                        <span>Timing / heat <b>{sourceCoverage.timing}/{sourceReferences.length}</b></span>
+                        <span>Safety / storage notes <b>{sourceCoverage.safety}/{sourceReferences.length}</b></span>
+                      </div>
+                      <p className="hint">Counts show which references have manual notes entered, not whether their claims are correct. Nothing is fetched or verified automatically.</p>
+                    </div>
+                    <div className="source-reference-list">{current.sourceReferences.map((source, index) => (
                     <div className="source-reference" key={source.id}>
                       <div className="source-reference-heading"><strong>Reference {index + 1}</strong><button className="text-button" type="button" onClick={() => patchCurrent({ sourceReferences: current.sourceReferences.filter((item) => item.id !== source.id) })}>Remove</button></div>
                       <div className="editor-grid">
@@ -820,9 +845,14 @@ export default function Home() {
                         <div><label htmlFor={`source-url-${source.id}`}>Reference URL</label><input id={`source-url-${source.id}`} type="url" inputMode="url" value={source.url} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, url: event.target.value } : item) })} placeholder="https://…" /></div>
                         <div><label htmlFor={`source-checked-${source.id}`}>What did you actually check?</label><textarea id={`source-checked-${source.id}`} rows={2} value={source.checked} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, checked: event.target.value } : item) })} placeholder="Ingredients, quantities, method order, timings, transcript, visible actions…" /></div>
                         <div><label htmlFor={`source-notes-${source.id}`}>Differences, uncertainty, or missing details</label><textarea id={`source-notes-${source.id}`} rows={2} value={source.notes} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, notes: event.target.value } : item) })} placeholder="Conflicting amounts, unclear step, missing timing; write 'none observed' only if checked." /></div>
+                        <div><label htmlFor={`source-ingredients-${source.id}`}>Ingredient quantities & differences</label><textarea id={`source-ingredients-${source.id}`} rows={2} value={source.ingredientFindings ?? ""} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, ingredientFindings: event.target.value } : item) })} placeholder="Amounts/units reported by this source; note contradictions against other references." /></div>
+                        <div><label htmlFor={`source-method-${source.id}`}>Method / step-order findings</label><textarea id={`source-method-${source.id}`} rows={2} value={source.methodFindings ?? ""} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, methodFindings: event.target.value } : item) })} placeholder="Order of steps, additions, omitted actions, or unclear instructions." /></div>
+                        <div><label htmlFor={`source-timing-${source.id}`}>Cooking timing & heat findings</label><textarea id={`source-timing-${source.id}`} rows={2} value={source.timingFindings ?? ""} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, timingFindings: event.target.value } : item) })} placeholder="Cooking times, heat levels, temperatures, doneness cues; record uncertainty." /></div>
+                        <div><label htmlFor={`source-safety-${source.id}`}>Food safety & storage notes</label><textarea id={`source-safety-${source.id}`} rows={2} value={source.safetyStorageFindings ?? ""} onChange={(event) => patchCurrent({ sourceReferences: current.sourceReferences.map((item) => item.id === source.id ? { ...item, safetyStorageFindings: event.target.value } : item) })} placeholder="Only record source statements checked; verify safety against an authoritative source separately." /></div>
                       </div>
                     </div>
-                  ))}</div>}
+                  ))}</div>
+                  </>}
                   <p className="warning">No source is fetched or verified automatically in this version. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
 

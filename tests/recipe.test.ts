@@ -240,6 +240,51 @@ test("exports structured source references without claiming verification", () =>
 });
 
 
+test("source comparison worksheet validates optional field types and preserves legacy source records", () => {
+  const legacy: RecipeProject = {
+    ...base,
+    sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page", checked: "ingredients", notes: "" }],
+  };
+  const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
+  assert.ok(restored);
+  assert.equal(restored.sourceReferences[0].ingredientFindings, "");
+  assert.equal(restored.sourceReferences[0].methodFindings, "");
+  assert.equal(restored.sourceReferences[0].timingFindings, "");
+  assert.equal(restored.sourceReferences[0].safetyStorageFindings, "");
+
+  assert.equal(isRecipeProject({
+    ...base,
+    sourceReferences: [{ ...legacy.sourceReferences[0], ingredientFindings: 7 }],
+  }), false);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, sourceReferences: [null] })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, sourceReferences: ["not an object"] })), null);
+
+  const complete = {
+    ...base,
+    sourceReferences: [{
+      ...legacy.sourceReferences[0],
+      ingredientFindings: "Oil 1 tbsp",
+      methodFindings: "Add oil before onions",
+      timingFindings: "Medium heat, 5 minutes",
+      safetyStorageFindings: "Store covered in refrigerator",
+    }],
+  };
+  const issues = validateRecipe(complete);
+  assert.equal(issues.some((issue) => issue.field === "source-comparison"), false);
+  const tutorial = buildTutorialDraft(complete);
+  assert.match(tutorial, /Ingredient\/quantity findings: Oil 1 tbsp/);
+  assert.match(tutorial, /Method\/order findings: Add oil before onions/);
+  assert.match(tutorial, /Timing\/heat findings: Medium heat, 5 minutes/);
+  assert.match(tutorial, /Food-safety\/storage notes: Store covered in refrigerator/);
+  assert.match(tutorial, /not been independently verified/);
+
+  const incompleteIssues = validateRecipe({
+    ...complete,
+    sourceReferences: [{ ...complete.sourceReferences[0], timingFindings: "" }],
+  });
+  assert.ok(incompleteIssues.some((issue) => issue.level === "warning" && issue.field === "source-comparison"));
+});
+
 test("source URL duplicate normalization preserves case-sensitive paths and query strings", () => {
   assert.equal(
     normalizeSourceUrlForComparison("https://example.com/dish/"),
