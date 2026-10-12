@@ -72,6 +72,10 @@ The creator profile is guidance for this deterministic text workflow, not an AI 
 
 The app is being designed for a US-first creator workflow and publishing strategy, while allowing recipes from any cuisine or country. Actual US platform integrations, account eligibility, scheduling, audience analytics, and monetization features must be evaluated and connected in later stages using official supported APIs and explicit account authorization. Reach and revenue cannot be guaranteed. Manual text-pack sharing is an early prepare-and-share step, not direct publishing. Direct platform publishing remains a later optional integration, subject to each platform's current rules and account review.
 
-## Cost and privacy
+## Zero-cost requirement
 
-The current prototype has no required AI API key or paid creative provider. GitHub Actions and Vercel availability/limits depend on account settings and may change. Do not add paid services, billing, card verification, credentials, or secret keys without explicit approval. Keep the repository private and do not commit credentials or private chef/background assets.
+**Required budget: ₹0 / $0.** The required app workflow must not depend on paid subscriptions, metered API calls, paid credits, payment-card verification, or a trial that later bills. If a feature cannot be delivered reliably at zero cost, keep it out of the required path and provide a local/manual fallback where practical. Never silently add a paid fallback. Review [the mandatory zero-cost policy](docs/ZERO-COST-POLICY.md) before adding dependencies or services. Free-tier quotas and terms can change; verify them before relying on a provider. GitHub Actions and any hosting service are subject to current account limits, so deployment must not be described as guaranteed free without checking the exact account and plan.
+
+## Privacy and credentials
+
+The current prototype has no required AI API key or paid creative provider. Do not add billing, card verification, credentials, or secret keys without explicit approval. Never commit credentials or private chef/background assets. Keep the repository private. The local app is not encrypted storage or cloud backup; export backups to protect drafts.
