@@ -35,4 +35,8 @@ jobs:
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
       - name: End-to-end browser tests
+        # Disposable values used only by the CI test server. Never reuse in a deployment.
+        env:
+          OWNER_PASSWORD: ci-test-only-owner-password-not-for-production-2026
+          AUTH_SECRET: ci-test-only-session-secret-never-use-in-production-2026
         run: npm run e2e
