@@ -502,9 +502,7 @@ export default function Home() {
       name: name.trim(),
       url: url.trim(),
       notes: notes.trim(),
-      sourceEvidence: sourceInspection
-        ? "The app explicitly inspected public HTML for " + sourceInspection.finalUrl + " at " + new Date().toISOString() + ". This extraction is unverified; confirm all values against reliable sources. Video frames and audio were not analyzed."
-        : "",
+      sourceEvidence: "",
       sourceReferences: sourceInspection ? [{
         id: makeId(),
         url: sourceInspection.finalUrl,
