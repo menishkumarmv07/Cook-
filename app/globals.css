@@ -496,6 +496,10 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .chat-source-transfer{display:block;margin-top:8px;padding:9px 12px;border:1px solid #d5d5d5;border-radius:999px;background:#f7f7f7;color:#202020;font:inherit;font-size:13px;font-weight:550;text-align:left;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .chat-source-transfer:hover{background:#eee;border-color:#bbb}
 .chat-source-transfer:focus-visible{outline:2px solid #555;outline-offset:3px}
+.source-open-wrap{margin:5px 0 14px;font-size:13px}
+.source-open-link{display:inline-flex;align-items:center;color:#333;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.source-open-link:hover{color:#000}
+.source-open-link:focus-visible{outline:2px solid #555;outline-offset:3px;border-radius:3px}
 .chat-drawer-scrim{position:absolute;inset:0;z-index:20;width:100%;height:100%;border:0;background:rgba(0,0,0,.5);padding:0;cursor:pointer;animation:chat-scrim-in .18s ease-out}
 .chat-drawer{position:absolute;top:0;bottom:0;left:0;z-index:21;width:80%;max-width:370px;min-width:270px;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 7px) 16px calc(10px + env(safe-area-inset-bottom));background:radial-gradient(ellipse at 100% 0%,rgba(243,243,243,.6),transparent 37%),#fff;color:#0d0d0d;box-shadow:4px 0 30px rgba(0,0,0,.08);animation:chat-drawer-in .28s ease-out;overflow-y:auto}
 .chat-drawer-header{height:44px;display:flex;align-items:center;justify-content:space-between;padding-left:16px;padding-right:8px;flex-shrink:0}
