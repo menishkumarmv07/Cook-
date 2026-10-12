@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   createSessionToken,
+  inspectSessionToken,
   isAuthConfigurationReady,
   SESSION_TTL_SECONDS,
   verifySessionToken,
@@ -20,8 +21,11 @@ test("owner access configuration requires a long owner password and a 32-byte se
 test("signed owner sessions verify only for the expected secret and while unexpired", async () => {
   const token = await createSessionToken(secret, now + SESSION_TTL_SECONDS);
   assert.equal(await verifySessionToken(token, secret, now), true);
+  assert.deepEqual(await inspectSessionToken(token, secret, now), { valid: true, reason: "valid" });
   assert.equal(await verifySessionToken(token, "a-different-session-secret-that-is-at-least-32-bytes-long", now), false);
+  assert.deepEqual(await inspectSessionToken(token, "a-different-session-secret-that-is-at-least-32-bytes-long", now), { valid: false, reason: "invalid-signature" });
   assert.equal(await verifySessionToken(token, secret, now + SESSION_TTL_SECONDS), false);
+  assert.deepEqual(await inspectSessionToken(token, secret, now + SESSION_TTL_SECONDS), { valid: false, reason: "expired-token" });
 });
 
 test("tampered and malformed owner session tokens are rejected", async () => {
