@@ -46,3 +46,19 @@ test("mobile chat interface does not introduce horizontal overflow", async ({ pa
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
   expect(dimensions.bodyWidth).toBeLessThanOrEqual(dimensions.width);
 });
+
+
+test("owner-only middleware redirects anonymous workspace requests and blocks anonymous APIs", async ({ page, request }) => {
+  const workspace = await page.goto("/");
+  expect(workspace?.url()).toContain("/login?from=%2F");
+  const api = await request.get("/api/recipe");
+  expect(api.status()).toBe(401);
+});
+
+test("login rejects an incorrect owner password without opening the workspace", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Owner password").fill("incorrect-owner-password");
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  await expect(page.getByText("Password not accepted.")).toBeVisible();
+  await expect(page).toHaveURL(/\/login$/);
+});
