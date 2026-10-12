@@ -266,7 +266,7 @@ export default function ChatHome() {
                   aria-label="Ask cooking"
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="Ask cooking"
+                  placeholder="Ask ChatGPT"
                   autoComplete="off"
                   enterKeyHint="send"
                 />
