@@ -496,6 +496,11 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .chat-source-transfer{display:block;margin-top:8px;padding:9px 12px;border:1px solid #d5d5d5;border-radius:999px;background:#f7f7f7;color:#202020;font:inherit;font-size:13px;font-weight:550;text-align:left;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .chat-source-transfer:hover{background:#eee;border-color:#bbb}
 .chat-source-transfer:focus-visible{outline:2px solid #555;outline-offset:3px}
+.chat-lock-button{display:flex;align-items:center;gap:10px;width:100%;margin-top:16px;padding:12px 13px;border:1px solid #e2e2e2;border-radius:12px;background:#f8f8f8;color:#222;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.chat-lock-button:hover{background:#eee}
+.chat-lock-button:focus-visible,.side-lock-button:focus-visible{outline:2px solid #888;outline-offset:3px}
+.side-lock-button{display:block;width:100%;margin-top:12px;padding:8px 10px;border:1px solid #646464;border-radius:8px;background:transparent;color:#f3f3f3;font:inherit;font-size:11px;text-align:left;cursor:pointer}
+.side-lock-button:hover{background:#303030}
 .source-open-wrap{margin:5px 0 14px;font-size:13px}
 .source-open-link{display:inline-flex;align-items:center;color:#333;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 .source-open-link:hover{color:#000}
