@@ -414,13 +414,16 @@ test("ingredient additions are explicitly mapped to cooking steps and spoken in 
   await page.getByLabel("Ingredient 2 name").fill("tomato paste");
 
   await page.getByRole("button", { name: /Add step/ }).click();
-  await page.getByLabel("Action / instruction").fill("Cook the onions until softened");
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the onions until softened");
   await page.getByLabel("Add diced onion at step 1").check();
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(1).fill("Stir in the tomato paste");
+  await page.getByLabel("Add tomato paste at step 2").check();
 
   await page.getByRole("button", { name: "Generate narration script" }).click();
   const script = page.locator(".narration-preview pre");
   await expect(script).toContainText("Add 1 cup diced onion (small dice) now");
   await expect(script).toContainText("INGREDIENTS TO ADD NOW: 1 cup diced onion (small dice)");
-  await expect(script).toContainText("tomato paste");
-  await expect(script).toContainText("Confirm which ingredients are added during this step; do not infer");
+  await expect(script).toContainText("Add 2 tbsp tomato paste now");
+  await expect(script).toContainText("INGREDIENTS TO ADD NOW: 2 tbsp tomato paste");
 });
