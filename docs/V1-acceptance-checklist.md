@@ -8,16 +8,18 @@
 
 Run npm run check from the repository root. This runs the unit tests, ESLint, TypeScript checking, and production build. GitHub Actions additionally installs Chromium and runs `npm run e2e` against the production build.
 
-- [ ] Unit tests pass.
-- [ ] ESLint passes with no errors.
-- [ ] TypeScript check passes.
-- [ ] Production build passes.
-- [ ] Playwright desktop browser workflow passes (create/edit/reorder/reload/export and JSON import safety cases).
-- [ ] Playwright mobile-sized layout check passes without horizontal overflow.
-- [ ] GitHub Actions result is green for the exact commit being reviewed.
-- [ ] Record commit SHA, run URL, date, and any warnings.
+- [x] Unit tests pass (GitHub Actions run #181).
+- [x] ESLint passes with no errors (GitHub Actions run #181).
+- [x] TypeScript check passes (GitHub Actions run #181).
+- [x] Production build passes (GitHub Actions run #181).
+- [x] Playwright desktop browser workflow passes (create/edit/reorder/reload/export and JSON import safety cases; GitHub Actions run #181).
+- [x] Playwright mobile-sized layout check passes without horizontal overflow in CI (GitHub Actions run #181); this is not a substitute for the real Android Chrome test.
+- [x] GitHub Actions result is green for exact main commit `0308937b09abbb8889087b7e28854be66dd7d4e7` (run #181).
+- [x] Record commit SHA, run URL, date, and warnings below.
 
-**Current state (12 October 2026):** GitHub Actions run #79 passed on main commit `42d7e60dbc32b59579857b3c61af5a19a59b01d7`: [run #79](https://github.com/menishkumarmv07/Cook-/actions/runs/38170646309). Re-check the latest Actions run for the exact reviewed commit before marking this section complete. The real Android Chrome manual section remains not tested.
+**Latest automated verification (12 October 2026):** GitHub Actions run #181 passed on main commit `0308937b09abbb8889087b7e28854be66dd7d4e7`: [run #181](https://github.com/menishkumarmv07/Cook-/actions/runs/38264929333). Dependency installation, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and the full Playwright end-to-end suite all succeeded. This verifies CI only; it does not prove deployment or real Android Chrome behavior.
+
+**Open release gates:** The repository has no committed `package-lock.json`, so CI currently uses `npm install`; dependency-lock reproducibility has not passed. The connected Vercel team lists no Cooking Creator project, and project creation previously failed with HTTP 403 permission denied. Real Android Chrome acceptance and a documented one-recipe acceptance trial are still required. Do not mark V1 complete until those are resolved.
 
 ## B. Android Chrome manual test
 
