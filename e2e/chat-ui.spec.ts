@@ -78,6 +78,13 @@ test("owner-only middleware redirects anonymous workspace requests and blocks an
   expect(api.status()).toBe(401);
 });
 
+test("logout endpoint response is explicitly non-cacheable", async ({ request }) => {
+  const response = await request.post("/api/auth/logout");
+  expect(response.status()).toBe(200);
+  expect(response.headers()["cache-control"]).toBe("no-store");
+  expect(response.headers().pragma).toBe("no-cache");
+});
+
 test("public login response includes baseline browser security headers", async ({ request }) => {
   const response = await request.get("/login");
   expect(response.ok()).toBe(true);
