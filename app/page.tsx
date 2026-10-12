@@ -502,8 +502,20 @@ export default function Home() {
       name: name.trim(),
       url: url.trim(),
       notes: notes.trim(),
-      sourceEvidence: "",
-      sourceReferences: [],
+      sourceEvidence: sourceInspection
+        ? "The app explicitly inspected public HTML for " + sourceInspection.finalUrl + " at " + new Date().toISOString() + ". This extraction is unverified; confirm all values against reliable sources. Video frames and audio were not analyzed."
+        : "",
+      sourceReferences: sourceInspection ? [{
+        id: makeId(),
+        url: sourceInspection.finalUrl,
+        kind: "recipe-page",
+        checked: "Public HTML fetched by the app after an explicit creator action; extracted fields are not independently verified.",
+        notes: "Requested URL: " + sourceInspection.requestedUrl + ". Page title: " + (sourceInspection.title || "(not available)") + ". " + sourceInspection.limitation,
+        ingredientFindings: "",
+        methodFindings: "",
+        timingFindings: "",
+        safetyStorageFindings: "",
+      }] : [],
       trialStatus: "untested",
       trialRating: "",
       trialNotes: "",
@@ -873,7 +885,7 @@ export default function Home() {
 
           <section className="research-hub panel" id="research-trends">
             <div className="section-head"><div><p className="eyebrow">RESEARCH & TRENDS</p><h2>Build from evidence, not guesses.</h2><p>Record recipe sources, compare the details you actually checked, and flag gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
-            <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Link access and full video analysis are not automated in V1. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
+            <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Public HTML recipe pages can be inspected after an explicit action during intake. Extraction is not verification; video frames and audio are not analyzed. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
           </section>
 
           <section className="connection-hub panel" id="social-connections">
@@ -1011,7 +1023,7 @@ export default function Home() {
                 </div>
 
                 <section className="panel source-research-panel" id="research-desk">
-                  <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record separate references and exactly what you checked. This is a research log, not automatic link/video analysis.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "", ingredientFindings: "", methodFindings: "", timingFindings: "", safetyStorageFindings: "" }] })}>＋ Add source</button></div>
+                  <div className="subsection-head"><div><h3>Source research desk</h3><p className="muted">Record manual comparisons and keep inspection records visible. Intake can extract accessible public HTML after an explicit action; this does not verify recipe claims or analyze video frames/audio.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ sourceReferences: [...current.sourceReferences, { id: makeId(), url: "", kind: "recipe-page", checked: "", notes: "", ingredientFindings: "", methodFindings: "", timingFindings: "", safetyStorageFindings: "" }] })}>＋ Add source</button></div>
                   {current.sourceReferences.length === 0 ? <p className="empty-inline">No structured references yet. Add at least two independent sources when possible.</p> : <>
                     <div className="source-comparison-summary" aria-label="Source comparison coverage">
                       <strong>Structured comparison coverage</strong>
