@@ -81,12 +81,15 @@ export function isPublicIPAddress(address: string): boolean {
   // Reject IANA-listed special-purpose destinations even when they fall inside
   // the global-unicast allocation. Match the registered prefix sizes to avoid
   // blocking unrelated ordinary addresses more broadly than necessary.
-  if (first === 0x2001 && (
-    second === 0x0000 || // 2001::/32 — Teredo
-    (second === 0x0001 && third === 0x0000 &&
+  if (first === 0x2001 && second <= 0x01ff) {
+    // IANA marks 2001::/23 as not globally reachable, with three globally
+    // reachable anycast exceptions at 2001:1::1/128, ::2/128, and ::3/128.
+    const knownGlobalAnycast = second === 0x0001 && third === 0x0000 &&
       words[3] === 0 && words[4] === 0 && words[5] === 0 && words[6] === 0 &&
-      [1, 2, 3].includes(words[7])) || // 2001:1::1/128, ::2/128, ::3/128
-    (second === 0x0002 && third === 0x0000) || // 2001:2::/48 — benchmarking
+      [1, 2, 3].includes(words[7]);
+    if (!knownGlobalAnycast) return false;
+  }
+  if (first === 0x2001 && (
     second === 0x0003 || // 2001:3::/32 — AMT
     (second === 0x0004 && third === 0x0112) || // 2001:4:112::/48 — AS112-v6
     second === 0x0db8 || // 2001:db8::/32 — documentation
@@ -95,7 +98,7 @@ export function isPublicIPAddress(address: string): boolean {
     (second >= 0x0030 && second <= 0x003f) // 2001:30::/28 — Drone Remote ID
   )) return false;
   if (first === 0x2620 && second === 0x004f && third === 0x8000) return false; // 2620:4f:8000::/48 — AS112 direct delegation
-  if (first === 0x3fff && second <= 0x000f) return false; // 3fff::/20 — documentation
+  if (first === 0x3fff && second <= 0x0fff) return false; // 3fff::/20 — documentation
   if (first === 0x2002) return false; // 2002::/16 — 6to4
   return true;
 }
