@@ -25,7 +25,12 @@ export async function middleware(request: NextRequest) {
 
   const loginUrl = new URL("/login", request.url);
   loginUrl.searchParams.set("returnTo", pathname + request.nextUrl.search);
-  return NextResponse.redirect(loginUrl);
+  const redirectResponse = NextResponse.redirect(loginUrl);
+  // This header is enabled only during CI diagnostics; it never includes a token or secret.
+  if (process.env.AUTH_TEST_DIAGNOSTICS === "1") {
+    redirectResponse.headers.set("X-Owner-Auth-Diagnostic", token ? "session-invalid" : "session-missing");
+  }
+  return redirectResponse;
 }
 
 export const config = {
