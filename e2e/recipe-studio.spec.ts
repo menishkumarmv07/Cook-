@@ -247,7 +247,9 @@ test("PWA manifest and service worker show a generic offline fallback without ca
   const manifestResponse = await page.request.get("/manifest.webmanifest");
   expect(manifestResponse.ok()).toBeTruthy();
   const manifest = await manifestResponse.json();
-  expect(manifest.name).toBe("Cooking Creator Studio");
+  expect(manifest.name).toBe("cooking");
+  expect(manifest.short_name).toBe("cooking");
+  expect(manifest.theme_color).toBe("#fafafa");
   expect(manifest.display).toBe("standalone");
   expect(manifest.icons.length).toBeGreaterThan(0);
 
