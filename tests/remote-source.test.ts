@@ -4,6 +4,8 @@ import { isPublicIPAddress } from "../lib/remote-source";
 
 test("rejects IPv6 documentation and protocol-specific destinations", () => {
   for (const address of [
+    "2001:0::1",
+    "2001:1::1",
     "2001:30::1",
     "2001:3f:ffff::1",
     "3fff::1",
