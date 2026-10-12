@@ -274,7 +274,7 @@ test("source comparison worksheet validates optional field types and preserves l
   assert.match(tutorial, /Method\/order findings: Add oil before onions/);
   assert.match(tutorial, /Timing\/heat findings: Medium heat, 5 minutes/);
   assert.match(tutorial, /Food-safety\/storage notes: Store covered in refrigerator/);
-  assert.match(tutorial, /not independently verified/);
+  assert.match(tutorial, /not been independently verified/);
 
   const incompleteIssues = validateRecipe({
     ...complete,
