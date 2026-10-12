@@ -20,5 +20,6 @@ export default defineConfig({
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
+    env: { COOKING_OWNER_PASSWORD: "test-only-owner-password-123", COOKING_SESSION_SECRET: "test-only-session-secret-at-least-32-characters-long" },
   },
 });
