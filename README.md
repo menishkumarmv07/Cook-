@@ -1,6 +1,18 @@
-# Cooking Creator Studio
+# cooking — AI Cooking Creator App
 
 Private V1 foundation for the AI Cooking Creator App. This repository and its notes are separate from the App Market/MV and GKworks projects.
+
+## Latest chat/security foundation
+
+- Owner-only login gate for private routes and APIs; no public sign-up or invitation flow.
+- Chat-style home at `/` and structured recipe workspace at `/workspace`.
+- Up to 8 recent local conversations, with separate thread selection and a clear-history control. Each thread is limited to 24 messages for storage safety.
+- Shared, browser-saved Light/Dark grayscale theme across the chat and recipe workspace.
+- Chat-to-workspace handoffs for source URLs and recipe instructions, with honest UI wording: current V1 stores the URL or notes and does not fetch or analyze videos.
+- Visible Lock workspace action revokes the owner session and clears temporary handoff values without deleting saved recipes.
+- Baseline browser-security headers and explicit no-store cache directives for auth responses and protected routes.
+
+**Privacy and deployment status:** chat history and recipe drafts are stored in browser storage without encryption or cloud sync. This is not a production security certification. The OAuth cards are placeholders, and there is no live AI model, video/Reel inspection, character animation, direct social publishing, or verified deployment yet. Do not deploy with the test-only credentials in `playwright.config.ts`. Hosted use still needs reliable platform-level rate limiting, verified owner-only hosting/auth, and a fully green check for the current branch head.
 
 ## Current V1 features
 
