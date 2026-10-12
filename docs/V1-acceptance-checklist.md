@@ -20,6 +20,8 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 
 **Latest automated verification (12 October 2026):** GitHub Actions run #189 passed on main commit `3d7dd01a954bd6f4676a67d7211795aea44af954`: [run #189](https://github.com/menishkumarmv07/Cook-/actions/runs/38270557068). CI now uses the committed `package-lock.json` with `npm ci`; the clean dependency install, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and full Playwright end-to-end suite all succeeded. This verifies CI only; it does not prove deployment or real Android Chrome behavior.
 
+**Additional verification (12 October 2026):** PR #36's exact head commit `2183707306f4ecec8e1945b90c24eaec74a50557` passed GitHub Actions run #194: [run #194](https://github.com/menishkumarmv07/Cook-/actions/runs/38279873401). The workflow completed dependency installation, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and Playwright end-to-end tests successfully. PR #36 was squash-merged into `main` as `82d7a58ba9782a37bc817e9f6662cb578aa15c08`. The available connected workflow lookup has not yet confirmed a separate post-merge run on that merge commit, so post-merge CI verification remains open. This does not prove deployment or real Android Chrome behavior.
+
 **Open release gates:** The connected Vercel team lists no Cooking Creator project, and project creation previously failed with HTTP 403 permission denied. Real Android Chrome acceptance and a documented one-recipe acceptance trial are still required. Do not mark V1 complete until those are resolved.
 
 ## B. Android Chrome manual test
