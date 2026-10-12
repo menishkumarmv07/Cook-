@@ -24,6 +24,7 @@ import {
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PENDING_SOURCE_KEY = "cooking-pending-source-url-v1";
+const PENDING_RECIPE_PROMPT_KEY = "cooking-pending-recipe-prompt-v1";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
@@ -194,14 +195,26 @@ export default function WorkspacePage() {
   useEffect(() => {
     try {
       const pendingSource = window.sessionStorage.getItem(PENDING_SOURCE_KEY);
-      if (!pendingSource) return;
-      window.sessionStorage.removeItem(PENDING_SOURCE_KEY);
-      if (pendingSource.trim() && isHttpUrl(pendingSource)) {
-        setUrl(pendingSource.trim());
-        setMessage("Source link added to the recipe form. V1 saves the URL only; it does not fetch, transcribe, or analyze linked media.");
+      if (pendingSource) {
+        window.sessionStorage.removeItem(PENDING_SOURCE_KEY);
+        if (pendingSource.trim() && isHttpUrl(pendingSource)) {
+          setUrl(pendingSource.trim());
+          setMessage("Source link added to the recipe form. V1 saves the URL only; it does not fetch, transcribe, or analyze linked media.");
+        }
+      }
+
+      const pendingPrompt = window.sessionStorage.getItem(PENDING_RECIPE_PROMPT_KEY);
+      if (pendingPrompt) {
+        window.sessionStorage.removeItem(PENDING_RECIPE_PROMPT_KEY);
+        if (pendingPrompt.trim() && pendingPrompt.length <= 5000) {
+          setNotes(pendingPrompt);
+          setMessage("Instruction copied into Recipe notes. V1 does not automatically convert it into structured ingredients or steps.");
+        } else if (pendingPrompt.length > 5000) {
+          setMessage("The saved instruction was too long for Recipe notes. Paste a shorter version to continue.");
+        }
       }
     } catch {
-      setMessage("The source link could not be handed off automatically. Paste it into the Video or recipe URL field manually.");
+      setMessage("The temporary handoff could not be read. Paste the link or instruction into the recipe form manually.");
     }
   }, []);
 
