@@ -118,6 +118,16 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Confirm old drafts and JSON exports without ingredient mappings still import; unknown imported ingredient IDs are cleared.
 - [ ] Confirm a mapped ingredient missing its amount, unit, or name is flagged as not ready to record.
 
+## Structured source-comparison checks
+
+- [ ] Each source record can independently store ingredient/quantity, method/order, timing/heat, and safety/storage findings.
+- [ ] Coverage counts change as manual notes are entered and are explicitly labelled as note coverage, not correctness or verification.
+- [ ] A source with missing structured notes triggers a validation warning; recording findings never claims the source itself was automatically fetched or analyzed.
+- [ ] Tutorial/narration exports retain findings next to the exact source URL and label all source notes as manually entered/unverified.
+- [ ] Legacy recipe drafts and JSON archives with existing references but no new findings restore with blank fields.
+- [ ] Malformed non-string values for optional comparison fields are rejected by structured validation.
+- [ ] Source disagreements such as different ingredient quantities, order, or timing remain visible; no result is chosen automatically.
+
 ## E. V1 feature honesty / release blockers
 
 The following are **not implemented or not verified** in the current prototype and must remain clearly labelled as such:
