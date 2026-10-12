@@ -137,6 +137,23 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Confirm ordinary commands such as `research`, `new recipe`, `content studio`, and `publish` retain their existing navigation behavior.
 - [ ] Confirm the updated chat-dock placeholder says a recipe/video link can be pasted.
 
+## Owner-only access security checks — release blocker
+
+- [ ] Confirm there is no registration, invite flow, default password, hardcoded credential, or publicly visible owner secret.
+- [ ] With `OWNER_PASSWORD` or `AUTH_SECRET` missing/too short, confirm every workspace route fails closed and redirects to the configuration notice.
+- [ ] Confirm a valid configuration requires an owner password of at least 16 characters and an `AUTH_SECRET` of at least 32 random bytes.
+- [ ] Confirm logged-out page requests redirect to login and protected non-auth API routes return 401.
+- [ ] Confirm incorrect passwords fail without issuing a cookie; malformed/non-JSON login requests fail safely.
+- [ ] Confirm five consecutive failed attempts trigger the current per-process throttle, but do not treat it as production-grade or distributed rate limiting.
+- [ ] Confirm a correct owner password creates an eight-hour HMAC-signed session; tampered and expired session tokens are rejected.
+- [ ] Confirm the session cookie is HttpOnly, SameSite=Strict, Secure on HTTPS, Path=/, and expires; no password/secret is returned to the browser.
+- [ ] Confirm log out clears the cookie and the next workspace request returns to login.
+- [ ] Confirm HTTP(S) assets and the generic offline page remain available, but cached service-worker navigation cannot reopen or serve workspace HTML without reaching the server session gate.
+- [ ] Verify the same login, logout, expired-session, and missing-configuration behavior on Android Chrome.
+- [ ] Keep all real secrets only in local untracked `.env.local` or the hosting provider's server-side environment settings; never use the disposable CI values in a real deployment.
+- [ ] Before any public deployment, verify HTTPS, hosting-level rate limiting, response/security headers, server-side authorization for every future data/API route, and a plan for protecting unencrypted browser-local data.
+- [ ] Do not call the app high-security or release-ready while browser localStorage is unencrypted or host-level rate limiting and the Android manual test are outstanding.
+
 ## E. V1 feature honesty / release blockers
 
 The following are **not implemented or not verified** in the current prototype and must remain clearly labelled as such:
@@ -146,7 +163,7 @@ The following are **not implemented or not verified** in the current prototype a
 - Verified food-safety/allergen checks.
 - Automatic nutrition lookup/calculation from food-composition data and ingredient unit conversions. The V1 worksheet only sums manually entered values for the exact recorded ingredient amounts and requires creator-checked source links/basis.
 - Chef-character animation, voice/lip-sync, actual video rendering, and final tasting scene.
-- Cloud database, secure owner authentication, backups, and multi-device sync.
+- Cloud database, encrypted browser storage, cloud backups, and multi-device sync.
 - Social account authorization, scheduling, publishing, platform analytics, and monetization integrations.
 
 Do not describe V1 as finished until the automated checks and Android manual acceptance pass are recorded. Do not begin automatic publishing until a real generated video passes the owner review and the destination platform confirms the authorized post.

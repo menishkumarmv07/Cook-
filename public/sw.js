@@ -1,6 +1,6 @@
-const CACHE_NAME = "cooking-creator-shell-v1";
+const CACHE_NAME = "cooking-creator-static-v2";
 const OFFLINE_URL = "/offline.html";
-const PRECACHE_URLS = ["/", OFFLINE_URL, "/icon.svg", "/manifest.webmanifest"];
+const PRECACHE_URLS = [OFFLINE_URL, "/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -25,17 +25,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
-          }
-          return response;
-        })
-        .catch(async () => (await caches.match(request)) || (await caches.match("/")) || (await caches.match(OFFLINE_URL)))
-    );
+    // Never cache authenticated HTML. Navigation must reach the server's owner-session gate.
+    event.respondWith(fetch(request).catch(async () => (await caches.match(OFFLINE_URL))));
     return;
   }
 

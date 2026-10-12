@@ -1,6 +1,40 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
+async function signInOwner(page: import("@playwright/test").Page) {
+  const ownerPassword = process.env.OWNER_PASSWORD;
+  if (!ownerPassword) throw new Error("OWNER_PASSWORD must be set to a test-only value for the Playwright server.");
+  let middlewareDiagnostic = "not-observed";
+  page.on("response", (response) => {
+    if (response.request().isNavigationRequest() && new URL(response.url()).pathname === "/" && response.status() >= 300 && response.status() < 400) {
+      middlewareDiagnostic = response.headers()["x-owner-auth-diagnostic"] ?? "header-not-present";
+    }
+  });
+  await page.goto("/login");
+  await page.locator("#owner-password").fill(ownerPassword);
+  const loginResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/auth/login") && response.request().method() === "POST"
+  );
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  const loginResponse = await loginResponsePromise;
+  const responseBody = await loginResponse.json().catch(() => null);
+  if (!loginResponse.ok()) {
+    throw new Error(`Test owner sign-in failed with HTTP ${loginResponse.status()}: ${JSON.stringify(responseBody)}`);
+  }
+  try {
+    await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  } catch {
+    const cookies = await page.context().cookies();
+    const hasSessionCookie = cookies.some((cookie) => cookie.name === "cooking_creator_session");
+    throw new Error(`Owner login returned HTTP ${loginResponse.status()} but workspace stayed locked; sessionCookiePresent=${hasSessionCookie}; middlewareDiagnostic=${middlewareDiagnostic}; finalPath=${new URL(page.url()).pathname}`);
+  }
+}
+
+test.beforeEach(async ({ page }, testInfo) => {
+  if (testInfo.title.startsWith("AUTH:")) return;
+  await signInOwner(page);
+});
+
 test("recipe draft can be created, edited, reordered, saved, and exported", async ({ page }) => {
   await page.goto("/");
   await page.locator("#name").fill("Lemon rice");
@@ -267,7 +301,8 @@ test("PWA manifest and service worker support reopening the app offline after fi
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /You’re offline/ })).toBeVisible();
+  await expect(page.getByText(/private workspace page is not stored offline/i)).toBeVisible();
   await page.context().setOffline(false);
 });
 
@@ -465,4 +500,32 @@ test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sour
 
   await expect(page.locator("#url")).toHaveValue("");
   await expect(page.locator(".message[role=\"status\"]")).toContainText("Only a valid HTTP(S) link can be added");
+});
+
+
+test("AUTH: logged-out requests are redirected to the owner login page", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?returnTo=/);
+  await expect(page.getByRole("heading", { name: "Cooking Creator" })).toBeVisible();
+  await expect(page.getByLabel("Owner password")).toBeVisible();
+  await expect(page.getByText(/no public sign-up/i)).toBeVisible();
+});
+
+test("AUTH: a wrong password is rejected and the configured owner can sign in", async ({ page }) => {
+  await page.goto("/login");
+  await page.locator("#owner-password").fill("incorrect-password-used-by-test");
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  await expect(page.getByRole("status")).toHaveText("The password was not accepted.");
+
+  await page.locator("#owner-password").fill(process.env.OWNER_PASSWORD ?? "");
+  await page.getByRole("button", { name: "Unlock workspace" }).click();
+  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+});
+
+test("AUTH: logging out clears the session and protects later workspace requests", async ({ page }) => {
+  await signInOwner(page);
+  await page.getByRole("button", { name: "Log out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/login\?returnTo=/);
 });
