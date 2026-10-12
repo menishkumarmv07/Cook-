@@ -208,10 +208,10 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 
 ## Latest repository status — 12 October 2026
 
-- Latest main commit: `0aa58f39c29cde7d8497601584a3383f6418fde2` — [commit](https://github.com/menishkumarmv07/Cook-/commit/0aa58f39c29cde7d8497601584a3383f6418fde2).
+- Latest application-code commit at the time of this status entry: `0aa58f39c29cde7d8497601584a3383f6418fde2` — [commit](https://github.com/menishkumarmv07/Cook-/commit/0aa58f39c29cde7d8497601584a3383f6418fde2). This document-only PR changes no application code.
 - PR #41 merged the explicit public-HTML inspection record and accurate unverified-source caveats into the recipe draft, validation, tutorial/narration, UI, and docs. Latest PR CI [#212](https://github.com/menishkumarmv07/Cook-/actions/runs/38290927887) and post-merge main CI [#215](https://github.com/menishkumarmv07/Cook-/actions/runs/38291407217) both passed all stages, including Playwright.
 - PR #42 merged IANA-aligned IPv6 special-purpose address filtering, including the full `2001::/23` non-globally-reachable space with the three registered globally reachable anycast exceptions, and the full `3fff::/20` documentation range. Latest PR CI [#214](https://github.com/menishkumarmv07/Cook-/actions/runs/38291368510) passed all stages, including Playwright.
-- Post-merge main workflow [#216](https://github.com/menishkumarmv07/Cook-/actions/runs/38291819754) is pending verification at the time of this edit; do not mark it passed until it completes successfully.
+- Post-merge main workflow [#216](https://github.com/menishkumarmv07/Cook-/actions/runs/38291819754) completed successfully on the application-code commit above, including the full Playwright E2E suite.
 - Fresh creator profile defaults remain English and US customary units; Metric and dual-unit preferences remain selectable. This is a US-first workflow foundation, not automatic translation or direct platform publishing.
 - Still not implemented: video frame/audio analysis, verified multi-source recipe research, automated nutrition lookup, chef animation/voice/video rendering, social account connections, scheduled publishing, and analytics. Browser-local data is unencrypted, and the app is not security-release-ready.
 - Still blocked: Vercel repository/deployment access, real Android Chrome acceptance, and an actual recipe cooking trial. Keep the V1 status **in progress** until those are completed and documented.
