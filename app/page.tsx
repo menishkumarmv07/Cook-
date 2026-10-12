@@ -148,6 +148,12 @@ export default function ChatHome() {
   async function lockWorkspace() {
     setDrawerOpen(false);
     try {
+      window.sessionStorage.removeItem(PENDING_SOURCE_KEY);
+      window.sessionStorage.removeItem(PENDING_RECIPE_PROMPT_KEY);
+    } catch {
+      // Continue with server-side logout even if browser storage is unavailable.
+    }
+    try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) {
         setNotice("The session could not be locked. Please retry while connected.");
