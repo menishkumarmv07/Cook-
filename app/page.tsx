@@ -1017,7 +1017,7 @@ export default function Home() {
                 <div className="editor-grid">
                   <div><label htmlFor="edit-servings">Servings / yield</label><input id="edit-servings" value={current.servings} onChange={(event) => patchCurrent({ servings: event.target.value })} placeholder="e.g. 4 servings" /></div>
                   <div><label htmlFor="edit-notes">Recipe notes</label><textarea id="edit-notes" rows={2} value={current.notes} onChange={(event) => patchCurrent({ notes: event.target.value })} placeholder="Personal notes or details to retain…" /></div>
-                  <div><label htmlFor="edit-evidence">Manual source evidence notes</label><textarea id="edit-evidence" rows={3} value={current.sourceEvidence} onChange={(event) => patchCurrent({ sourceEvidence: event.target.value })} placeholder="For each reference, record its URL and what you actually checked (recipe text, transcript, video frames, or your own notes). The app does not verify links automatically." /></div>
+                  <div><label htmlFor="edit-evidence">Manual source evidence notes</label><textarea id="edit-evidence" rows={3} value={current.sourceEvidence} onChange={(event) => patchCurrent({ sourceEvidence: event.target.value })} placeholder="For each reference, record what you checked. Explicit intake inspection may extract public HTML; source claims are not independently verified and video frames/audio are not analyzed." /></div>
                 </div>
 
                 <section className="panel source-research-panel" id="research-desk">
@@ -1031,7 +1031,7 @@ export default function Home() {
                         <span>Timing / heat <b>{sourceCoverage.timing}/{sourceReferences.length}</b></span>
                         <span>Safety / storage notes <b>{sourceCoverage.safety}/{sourceReferences.length}</b></span>
                       </div>
-                      <p className="hint">Counts show which references have manual notes entered, not whether their claims are correct. Nothing is fetched or verified automatically.</p>
+                      <p className="hint">Counts show which references have manual comparison notes, not whether claims are correct. Accessible public HTML is extracted only after explicit intake inspection; source claims remain unverified.</p>
                     </div>
                     <div className="source-reference-list">{current.sourceReferences.map((source, index) => (
                     <div className="source-reference" key={source.id}>
@@ -1049,7 +1049,7 @@ export default function Home() {
                     </div>
                   ))}</div>
                   </>}
-                  <p className="warning">No source is fetched or verified automatically in this version. Never mark a recipe verified just because a URL was entered.</p>
+                  <p className="warning">Public HTML inspection runs only after an explicit intake action. It does not independently verify sources or analyze video frames/audio. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "", nutritionCalories: "", nutritionProteinG: "", nutritionCarbsG: "", nutritionFatG: "", nutritionBasis: "", nutritionSourceUrl: "" }] })}>＋ Add ingredient</button></div>
