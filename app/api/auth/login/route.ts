@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
   const ownerPassword = process.env.OWNER_PASSWORD;
   const authSecret = process.env.AUTH_SECRET;
-  if (!isAuthConfigurationReady(ownerPassword, authSecret)) {
+  if (typeof ownerPassword !== "string" || typeof authSecret !== "string" || !isAuthConfigurationReady(ownerPassword, authSecret)) {
     return NextResponse.json(
       { error: "Owner-only access is not configured. The app remains locked until the owner sets OWNER_PASSWORD and a 32-byte-or-longer AUTH_SECRET on the server." },
       { status: 503, headers: { "Cache-Control": "no-store" } },
