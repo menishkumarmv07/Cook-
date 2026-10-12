@@ -124,6 +124,10 @@ test("login rejects an incorrect owner password without opening the workspace", 
   await expect(page.getByRole("heading", { name: "cooking", exact: true })).toBeVisible();
   await page.getByLabel("Owner password").fill("incorrect-owner-password");
   await page.getByRole("button", { name: "Unlock workspace" }).click();
+  const loginResponse = await page.waitForResponse((response) => response.url().endsWith("/api/auth/login") && response.request().method() === "POST");
+  expect(loginResponse.status()).toBe(401);
+  expect(loginResponse.headers()["cache-control"]).toBe("no-store");
+  expect(loginResponse.headers().pragma).toBe("no-cache");
   await expect(page.getByText("Password not accepted.")).toBeVisible();
   await expect(page).toHaveURL(/\/login$/);
 });
