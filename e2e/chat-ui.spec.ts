@@ -78,6 +78,17 @@ test("owner-only middleware redirects anonymous workspace requests and blocks an
   expect(api.status()).toBe(401);
 });
 
+test("public login response includes baseline browser security headers", async ({ request }) => {
+  const response = await request.get("/login");
+  expect(response.ok()).toBe(true);
+  const headers = response.headers();
+  expect(headers["x-content-type-options"]).toBe("nosniff");
+  expect(headers["x-frame-options"]).toBe("DENY");
+  expect(headers["referrer-policy"]).toBe("no-referrer");
+  expect(headers["cross-origin-opener-policy"]).toBe("same-origin");
+  expect(headers["x-dns-prefetch-control"]).toBe("off");
+});
+
 test("owner session cookie uses HttpOnly, Strict same-site, path scope, and an expiry", async ({ page }) => {
   await signIn(page);
   const cookie = (await page.context().cookies()).find((item) => item.name === "cooking_owner_session");
