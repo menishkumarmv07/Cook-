@@ -18,6 +18,8 @@ test("rejects IPv6 documentation and protocol-specific destinations", () => {
     "2620:4f:8000::1",
     "3fff::1",
     "3fff:f::1",
+    "3fff:10::1",
+    "3fff:fff::1",
     "2001:db8::1",
     "2002::1",
     "fc00::1",
