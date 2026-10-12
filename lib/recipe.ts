@@ -1,4 +1,26 @@
-export type Ingredient = { id: string; amount: string; unit: string; name: string; prep: string };
+export type Ingredient = {
+  id: string;
+  amount: string;
+  unit: string;
+  name: string;
+  prep: string;
+  // Values apply to the exact amount written in this ingredient row; no unit conversion is inferred.
+  nutritionCalories?: string;
+  nutritionProteinG?: string;
+  nutritionCarbsG?: string;
+  nutritionFatG?: string;
+  nutritionBasis?: string;
+  nutritionSourceUrl?: string;
+};
+
+export type RecipeNutritionSummary = {
+  totalCalories: number | null;
+  caloriesPerServing: number | null;
+  proteinGPerServing: number | null;
+  carbsGPerServing: number | null;
+  fatGPerServing: number | null;
+  missingIngredients: string[];
+};
 export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string };
 export type Scene = { title: string; detail: string; timing: string };
 export type SourceReference = {
@@ -170,6 +192,46 @@ export function normalizeSourceUrlForComparison(value: string): string {
   }
 }
 
+export function calculateRecipeNutrition(project: RecipeProject): RecipeNutritionSummary {
+  const numeric = (value: string | undefined): number | null => {
+    if (typeof value !== "string" || !value.trim()) return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
+  const servingMatch = project.servings.match(/^\s*(\d+(?:\.\d+)?)\s*(?:servings?|people|persons?|portions?)?\s*$/i);
+  const servingCount = servingMatch ? Number(servingMatch[1]) : null;
+  const positiveServings = servingCount !== null && Number.isFinite(servingCount) && servingCount > 0
+    ? servingCount : null;
+
+  const sourceComplete = (ingredient: Ingredient) =>
+    Boolean(ingredient.name.trim() && ingredient.amount.trim() && ingredient.unit.trim() &&
+      ingredient.nutritionBasis?.trim() &&
+      ingredient.nutritionSourceUrl?.trim() && isHttpUrl(ingredient.nutritionSourceUrl));
+  const completeFor = (field: "nutritionCalories" | "nutritionProteinG" | "nutritionCarbsG" | "nutritionFatG") =>
+    project.ingredients.length > 0 && project.ingredients.every((ingredient) =>
+      sourceComplete(ingredient) && numeric(ingredient[field]) !== null);
+  const totalFor = (field: "nutritionCalories" | "nutritionProteinG" | "nutritionCarbsG" | "nutritionFatG") =>
+    completeFor(field)
+      ? project.ingredients.reduce((total, ingredient) => total + (numeric(ingredient[field]) ?? 0), 0)
+      : null;
+  const totalCalories = totalFor("nutritionCalories");
+  const protein = totalFor("nutritionProteinG");
+  const carbs = totalFor("nutritionCarbsG");
+  const fat = totalFor("nutritionFatG");
+  const missingIngredients = project.ingredients
+    .filter((ingredient) => !sourceComplete(ingredient) || numeric(ingredient.nutritionCalories) === null)
+    .map((ingredient) => ingredient.name.trim() || `Ingredient ${project.ingredients.indexOf(ingredient) + 1}`);
+
+  return {
+    totalCalories,
+    caloriesPerServing: totalCalories !== null && positiveServings !== null ? totalCalories / positiveServings : null,
+    proteinGPerServing: protein !== null && positiveServings !== null ? protein / positiveServings : null,
+    carbsGPerServing: carbs !== null && positiveServings !== null ? carbs / positiveServings : null,
+    fatGPerServing: fat !== null && positiveServings !== null ? fat / positiveServings : null,
+    missingIngredients,
+  };
+}
+
 export function isRecipeProject(value: unknown): value is RecipeProject {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<RecipeProject>;
@@ -187,7 +249,9 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Array.isArray(p.ingredients) &&
     p.ingredients.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.amount === "string" &&
-      typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string") &&
+      typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string" &&
+      ["nutritionCalories", "nutritionProteinG", "nutritionCarbsG", "nutritionFatG", "nutritionBasis", "nutritionSourceUrl"]
+        .every((field) => (x as Record<string, unknown>)[field] === undefined || typeof (x as Record<string, unknown>)[field] === "string")) &&
     Array.isArray(p.steps) &&
     p.steps.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.action === "string" &&
@@ -225,11 +289,17 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
   if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source link has not been fetched or analyzed by this app; manual notes and checked items are user-entered and have not been independently checked or verified." });
   else issues.push({ level: "warning", field: "source", message: "No source references have been recorded. Add multiple references and compare ingredient quantities, method order, and timings before treating the recipe as verified." });
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
-  issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from ingredient quantities." });
+  const nutrition = calculateRecipeNutrition(project);
+  if (nutrition.caloriesPerServing === null) {
+    issues.push({ level: "warning", field: "nutrition", message: "Nutrition has not been calculated from sourced values for the exact amount of every ingredient and a clear serving count." });
+  } else {
+    issues.push({ level: "warning", field: "nutrition", message: "A calorie estimate is calculated from manually entered values and sources; the app has not independently verified the values or source matches." });
+  }
   return issues;
 }
 
 export function buildTutorialDraft(project: RecipeProject): string {
+  const nutrition = calculateRecipeNutrition(project);
   const lines = [
     `# ${project.name.trim() || "Untitled recipe"}`,
     "",
@@ -257,6 +327,17 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "## Notes",
     project.notes.trim() || "No additional notes.",
     "",
+    "## Nutrition worksheet (manual source values)",
+    ...(nutrition.caloriesPerServing !== null
+      ? [
+          `Estimated calories per serving: ${Math.round(nutrition.caloriesPerServing)} kcal (recipe total: ${Math.round(nutrition.totalCalories ?? 0)} kcal; serving count: ${project.servings.trim()}).`,
+          nutrition.proteinGPerServing !== null ? `Estimated protein per serving: ${nutrition.proteinGPerServing.toFixed(1)} g.` : "Protein per serving is incomplete because at least one ingredient lacks a sourced protein value for the exact amount used.",
+          nutrition.carbsGPerServing !== null ? `Estimated carbohydrates per serving: ${nutrition.carbsGPerServing.toFixed(1)} g.` : "Carbohydrates per serving are incomplete because at least one ingredient lacks a sourced carbohydrate value for the exact amount used.",
+          nutrition.fatGPerServing !== null ? `Estimated fat per serving: ${nutrition.fatGPerServing.toFixed(1)} g.` : "Fat per serving is incomplete because at least one ingredient lacks a sourced fat value for the exact amount used.",
+          "These totals use manually entered nutrition values and source links. Confirm values, quantity, preparation state, and servings yourself; the app does not fetch or independently verify nutrition data.",
+        ]
+      : ["No calorie-per-serving result yet. Each ingredient needs calories for the exact quantity used, a matching amount/preparation basis, a valid source URL, and a simple positive serving count. No unit conversion or source verification is performed automatically."]),
+    "",
     "## Verification status",
     "- This draft reflects only information entered by the user.",
     "- Source links have not been analyzed automatically.",
@@ -273,6 +354,7 @@ export function buildTutorialDraft(project: RecipeProject): string {
 
 export function buildNarrationScript(project: RecipeProject): string {
   const recipeName = project.name.trim() || "Untitled recipe";
+  const nutrition = calculateRecipeNutrition(project);
   const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
   const lines = [
     `# Voiceover script: ${recipeName}`,
@@ -322,7 +404,9 @@ export function buildNarrationScript(project: RecipeProject): string {
     "ON SCREEN: Show the finished dish and final texture.",
     `NARRATION: That's the recorded method for ${recipeName}. Review any unresolved details and food-safety guidance before cooking or publishing.`,
     "TASTING: Add a reaction only after the intended tasting scene is reviewed; this generated script does not establish a real human taste test.",
-    "NUTRITION: Calories and health claims are omitted until calculated from confirmed ingredient quantities and servings.",
+    ...(nutrition.caloriesPerServing !== null
+      ? [`NUTRITION: The worksheet calculates approximately ${Math.round(nutrition.caloriesPerServing)} kcal per serving from manually entered ingredient values. Verify all values and sources before recording; this is arithmetic, not independent nutrition verification.`]
+      : ["NUTRITION: Calories and health claims are omitted until every ingredient has a sourced value for the exact amount used and the recipe has a clear serving count."]),
     "",
     "## Source uncertainties to resolve",
     ...(project.sourceReferences.length
@@ -339,7 +423,9 @@ export function buildNarrationScript(project: RecipeProject): string {
     "- Do not present uncalculated calories or unsupported health benefits as facts.",
     "- Ingredient-to-step mapping is not inferred; confirm exactly when each ingredient is added.",
     "- Missing ingredient names, quantities, actions, or timings must be completed before recording. Do not guess.",
-    "- Nutrition and calories have not been calculated from ingredient quantities and servings.",
+    ...(nutrition.caloriesPerServing !== null
+      ? ["- Confirm the calorie worksheet against every source. Values are user-entered and not independently verified by the app."]
+      : ["- Nutrition and calories have not been calculated because complete per-ingredient values and a simple serving count are missing."]),
     "- This is a text script draft. It has not generated voice, animated the chef, rendered a video, or published anything.",
   ];
   return lines.join("\n");

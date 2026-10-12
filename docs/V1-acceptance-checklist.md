@@ -50,7 +50,7 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Tutorial preview preserves ingredient and step order and clearly says it is a draft.
 - [ ] Narration preview/copy/export preserves ingredient and cooking-step order and uses recorded timings, heat settings, and visual cues only.
 - [ ] Missing quantities/actions/timings are explicitly flagged; no ingredient-to-step mapping or timing is silently invented.
-- [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, nutrition calculation, finished video, or post was created.
+- [ ] Narration includes manual source uncertainties, marks them unverified, and states that no audio, chef animation, automatic nutrition database lookup, finished video, or post was created. If a manual nutrition worksheet is complete, its estimate and the manual/unverified disclaimer must appear.
 - [ ] New recipes start Untested and cannot be approved/shared until a creator attaches a real-dish photo, enters a trial rating, and records useful trial notes.
 - [ ] Confirm trial photo is resized in-browser, previewed, stored locally, included in JSON backup, and never uploaded automatically.
 - [ ] Marking a recipe Tested reflects the creator's own cooking trial only; it must not imply independent safety or source verification.
@@ -75,7 +75,7 @@ Use a real Android phone with Chrome. Check portrait layout first, then landscap
 - [ ] Delete one test draft and confirm the other drafts remain.
 - [ ] Clear-all requires confirmation and explains the action.
 - [ ] Check that buttons, fields, messages, and long recipe names fit the screen and remain usable with the on-screen keyboard.
-- [ ] Confirm there is no claim that the source URL was analyzed, nutrition calculated, video generated, or post published.
+- [ ] Confirm there is no claim that a source URL was analyzed, nutrition values were automatically retrieved/verified, a video was generated, or a post was published. Manual nutrition arithmetic must be disclosed as user-entered and unverified.
 - [ ] Remove the test recipe after collecting results.
 
 Do not enter private passwords, API keys, real personal information, or valuable recipes during testing. Export important work before clearing browser data.
@@ -100,6 +100,16 @@ Do not enter private passwords, API keys, real personal information, or valuable
 - [ ] Confirm the deployed environment is private or otherwise appropriately access-controlled before storing anything sensitive.
 - [ ] If no matching Vercel project/deployment is visible, mark Blocked and request the project link or correct project name; do not claim deployment success.
 
+## Nutrition worksheet manual checks
+
+- [ ] Legacy drafts without nutrition fields still load; missing optional values default to blank.
+- [ ] Every ingredient requires calories for the exact amount used, a matching amount/preparation basis, a valid HTTP(S) source URL, and a non-empty ingredient name/amount/unit before per-serving calories are shown.
+- [ ] Blank, negative, non-numeric, or invalidly sourced values do not produce a misleading total.
+- [ ] Ambiguous/non-positive serving counts show no calories-per-serving result; no portion count is guessed.
+- [ ] Protein/carbohydrate/fat are shown only when each ingredient has a valid sourced value for that macro; incomplete macros are clearly marked.
+- [ ] Tutorial and narration exports include the manual estimate only when complete and disclose that the app does not fetch or independently verify nutrition data.
+- [ ] The UI states that it does not automatically convert units or infer whether a nutrition reference matches a raw/cooked/prepared ingredient.
+
 ## E. V1 feature honesty / release blockers
 
 The following are **not implemented or not verified** in the current prototype and must remain clearly labelled as such:
@@ -107,7 +117,7 @@ The following are **not implemented or not verified** in the current prototype a
 - Video-link fetching, transcription, or visual frame analysis.
 - Evidence-backed multi-source recipe comparison.
 - Verified food-safety/allergen checks.
-- Nutrition calculation from ingredient quantities.
+- Automatic nutrition lookup/calculation from food-composition data and ingredient unit conversions. The V1 worksheet only sums manually entered values for the exact recorded ingredient amounts and requires creator-checked source links/basis.
 - Chef-character animation, voice/lip-sync, actual video rendering, and final tasting scene.
 - Cloud database, secure owner authentication, backups, and multi-device sync.
 - Social account authorization, scheduling, publishing, platform analytics, and monetization integrations.

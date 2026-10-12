@@ -5,6 +5,7 @@ import type { FormEvent } from "react";
 import {
   buildNarrationScript,
   buildTutorialDraft,
+  calculateRecipeNutrition,
   createCreatorWorkspaceBackupJSON,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
@@ -40,7 +41,15 @@ function migrateProject(value: unknown): RecipeProject | null {
   const ingredients = Array.isArray(old.ingredients) ? old.ingredients.filter((x): x is Ingredient =>
     typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.amount === "string" &&
     typeof x.unit === "string" && typeof x.name === "string" && typeof x.prep === "string"
-  ) : [];
+  ).map((x) => ({
+    ...x,
+    nutritionCalories: typeof x.nutritionCalories === "string" ? x.nutritionCalories : "",
+    nutritionProteinG: typeof x.nutritionProteinG === "string" ? x.nutritionProteinG : "",
+    nutritionCarbsG: typeof x.nutritionCarbsG === "string" ? x.nutritionCarbsG : "",
+    nutritionFatG: typeof x.nutritionFatG === "string" ? x.nutritionFatG : "",
+    nutritionBasis: typeof x.nutritionBasis === "string" ? x.nutritionBasis : "",
+    nutritionSourceUrl: typeof x.nutritionSourceUrl === "string" ? x.nutritionSourceUrl : "",
+  })) : [];
   const steps = Array.isArray(old.steps) ? old.steps.filter((x): x is RecipeStep =>
     typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.action === "string" &&
     typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string"
@@ -160,6 +169,7 @@ export default function Home() {
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
+  const nutrition = useMemo(() => current ? calculateRecipeNutrition(current) : null, [current]);
   const errors = issues.filter((issue) => issue.level === "error");
   const warnings = issues.filter((issue) => issue.level === "warning");
 
@@ -462,9 +472,20 @@ export default function Home() {
   }
 
   function patchIngredient(id: string, patch: Partial<Ingredient>) {
-    if (current) patchCurrent({ ingredients: current.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item) });
+    if (!current) return;
+    const nutritionFields = new Set(["nutritionCalories", "nutritionProteinG", "nutritionCarbsG", "nutritionFatG", "nutritionBasis", "nutritionSourceUrl"]);
+    const nutritionOnly = Object.keys(patch).length > 0 && Object.keys(patch).every((key) => nutritionFields.has(key));
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== current.id) return project;
+      return {
+        ...project,
+        ingredients: project.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item),
+        ...(nutritionOnly
+          ? { approved: false, approvedAt: "" }
+          : { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" }),
+      };
+    }));
   }
-
   function patchStep(id: string, patch: Partial<RecipeStep>) {
     if (current) patchCurrent({ steps: current.steps.map((item) => item.id === id ? { ...item, ...patch } : item) });
   }
@@ -800,9 +821,10 @@ export default function Home() {
                   <p className="warning">No source is fetched or verified automatically in this version. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
 
-                <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "" }] })}>＋ Add ingredient</button></div>
+                <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "", nutritionCalories: "", nutritionProteinG: "", nutritionCarbsG: "", nutritionFatG: "", nutritionBasis: "", nutritionSourceUrl: "" }] })}>＋ Add ingredient</button></div>
                 {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
-                  <div className="ingredient-row" key={item.id}>
+                  <div className="ingredient-card" key={item.id}>
+                    <div className="ingredient-row">
                     <span className="row-number">{index + 1}</span>
                     <input aria-label={`Ingredient ${index + 1} amount`} value={item.amount} onChange={(event) => patchIngredient(item.id, { amount: event.target.value })} placeholder="Amount" />
                     <input aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => patchIngredient(item.id, { unit: event.target.value })} placeholder="Unit (g, cup, pieces)" />
@@ -810,7 +832,25 @@ export default function Home() {
                     <input aria-label={`Ingredient ${index + 1} prep`} value={item.prep} onChange={(event) => patchIngredient(item.id, { prep: event.target.value })} placeholder="Prep (chopped…)" />
                     <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id) })}>×</button>
                   </div>
+                  <details className="ingredient-nutrition">
+                    <summary>Nutrition values & source <span>{item.nutritionCalories?.trim() && item.nutritionSourceUrl?.trim() ? "Values entered" : "Optional · manual entry"}</span></summary>
+                    <p className="hint">Enter values for the <strong>exact amount listed above</strong>, not per 100 g unless you scale the values yourself first. Record the matching preparation state and a source you personally checked. The app does not fetch or verify nutrition data.</p>
+                    <div className="nutrition-fields">
+                      <div><label htmlFor={`nutrition-kcal-${item.id}`}>Calories (kcal) for amount used</label><input id={`nutrition-kcal-${item.id}`} aria-label={`Ingredient ${index + 1} calories for amount used`} type="number" min="0" step="any" inputMode="decimal" value={item.nutritionCalories ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionCalories: event.target.value })} placeholder="e.g. 365" /></div>
+                      <div><label htmlFor={`nutrition-protein-${item.id}`}>Protein (g)</label><input id={`nutrition-protein-${item.id}`} type="number" min="0" step="any" inputMode="decimal" value={item.nutritionProteinG ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionProteinG: event.target.value })} placeholder="Optional" /></div>
+                      <div><label htmlFor={`nutrition-carbs-${item.id}`}>Carbohydrates (g)</label><input id={`nutrition-carbs-${item.id}`} type="number" min="0" step="any" inputMode="decimal" value={item.nutritionCarbsG ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionCarbsG: event.target.value })} placeholder="Optional" /></div>
+                      <div><label htmlFor={`nutrition-fat-${item.id}`}>Fat (g)</label><input id={`nutrition-fat-${item.id}`} type="number" min="0" step="any" inputMode="decimal" value={item.nutritionFatG ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionFatG: event.target.value })} placeholder="Optional" /></div>
+                      <div className="nutrition-wide"><label htmlFor={`nutrition-basis-${item.id}`}>Amount/preparation basis <b>*</b></label><input id={`nutrition-basis-${item.id}`} value={item.nutritionBasis ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionBasis: event.target.value })} placeholder="e.g. values for 200 g dry rice before cooking" /></div>
+                      <div className="nutrition-wide"><label htmlFor={`nutrition-source-${item.id}`}>Nutrition source URL <b>*</b></label><input id={`nutrition-source-${item.id}`} type="url" value={item.nutritionSourceUrl ?? ""} onChange={(event) => patchIngredient(item.id, { nutritionSourceUrl: event.target.value })} placeholder="https://fdc.nal.usda.gov/..." /></div>
+                    </div>
+                  </details>
+                </div>
                 ))}</div>}
+                <section className="nutrition-summary" aria-live="polite">
+                  <div className="subsection-head"><div><h3>Nutrition estimate</h3><p className="muted">Arithmetic only. Values and references are entered manually and are not independently verified.</p></div><span className={nutrition?.caloriesPerServing !== null && nutrition?.caloriesPerServing !== undefined ? "status" : "status status-warning"}>{nutrition?.caloriesPerServing !== null && nutrition?.caloriesPerServing !== undefined ? "CALCULATED FROM ENTRIES" : "INCOMPLETE"}</span></div>
+                  {nutrition?.caloriesPerServing !== null && nutrition?.caloriesPerServing !== undefined ? <div className="nutrition-result"><strong>{Math.round(nutrition.caloriesPerServing)} kcal <small>per serving</small></strong><span>{Math.round(nutrition.totalCalories ?? 0)} kcal total · {current.servings} servings</span><div className="nutrition-macros">{nutrition.proteinGPerServing !== null ? <span>Protein {nutrition.proteinGPerServing.toFixed(1)} g</span> : <span>Protein —</span>}{nutrition.carbsGPerServing !== null ? <span>Carbs {nutrition.carbsGPerServing.toFixed(1)} g</span> : <span>Carbs —</span>}{nutrition.fatGPerServing !== null ? <span>Fat {nutrition.fatGPerServing.toFixed(1)} g</span> : <span>Fat —</span>}</div></div> : <p className="empty-inline">To calculate calories per serving, every ingredient needs calories for the exact listed amount, an amount/preparation basis, a valid source URL, and a simple serving count such as “4” or “4 people”. {nutrition?.totalCalories !== null && nutrition?.totalCalories !== undefined ? "A total can be summed, but the serving count must be one positive number." : `${nutrition?.missingIngredients.length ?? current.ingredients.length} ingredient entry/entries still need complete calories and source information.`}</p>}
+                  <p className="hint">Suggested reference: <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noreferrer">USDA FoodData Central</a>. Confirm whether the reference describes the raw, cooked, drained, or otherwise prepared form. The app does not convert cups/pieces to grams.</p>
+                </section>
 
                 <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "" }] })}>＋ Add step</button></div>
                 {current.steps.length === 0 ? <p className="empty-inline">No method steps yet. Add steps in the exact order they happen.</p> : <div className="step-list">{current.steps.map((step, index) => (
