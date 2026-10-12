@@ -35,6 +35,7 @@ jobs:
         env:
           OWNER_PASSWORD: ci-test-only-owner-password-not-for-production-2026
           AUTH_SECRET: ci-test-only-session-secret-never-use-in-production-2026
+          AUTH_TEST_DIAGNOSTICS: "1"
         run: npm run build
       - name: Install Chromium for browser tests
         run: npx playwright install --with-deps chromium
@@ -43,4 +44,5 @@ jobs:
         env:
           OWNER_PASSWORD: ci-test-only-owner-password-not-for-production-2026
           AUTH_SECRET: ci-test-only-session-secret-never-use-in-production-2026
+          AUTH_TEST_DIAGNOSTICS: "1"
         run: npm run e2e
