@@ -34,6 +34,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  // Next.js 15.5 supports the Node.js middleware runtime; keep session crypto
+  // in the same standard runtime as the login route rather than Edge Web Crypto.
+  runtime: "nodejs",
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|sw\\.js$|offline\\.html$|login(?:/|$)|api/auth(?:/|$)).*)",
   ],
