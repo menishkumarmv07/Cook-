@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isPublicIPAddress } from "../lib/remote-source";
+import { isPublicIPAddress, RemoteSourceError, validateExternalSourceUrl } from "../lib/remote-source";
 
 test("rejects IPv6 documentation and protocol-specific destinations", () => {
   for (const address of [
@@ -35,6 +35,33 @@ test("accepts ordinary globally reachable IP addresses", () => {
     "2001:4860:4860::8888",
   ]) {
     assert.equal(isPublicIPAddress(address), true, address);
+  }
+});
+
+test("accepts standard HTTP(S) recipe URLs and strips fragments", () => {
+  const url = validateExternalSourceUrl("https://www.foodsite.com/recipe#instructions");
+  assert.equal(url.protocol, "https:");
+  assert.equal(url.hostname, "www.foodsite.com");
+  assert.equal(url.hash, "");
+});
+
+test("rejects malformed, credential-bearing, non-HTTP(S), custom-port, and local URLs", () => {
+  const cases: Array<[string, RemoteSourceError["code"]]> = [
+    ["not a URL", "INVALID_URL"],
+    ["ftp://www.foodsite.com/recipe", "INVALID_URL"],
+    ["https://user:secret@www.foodsite.com/recipe", "INVALID_URL"],
+    ["https://www.foodsite.com:8443/recipe", "INVALID_URL"],
+    ["http://localhost", "BLOCKED_HOST"],
+    ["http://127.0.0.1", "BLOCKED_HOST"],
+    ["https://www.foodsite.example/recipe", "BLOCKED_HOST"],
+  ];
+
+  for (const [input, expectedCode] of cases) {
+    assert.throws(
+      () => validateExternalSourceUrl(input),
+      (error: unknown) => error instanceof RemoteSourceError && error.code === expectedCode,
+      input,
+    );
   }
 });
 
