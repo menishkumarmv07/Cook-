@@ -351,7 +351,7 @@ test("narration script carries manual source uncertainty and keeps voice/video c
   assert.match(script, /Ingredient list and timing/);
   assert.match(script, /Oil quantity differs/);
   assert.match(script, /Exact temperature is unclear/);
-  assert.match(script, /manual entry; not independently verified/);
+  assert.match(script, /recorded\/extracted; not independently verified/);
   assert.match(script, /Manual source evidence notes: Compared the ingredient lists; oil quantity differs/);
   assert.match(script, /Use medium heat/);
   assert.match(script, /Look for this cue: Fragrant, not smoking/);
