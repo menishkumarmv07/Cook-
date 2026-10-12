@@ -238,6 +238,12 @@ export default function WorkspacePage() {
 
   async function lockWorkspace() {
     try {
+      window.sessionStorage.removeItem(PENDING_SOURCE_KEY);
+      window.sessionStorage.removeItem(PENDING_RECIPE_PROMPT_KEY);
+    } catch {
+      // Continue with server-side logout even if browser storage is unavailable.
+    }
+    try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) {
         setMessage("The session could not be locked. Please retry while connected.");
