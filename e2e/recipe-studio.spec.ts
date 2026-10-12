@@ -4,6 +4,12 @@ import { readFile } from "node:fs/promises";
 async function signInOwner(page: import("@playwright/test").Page) {
   const ownerPassword = process.env.OWNER_PASSWORD;
   if (!ownerPassword) throw new Error("OWNER_PASSWORD must be set to a test-only value for the Playwright server.");
+  let middlewareDiagnostic = "not-observed";
+  page.on("response", (response) => {
+    if (response.request().isNavigationRequest() && new URL(response.url()).pathname === "/" && response.status() >= 300 && response.status() < 400) {
+      middlewareDiagnostic = response.headers()["x-owner-auth-diagnostic"] ?? "header-not-present";
+    }
+  });
   await page.goto("/login");
   await page.locator("#owner-password").fill(ownerPassword);
   const loginResponsePromise = page.waitForResponse((response) =>
@@ -15,7 +21,13 @@ async function signInOwner(page: import("@playwright/test").Page) {
   if (!loginResponse.ok()) {
     throw new Error(`Test owner sign-in failed with HTTP ${loginResponse.status()}: ${JSON.stringify(responseBody)}`);
   }
-  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  try {
+    await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  } catch {
+    const cookies = await page.context().cookies();
+    const hasSessionCookie = cookies.some((cookie) => cookie.name === "cooking_creator_session");
+    throw new Error(`Owner login returned HTTP ${loginResponse.status()} but workspace stayed locked; sessionCookiePresent=${hasSessionCookie}; middlewareDiagnostic=${middlewareDiagnostic}; finalPath=${new URL(page.url()).pathname}`);
+  }
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
