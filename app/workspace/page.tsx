@@ -235,6 +235,19 @@ export default function WorkspacePage() {
     }
   }, [theme]);
 
+  async function lockWorkspace() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        setMessage("The session could not be locked. Please retry while connected.");
+        return;
+      }
+      window.location.replace("/login");
+    } catch {
+      setMessage("The app could not confirm that the session ended. Stay connected and retry Lock workspace.");
+    }
+  }
+
   function openWorkspaceMenu() {
     setMenuOpen(true);
     // Wait for the drawer to become visible before moving keyboard focus.
@@ -710,7 +723,9 @@ export default function WorkspacePage() {
           <p className="nav-label">RECENT PROJECTS</p>
           {projects.length === 0 ? <p className="drawer-empty">Your recipe drafts will appear here.</p> : projects.slice(0, 5).map((project) => <button key={project.id} className={project.id === active ? "nav nav-project selected" : "nav nav-project"} type="button" onClick={() => { setActive(project.id); setShowTutorial(false); setShowNarration(false); setShowContentPack(false); goToSection("studio"); }}>◦　{project.name}</button>)}
         </div>
-        <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small></div>
+        <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small>
+          <button className="side-lock-button" type="button" onClick={() => void lockWorkspace()}>Lock workspace</button>
+        </div>
       </aside>
 
       <section className="main" id="dashboard">
