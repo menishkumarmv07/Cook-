@@ -467,10 +467,23 @@ export default function Home() {
       !recipe && sourceInspection.textExcerpt
         ? `Page text excerpt (not independently verified):\n${sourceInspection.textExcerpt.slice(0, 2_000)}`
         : "",
+    ].filter(Boolean).join("\n\n");
+    const reviewFooter = [
       `Inspection limitation: ${sourceInspection.limitation}`,
       "Review every quantity, step, timing, doneness cue, allergen, and food-safety detail against reliable sources before relying on this content.",
-    ].filter(Boolean).join("\n\n").slice(0, 4_800);
-    setNotes((existing) => existing.trim() ? `${existing.trim()}\n\n${extractedNotes}`.slice(0, 4_800) : extractedNotes);
+    ].join("\n\n");
+    const truncationNotice = "[Some extracted details were omitted to fit the note limit. Review the full preview and original source.]";
+    const bodyBudget = Math.max(0, 4_800 - reviewFooter.length - truncationNotice.length - 6);
+    const safeBody = extractedNotes.length > bodyBudget
+      ? `${extractedNotes.slice(0, Math.max(0, bodyBudget - truncationNotice.length - 2))}\n\n${truncationNotice}`
+      : extractedNotes;
+    const finalNotes = `${safeBody}\n\n${reviewFooter}`;
+    const existingNotes = notes.trim();
+    if (existingNotes && existingNotes.length + finalNotes.length + 2 > 4_800) {
+      setMessage("These extracted details would exceed the 4,800-character recipe-notes limit. Shorten or export the existing notes before adding this extraction.");
+      return;
+    }
+    setNotes(existingNotes ? `${existingNotes}\n\n${finalNotes}` : finalNotes);
     setMessage("Extracted details were added to recipe notes. Review all values before creating the draft or relying on them.");
   }
 
