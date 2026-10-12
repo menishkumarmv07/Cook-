@@ -256,6 +256,8 @@ test("source comparison worksheet validates optional field types and preserves l
     ...base,
     sourceReferences: [{ ...legacy.sourceReferences[0], ingredientFindings: 7 }],
   }), false);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, sourceReferences: [null] })), null);
+  assert.equal(parseRecipeProjectJSON(JSON.stringify({ ...base, sourceReferences: ["not an object"] })), null);
 
   const complete = {
     ...base,
