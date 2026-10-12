@@ -25,8 +25,8 @@ type ChatThread = {
 };
 
 const CHAT_HISTORY_KEY = "cooking-chat-history-v1";
-const MAX_SAVED_CHAT_THREADS = 12;
-const MAX_MESSAGES_PER_THREAD = 40;
+const MAX_SAVED_CHAT_THREADS = 8;
+const MAX_MESSAGES_PER_THREAD = 24;
 const MAX_SAVED_MESSAGE_LENGTH = 5000;
 
 type SocialPlatform = {
