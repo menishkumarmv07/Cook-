@@ -75,19 +75,26 @@ export function isPublicIPAddress(address: string): boolean {
   if (words.length !== 8) return false;
   const first = words[0];
   const second = words[1];
+  const third = words[2];
   if (first < 0x2000 || first > 0x3fff) return false;
-  // Reject protocol-specific ranges even when they sit inside global-unicast space.
-  // 2001:30::/28 is registered for Drone Remote ID identifiers; 3fff::/20 is
-  // reserved for documentation. Neither should be treated as a generic public web host.
+  // Reject IANA-listed special-purpose destinations even when they fall inside
+  // the global-unicast allocation. Match the registered prefix sizes to avoid
+  // blocking unrelated ordinary addresses more broadly than necessary.
   if (first === 0x2001 && (
-    second <= 0x0001 ||
-    second === 0x0002 ||
-    second === 0x0db8 ||
-    (second >= 0x0010 && second <= 0x001f) ||
-    (second >= 0x0030 && second <= 0x003f)
+    second === 0x0000 || // 2001::/32 — Teredo
+    (second === 0x0001 && third === 0x0000 && [1, 2, 3].includes(words[3]) &&
+      words.slice(4).every((word) => word === 0)) || // 2001:1::1/128, ::2/128, ::3/128
+    (second === 0x0002 && third === 0x0000) || // 2001:2::/48 — benchmarking
+    second === 0x0003 || // 2001:3::/32 — AMT
+    (second === 0x0004 && third === 0x0112) || // 2001:4:112::/48 — AS112-v6
+    second === 0x0db8 || // 2001:db8::/32 — documentation
+    (second >= 0x0010 && second <= 0x001f) || // 2001:10::/28 — ORCHID
+    (second >= 0x0020 && second <= 0x002f) || // 2001:20::/28 — ORCHIDv2
+    (second >= 0x0030 && second <= 0x003f) // 2001:30::/28 — Drone Remote ID
   )) return false;
-  if (first === 0x3fff && second <= 0x000f) return false;
-  if (first === 0x2002) return false;
+  if (first === 0x2620 && second === 0x004f && third === 0x8000) return false; // 2620:4f:8000::/48 — AS112 direct delegation
+  if (first === 0x3fff && second <= 0x000f) return false; // 3fff::/20 — documentation
+  if (first === 0x2002) return false; // 2002::/16 — 6to4
   return true;
 }
 
