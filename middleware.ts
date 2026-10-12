@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 const COOKIE_NAME = "cooking_owner_session";
 
+function noStore(response: NextResponse): NextResponse {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  return response;
+}
+
 async function validSession(value: string | undefined): Promise<boolean> {
   if (!value) return false;
   const separator = value.indexOf(".");
@@ -27,11 +33,13 @@ export async function middleware(request: NextRequest) {
   if (pathname === "/login" || pathname === "/api/auth/login" || pathname === "/api/auth/logout") {
     return NextResponse.next();
   }
-  if (await validSession(request.cookies.get(COOKIE_NAME)?.value)) return NextResponse.next();
-  if (pathname.startsWith("/api/")) return NextResponse.json({ error: "Owner authentication required." }, { status: 401 });
+  if (await validSession(request.cookies.get(COOKIE_NAME)?.value)) return noStore(NextResponse.next());
+  if (pathname.startsWith("/api/")) {
+    return noStore(NextResponse.json({ error: "Owner authentication required." }, { status: 401 }));
+  }
   const login = new URL("/login", request.url);
   login.searchParams.set("from", pathname);
-  return NextResponse.redirect(login);
+  return noStore(NextResponse.redirect(login));
 }
 
 export const config = {
