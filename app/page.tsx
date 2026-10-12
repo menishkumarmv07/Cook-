@@ -28,6 +28,29 @@ const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
+type SourceInspectionResult = {
+  requestedUrl: string;
+  finalUrl: string;
+  contentType: string;
+  redirectCount: number;
+  limitation: string;
+  title: string;
+  description: string;
+  siteName: string;
+  textExcerpt: string;
+  structuredRecipe: {
+    name: string;
+    description: string;
+    author: string;
+    servings: string;
+    prepTime: string;
+    cookTime: string;
+    totalTime: string;
+    ingredients: string[];
+    instructions: string[];
+  } | null;
+};
+
 const SOCIAL_PLATFORMS = [
   { name: "YouTube", mark: "YT", description: "Channels and Shorts" },
   { name: "Instagram", mark: "IG", description: "Reels and food posts" },
@@ -172,6 +195,8 @@ function downloadFile(name: string, content: string, type: string) {
 export default function Home() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [sourceInspection, setSourceInspection] = useState<SourceInspectionResult | null>(null);
+  const [inspectionBusy, setInspectionBusy] = useState(false);
   const [notes, setNotes] = useState("");
   const [servings, setServings] = useState("4");
   const [projects, setProjects] = useState<RecipeProject[]>([]);
@@ -274,17 +299,17 @@ export default function Home() {
       return;
     }
 
-    // Pasting a complete URL into the chat-style dock should carry it into recipe intake.
-    // It is saved as a source reference only; this V1 does not fetch or analyze the link.
+    // Pasting a complete URL into the chat-style dock carries it into recipe intake.
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
       if (!isHttpUrl(rawRequest)) {
         setMessage("Only a valid HTTP(S) link can be added. Use a full https:// or http:// recipe/video URL.");
         return;
       }
+      setSourceInspection(null);
       setUrl(rawRequest);
       setCommand("");
       goToSection("intake");
-      setMessage("Source link copied into recipe intake. This saves the URL only; V1 does not open or analyze linked content. Add a recipe name and create the draft.");
+      setMessage("Source link added to recipe intake. Public recipe pages can be inspected there; video/Reel audio and frames are not analyzed.");
       return;
     }
     if (/connect|accounts?|integration|social/.test(request)) {
@@ -386,6 +411,69 @@ export default function Home() {
     }
   }, [projects, hydrated]);
 
+  async function inspectRecipeSource() {
+    const candidate = url.trim();
+    if (!candidate || !isHttpUrl(candidate)) {
+      setMessage("Enter a complete HTTP(S) recipe-page URL before inspecting it.");
+      return;
+    }
+
+    setInspectionBusy(true);
+    setSourceInspection(null);
+    try {
+      const response = await fetch("/api/sources/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: candidate }),
+      });
+      const payload = await response.json().catch(() => null) as { source?: SourceInspectionResult; error?: string } | null;
+      if (!response.ok || !payload?.source) {
+        setMessage(payload?.error || "The public page could not be inspected. Check the link and try again.");
+        return;
+      }
+      setSourceInspection(payload.source);
+      setMessage("Public page extracted. Verify the recipe details before using them; this does not analyze video frames or audio.");
+    } catch {
+      setMessage("The source inspection request could not be completed. Check your connection and try again.");
+    } finally {
+      setInspectionBusy(false);
+    }
+  }
+
+  function addInspectedDetailsToNotes() {
+    if (!sourceInspection) return;
+    const recipe = sourceInspection.structuredRecipe;
+    const extractedNotes = [
+      "PUBLIC RECIPE PAGE EXTRACTION — VERIFY BEFORE USE",
+      `Requested URL: ${sourceInspection.requestedUrl}`,
+      `Final URL: ${sourceInspection.finalUrl}`,
+      `Page title: ${sourceInspection.title || "(not available)"}`,
+      `Site name: ${sourceInspection.siteName || "(not available)"}`,
+      recipe?.name ? `Structured recipe name: ${recipe.name}` : "",
+      recipe?.author ? `Listed author: ${recipe.author}` : "",
+      recipe?.servings ? `Listed servings/yield: ${recipe.servings}` : "",
+      recipe?.prepTime ? `Listed prep time: ${recipe.prepTime}` : "",
+      recipe?.cookTime ? `Listed cook time: ${recipe.cookTime}` : "",
+      recipe?.totalTime ? `Listed total time: ${recipe.totalTime}` : "",
+      recipe?.description || sourceInspection.description
+        ? `Description: ${recipe?.description || sourceInspection.description}`
+        : "",
+      recipe?.ingredients.length
+        ? `Ingredients (extracted; not independently verified):\n${recipe.ingredients.slice(0, 30).map((item) => `- ${item}`).join("\n")}`
+        : "",
+      recipe?.instructions.length
+        ? `Instructions (extracted; not independently verified):\n${recipe.instructions.slice(0, 30).map((item, index) => `${index + 1}. ${item}`).join("\n")}`
+        : "",
+      !recipe && sourceInspection.textExcerpt
+        ? `Page text excerpt (not independently verified):\n${sourceInspection.textExcerpt.slice(0, 2_000)}`
+        : "",
+      `Inspection limitation: ${sourceInspection.limitation}`,
+      "Review every quantity, step, timing, doneness cue, allergen, and food-safety detail against reliable sources before relying on this content.",
+    ].filter(Boolean).join("\n\n").slice(0, 4_800);
+    setNotes((existing) => existing.trim() ? `${existing.trim()}\n\n${extractedNotes}`.slice(0, 4_800) : extractedNotes);
+    setMessage("Extracted details were added to recipe notes. Review all values before creating the draft or relying on them.");
+  }
+
   function createProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!name.trim()) {
@@ -418,10 +506,11 @@ export default function Home() {
     setActive(project.id);
     setName("");
     setUrl("");
+    setSourceInspection(null);
     setNotes("");
     setServings("4");
     setShowTutorial(false); setShowNarration(false); setShowContentPack(false);
-    setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
+    setMessage("Recipe draft created on this device. Review extracted source notes and add any missing ingredients, steps, and safety evidence manually.");
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -831,13 +920,29 @@ export default function Home() {
                 <label htmlFor="name">Recipe name <b>*</b></label>
                 <input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Spicy chicken gravy" required maxLength={100} />
                 <label htmlFor="url">Video or recipe URL <span>OPTIONAL</span></label>
-                <input id="url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." />
-                <p className="hint">This saves the link only. V1 does not fetch, transcribe, or analyze linked videos.</p>
+                <input id="url" type="url" value={url} disabled={inspectionBusy} onChange={(event) => { setUrl(event.target.value); setSourceInspection(null); }} placeholder="https://example.com/recipe" />
+                <p className="hint">Use “Inspect public recipe page” for accessible HTML recipe pages. Video/Reel audio and frames are not inspected, and some sites block automated page access.</p>
+                <button className="secondary" type="button" onClick={() => void inspectRecipeSource()} disabled={inspectionBusy || !url.trim()}>{inspectionBusy ? "Inspecting public page…" : "Inspect public recipe page"}</button>
+                {sourceInspection && <div className="panel source-inspection-preview" role="region" aria-label="Inspected public page preview">
+                  <h4>Extracted preview — verify before use</h4>
+                  <p><strong>{sourceInspection.title || sourceInspection.finalUrl}</strong></p>
+                  {sourceInspection.siteName && <p className="hint">Site: {sourceInspection.siteName}</p>}
+                  {sourceInspection.description && <p>{sourceInspection.description}</p>}
+                  {sourceInspection.structuredRecipe ? <>
+                    {sourceInspection.structuredRecipe.name && <p><strong>Recipe:</strong> {sourceInspection.structuredRecipe.name}</p>}
+                    {sourceInspection.structuredRecipe.servings && <p><strong>Listed yield:</strong> {sourceInspection.structuredRecipe.servings}</p>}
+                    {sourceInspection.structuredRecipe.ingredients.length > 0 && <div><strong>Extracted ingredients</strong><ul>{sourceInspection.structuredRecipe.ingredients.slice(0, 25).map((item, index) => <li key={`source-ingredient-${index}`}>{item}</li>)}</ul>{sourceInspection.structuredRecipe.ingredients.length > 25 && <p className="hint">Preview shows the first 25 of {sourceInspection.structuredRecipe.ingredients.length} ingredients.</p>}</div>}
+                    {sourceInspection.structuredRecipe.instructions.length > 0 && <div><strong>Extracted instructions</strong><ol>{sourceInspection.structuredRecipe.instructions.slice(0, 25).map((item, index) => <li key={`source-instruction-${index}`}>{item}</li>)}</ol>{sourceInspection.structuredRecipe.instructions.length > 25 && <p className="hint">Preview shows the first 25 of {sourceInspection.structuredRecipe.instructions.length} instructions.</p>}</div>}
+                  </> : sourceInspection.textExcerpt ? <details><summary>View extracted page text excerpt</summary><p>{sourceInspection.textExcerpt}</p></details> : <p className="hint">No structured recipe or readable text excerpt was found on this page.</p>}
+                  <p className="hint">URL: <a href={sourceInspection.finalUrl} target="_blank" rel="noreferrer">{sourceInspection.finalUrl}</a></p>
+                  <p className="hint">{sourceInspection.limitation}</p>
+                  <button className="secondary" type="button" onClick={addInspectedDetailsToNotes}>Add extracted details to recipe notes</button>
+                </div>}
                 <label htmlFor="servings">Servings <b>*</b></label>
                 <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} required />
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
                 <textarea id="notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={4} maxLength={5000} placeholder="Paste recipe notes, ingredients, source observations, or questions…" />
-                <button className="primary" type="submit">Create recipe draft　→</button>
+                <button className="primary" type="submit" disabled={inspectionBusy}>Create recipe draft　→</button>
                 <label htmlFor="import-backup">Import a recipe draft or restore a workspace backup <span>OPTIONAL</span></label>
                 <input id="import-backup" type="file" accept="application/json,.json" onChange={(event) => { const file = event.currentTarget.files?.[0]; event.currentTarget.value = ""; if (file) void importProject(file); }} />
                 <p className="hint">A single recipe draft is added to this browser. A full workspace backup restores all included drafts and creator settings, replacing current local data only after confirmation. Imports are not independently verified and nothing is uploaded.</p>
