@@ -25,3 +25,20 @@ test("owner password check only accepts the configured password", () => {
   assert.equal(verifyOwnerPassword("local-test-password"), true);
   assert.equal(verifyOwnerPassword("incorrect-password"), false);
 });
+
+test("owner password rejects missing or too-short configuration", () => {
+  const original = process.env.COOKING_OWNER_PASSWORD;
+  try {
+    delete process.env.COOKING_OWNER_PASSWORD;
+    assert.throws(() => verifyOwnerPassword("anything"), /at least 16 characters/);
+
+    process.env.COOKING_OWNER_PASSWORD = "short";
+    assert.throws(() => verifyOwnerPassword("short"), /at least 16 characters/);
+
+    process.env.COOKING_OWNER_PASSWORD = "long-enough-test-password";
+    assert.equal(verifyOwnerPassword("long-enough-test-password"), true);
+  } finally {
+    if (original === undefined) delete process.env.COOKING_OWNER_PASSWORD;
+    else process.env.COOKING_OWNER_PASSWORD = original;
+  }
+});
