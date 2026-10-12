@@ -431,3 +431,13 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .step-ingredient-options label { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 8px 10px; margin: 0; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-panel); color: var(--app-ink); font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
 .step-ingredient-options input { width: auto; min-width: 16px; margin: 0; accent-color: #171717; }
 .step-ingredient-map .hint { margin: 10px 0 0; }
+
+
+/* Structured source comparison coverage uses the neutral monochrome design tokens. */
+.source-comparison-summary { display: grid; gap: 10px; margin: 12px 0 16px; padding: 13px; border: 1px solid var(--app-line); border-radius: 11px; background: var(--app-soft); color: var(--app-ink); }
+.source-comparison-summary>strong { font-size: 12px; }
+.source-coverage-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.source-coverage-grid span { display: flex; justify-content: space-between; align-items: center; gap: 8px; border: 1px solid var(--app-line); border-radius: 8px; padding: 8px 10px; background: var(--app-panel); color: var(--app-ink); font-size: 10px; }
+.source-coverage-grid b { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.source-comparison-summary .hint { margin: 0; }
+@media(max-width:390px) { .source-coverage-grid { grid-template-columns: 1fr; } }
