@@ -14,10 +14,9 @@ async function validSession(value: string | undefined): Promise<boolean> {
   const secret = process.env.COOKING_SESSION_SECRET;
   if (!secret || secret.length < 32) return false;
   try {
-    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-    const bytes = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`owner:${expiresAt}`));
-    const expected = Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, "0")).join("");
-    return expected === signature;
+    const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    const signatureBytes = new Uint8Array(signature.match(/.{2}/g)!.map((byte) => Number.parseInt(byte, 16)));
+    return await crypto.subtle.verify("HMAC", key, signatureBytes, new TextEncoder().encode(`owner:${expiresAt}`));
   } catch {
     return false;
   }
