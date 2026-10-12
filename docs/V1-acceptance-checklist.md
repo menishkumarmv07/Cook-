@@ -18,11 +18,11 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 - [x] GitHub Actions result is green for exact main commit `3d7dd01a954bd6f4676a67d7211795aea44af954` (run #189).
 - [x] Record commit SHA, run URL, date, and warnings below.
 
-**Latest automated verification (12 October 2026):** GitHub Actions run #189 passed on main commit `3d7dd01a954bd6f4676a67d7211795aea44af954`: [run #189](https://github.com/menishkumarmv07/Cook-/actions/runs/38270557068). CI now uses the committed `package-lock.json` with `npm ci`; the clean dependency install, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and full Playwright end-to-end suite all succeeded. This verifies CI only; it does not prove deployment or real Android Chrome behavior.
+**Earlier automated verification (12 October 2026; historical):** GitHub Actions run #189 passed on main commit `3d7dd01a954bd6f4676a67d7211795aea44af954`: [run #189](https://github.com/menishkumarmv07/Cook-/actions/runs/38270557068). CI now uses the committed `package-lock.json` with `npm ci`; the clean dependency install, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and full Playwright end-to-end suite all succeeded. This verifies CI only; it does not prove deployment or real Android Chrome behavior.
 
 **Additional verification (12 October 2026):** PR #36's exact head commit `2183707306f4ecec8e1945b90c24eaec74a50557` passed GitHub Actions run #194: [run #194](https://github.com/menishkumarmv07/Cook-/actions/runs/38279873401). The workflow completed dependency installation, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and Playwright end-to-end tests successfully. PR #36 was squash-merged into `main` as `82d7a58ba9782a37bc817e9f6662cb578aa15c08`. Post-merge CI was subsequently verified by main workflow run [#196](https://github.com/menishkumarmv07/Cook-/actions/runs/38282546986) on exact merge commit `82d7a58ba9782a37bc817e9f6662cb578aa15c08`; it completed successfully. Newer main runs are recorded in the later verification entries. This does not prove deployment or real Android Chrome behavior.
 
-**Open release gates:** The connected Vercel team lists no Cooking Creator project, and project creation previously failed with HTTP 403 permission denied. Real Android Chrome acceptance and a documented one-recipe acceptance trial are still required. Do not mark V1 complete until those are resolved.
+**Open release gates:** A Vercel project named `cook` is visible in the connected team listing, but project inspection returns HTTP 404, deployment listing returns HTTP 403, and filtering projects by `menishkumarmv07/Cook-` returns no linked project. Its repository connection, deployment protection, and live deployment therefore remain unverified; do not assume the project is connected or private. The owner must confirm the intended project and grant the connected integration sufficient read/deployment permissions. Real Android Chrome acceptance and a documented one-recipe acceptance trial are also still required. Do not mark V1 complete until these gates are resolved.
 
 ## B. Android Chrome manual test
 
@@ -204,3 +204,14 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - Fix commit(s):
 - Retest result:
 - Remaining known limitations:
+
+
+## Latest repository status — 12 October 2026
+
+- Latest application-code commit at the time of this status entry: `0aa58f39c29cde7d8497601584a3383f6418fde2` — [commit](https://github.com/menishkumarmv07/Cook-/commit/0aa58f39c29cde7d8497601584a3383f6418fde2). This document-only PR changes no application code.
+- PR #41 merged the explicit public-HTML inspection record and accurate unverified-source caveats into the recipe draft, validation, tutorial/narration, UI, and docs. Latest PR CI [#212](https://github.com/menishkumarmv07/Cook-/actions/runs/38290927887) and post-merge main CI [#215](https://github.com/menishkumarmv07/Cook-/actions/runs/38291407217) both passed all stages, including Playwright.
+- PR #42 merged IANA-aligned IPv6 special-purpose address filtering, including the full `2001::/23` non-globally-reachable space with the three registered globally reachable anycast exceptions, and the full `3fff::/20` documentation range. Latest PR CI [#214](https://github.com/menishkumarmv07/Cook-/actions/runs/38291368510) passed all stages, including Playwright.
+- Post-merge main workflow [#216](https://github.com/menishkumarmv07/Cook-/actions/runs/38291819754) completed successfully on the application-code commit above, including the full Playwright E2E suite.
+- Fresh creator profile defaults remain English and US customary units; Metric and dual-unit preferences remain selectable. This is a US-first workflow foundation, not automatic translation or direct platform publishing.
+- Still not implemented: video frame/audio analysis, verified multi-source recipe research, automated nutrition lookup, chef animation/voice/video rendering, social account connections, scheduled publishing, and analytics. Browser-local data is unencrypted, and the app is not security-release-ready.
+- Still blocked: Vercel repository/deployment access, real Android Chrome acceptance, and an actual recipe cooking trial. Keep the V1 status **in progress** until those are completed and documented.
