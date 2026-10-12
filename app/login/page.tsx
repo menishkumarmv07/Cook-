@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { CHAT_APP_NAME } from "@/lib/chat-config";
 
 export default function LoginPage() {
   const [password, setPassword] = useState("");
@@ -37,7 +38,7 @@ export default function LoginPage() {
       <section className="owner-login-card" aria-labelledby="owner-login-title">
         <div className="owner-login-mark" aria-hidden="true">C</div>
         <p className="owner-login-eyebrow">PRIVATE WORKSPACE</p>
-        <h1 id="owner-login-title">Cooking Creator Studio</h1>
+        <h1 id="owner-login-title">{CHAT_APP_NAME}</h1>
         <p className="owner-login-copy">Sign in with your owner password to open your personal workspace.</p>
         <form onSubmit={submit}>
           <label htmlFor="owner-password">Owner password</label>
