@@ -62,7 +62,7 @@ test("warns about missing quantities, steps, source analysis, safety and nutriti
   assert.match(messages, /Serving count is missing/);
   assert.match(messages, /Quantity for salt is missing/);
   assert.match(messages, /has no action/);
-  assert.match(messages, /source link has not been fetched/i);
+  assert.match(messages, /source claims have not been independently verified/i);
   assert.match(messages, /Food-safety guidance has not been independently verified/);
   assert.match(messages, /Nutrition has not been calculated/);
 });
@@ -363,7 +363,7 @@ test("narration script makes empty ingredient and method states explicit", () =>
   const script = buildNarrationScript({ ...base, ingredients: [], steps: [], sourceReferences: [] });
   assert.match(script, /No ingredients are recorded/);
   assert.match(script, /No cooking steps have been recorded/);
-  assert.match(script, /app has not fetched or verified source content/);
+  assert.match(script, /optional public-page inspection extracts accessible HTML\/metadata only/i);
   assert.match(script, /Nutrition and calories have not been calculated/);
 });
 
