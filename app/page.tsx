@@ -290,7 +290,7 @@ export default function ChatHome() {
     }
 
     next.push({ id: `${id}-a`, role: "assistant", text: response, link: responseLink, linkLabel: responseLabel });
-    setMessages((existing) => [...existing, ...next]);
+    saveMessages([...messages, ...next]);
     setDraft("");
     setNotice("");
     setAttachOpen(false);
