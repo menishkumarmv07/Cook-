@@ -241,7 +241,7 @@ test("content pack export downloads a text file without publishing", async ({ pa
 });
 
 
-test("PWA manifest and service worker support reopening the app offline after first visit", async ({ page }) => {
+test("PWA manifest and service worker show a generic offline fallback without caching private HTML", async ({ page }) => {
   const manifestResponse = await page.request.get("/manifest.webmanifest");
   expect(manifestResponse.ok()).toBeTruthy();
   const manifest = await manifestResponse.json();
@@ -259,7 +259,8 @@ test("PWA manifest and service worker support reopening the app offline after fi
   await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
   await page.context().setOffline(true);
   await page.reload();
-  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "You’re offline" })).toBeVisible();
+  await expect(page.getByText(/private workspace requires a connection/i)).toBeVisible();
   await page.context().setOffline(false);
 });
 
