@@ -359,3 +359,39 @@ test("light workspace theme is pure white with grayscale UI colors", async ({ pa
   expect(palette.background).toBe("rgb(255, 255, 255)");
   expect(palette.nonMonochrome).toEqual([]);
 });
+
+
+test("manual sourced nutrition worksheet calculates exact entries and labels the estimate honestly", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#name").fill("Pasta nutrition check");
+  await page.locator("#servings").fill("4");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("200");
+  await page.getByLabel("Ingredient 1 unit").fill("g");
+  await page.getByLabel("Ingredient 1 name").fill("dry pasta");
+  await page.getByLabel("Ingredient 1 prep").fill("dry");
+
+  await page.locator(".ingredient-nutrition summary").first().click();
+  await page.getByLabel("Ingredient 1 calories for amount used").fill("700");
+  await page.getByLabel("Protein (g)").fill("20");
+  await page.getByLabel("Carbohydrates (g)").fill("140");
+  await page.getByLabel("Fat (g)").fill("8");
+  await page.getByLabel("Amount/preparation basis").fill("Values for the exact 200 g dry pasta quantity listed above");
+  await page.getByLabel("Nutrition source URL").fill("https://fdc.nal.usda.gov/");
+
+  const summary = page.locator(".nutrition-summary");
+  await expect(summary).toContainText("175 kcal");
+  await expect(summary).toContainText("700 kcal total");
+  await expect(summary).toContainText("Protein 5.0 g");
+  await expect(summary).toContainText("Carbs 35.0 g");
+  await expect(summary).toContainText("Fat 2.0 g");
+  await expect(summary).toContainText("not independently verified");
+
+  await page.getByRole("button", { name: "Generate narration script" }).click();
+  const script = page.locator(".narration-preview pre");
+  await expect(script).toContainText("approximately 175 kcal per serving");
+  await expect(script).toContainText("manually entered ingredient values");
+  await expect(script).toContainText("not independently verified");
+});
