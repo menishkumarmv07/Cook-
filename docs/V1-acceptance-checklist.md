@@ -231,3 +231,15 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - Still not implemented: video frame/audio analysis, evidence-backed multi-source recipe verification, automatic nutrition database lookup/unit conversion, chef voice/animation/video rendering, social account connections, scheduled publishing, analytics, and monetization integrations.
 - Still blocked: Vercel repository/deployment access, real Android Chrome acceptance, and an actual recipe cooking trial. Browser localStorage remains unencrypted. Keep V1 **in progress** until the owner-dependent gates are completed and documented.
 
+
+## Latest verification addendum — 13 October 2026, 04:05 IST
+
+- **Current main commit:** `eeee9a84df4c224376c8846ac57d0995b5bd3e5d`.
+- **Post-merge CI:** [workflow #230](https://github.com/menishkumarmv07/Cook-/actions/runs/38301041790) passed on that exact commit. Verified stages: checkout, Node setup, `npm ci`, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke tests, and full Playwright E2E.
+- **CI maintenance:** PR #46 upgraded GitHub Actions to `actions/checkout@v7` and `actions/setup-node@v7`, with Node 22. PR-head run #224 and post-merge run #225 passed. A later non-functional lint-warning cleanup was merged as `eeee9a84df4c224376c8846ac57d0995b5bd3e5d`; its post-merge workflow #230 passed.
+- **US-first defaults:** English and US customary units are the fresh-profile defaults; Metric and dual-unit settings remain selectable, and worldwide cuisines remain supported. This is product configuration only—not US-specific social account integration or automated localization.
+- **Release status remains IN PROGRESS.** No successful Vercel deployment is verified. The connected Vercel context reports no linked projects; the listed `cook` project returns 404 on project inspection and 403 on deployment listing. The owner must confirm repository linkage, project access, deployment protection, and the live commit before any deployment claim.
+- **Owner/device gates still open:** real Android Chrome acceptance; real recipe cooking trial with the dish photo, rating, and notes; and production security review. LocalStorage remains unencrypted, and the login throttle is not hosting-level/distributed rate limiting.
+- **Do not mark video/audio analysis, multi-source verification, automatic nutrition lookup, chef animation/video rendering, social publishing, analytics, or monetization as implemented.** These remain outside V1.
+- The repository has no required AI API key or paid creative service. Keep the app private, ₹0/no-card, and separate from App Market/MV and GKworks.
+
