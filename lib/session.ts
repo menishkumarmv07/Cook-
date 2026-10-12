@@ -68,10 +68,12 @@ export async function verifySessionToken(
   if (!signature || signature.length !== 32) return false;
   try {
     const key = await getSigningKey(secret, ["verify"]);
+    const signatureBytes = new Uint8Array(signature.length);
+    signatureBytes.set(signature);
     return await crypto.subtle.verify(
       "HMAC",
       key,
-      signature,
+      signatureBytes.buffer,
       new TextEncoder().encode(`cooking-creator-session:${expiresAt}`),
     );
   } catch {
