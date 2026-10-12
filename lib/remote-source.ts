@@ -139,7 +139,7 @@ async function resolvePublicAddresses(hostname: string, remainingMs: number): Pr
     if (error instanceof RemoteSourceError) throw error;
     throw new RemoteSourceError("SOURCE_UNAVAILABLE", 422, "The source website could not be resolved. Check the URL and try again.");
   } finally {
-    if (timeout) clearTimeout(timeout);
+    if (timeout.handle) clearTimeout(timeout.handle);
   }
 }
 
@@ -156,12 +156,12 @@ function fetchPinnedResponse(url: URL, addresses: PinnedAddress[], timeoutMs: nu
     let settled = false;
     let byteCount = 0;
     const chunks: Buffer[] = [];
-    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const timeout: { handle?: ReturnType<typeof setTimeout> } = {};
 
     const fail = (error: Error) => {
       if (settled) return;
       settled = true;
-      if (timeout) clearTimeout(timeout);
+      if (timeout.handle) clearTimeout(timeout.handle);
       reject(error);
     };
 
@@ -197,7 +197,7 @@ function fetchPinnedResponse(url: URL, addresses: PinnedAddress[], timeoutMs: nu
       response.on("end", () => {
         if (settled) return;
         settled = true;
-        if (timeout) clearTimeout(timeout);
+        if (timeout.handle) clearTimeout(timeout.handle);
         resolve({
           status: response.statusCode ?? 0,
           headers: response.headers,
@@ -218,7 +218,7 @@ function fetchPinnedResponse(url: URL, addresses: PinnedAddress[], timeoutMs: nu
       ? httpsRequest(requestOptions, onResponse)
       : httpRequest(requestOptions, onResponse);
     request.on("error", (error) => fail(error));
-    timeout = setTimeout(() => {
+    timeout.handle = setTimeout(() => {
       request.destroy();
       fail(new RemoteSourceError("SOURCE_TIMEOUT", 504, "The source website took too long to respond."));
     }, Math.max(1, timeoutMs));
