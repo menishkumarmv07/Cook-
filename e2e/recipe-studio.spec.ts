@@ -501,7 +501,59 @@ test("ingredient additions are explicitly mapped to cooking steps and spoken in 
 });
 
 
-test("pasting a supported recipe or video URL into the chat dock prefills recipe intake without claiming analysis", async ({ page }) => {
+test("public recipe-page inspection previews extracted facts and copies them to notes only on request", async ({ page }) => {
+  const sourceUrl = "https://recipes.example/lemon-rice";
+  await page.route("**/api/sources/inspect", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        source: {
+          requestedUrl: sourceUrl,
+          finalUrl: sourceUrl,
+          contentType: "text/html",
+          redirectCount: 0,
+          limitation: "Extracted public HTML only; recipe details are not independently verified and video frames/audio are not inspected.",
+          title: "Lemon Rice",
+          description: "A simple lemon rice recipe.",
+          siteName: "Recipe Kitchen",
+          textExcerpt: "Lemon rice is made with rice, lemon, and spices.",
+          structuredRecipe: {
+            name: "Lemon Rice",
+            description: "A simple lemon rice recipe.",
+            author: "Recipe Kitchen",
+            servings: "4 servings",
+            prepTime: "10 minutes",
+            cookTime: "15 minutes",
+            totalTime: "25 minutes",
+            ingredients: ["2 cups cooked rice", "1 tbsp lemon juice"],
+            instructions: ["Warm the pan.", "Fold in the rice and lemon juice."],
+          },
+        },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await page.locator("#name").fill("Lemon rice");
+  await page.locator("#url").fill(sourceUrl);
+  await page.getByRole("button", { name: "Inspect public recipe page" }).click();
+
+  const preview = page.locator(".source-inspection-preview");
+  await expect(preview).toBeVisible();
+  await expect(preview).toContainText("Lemon Rice");
+  await expect(preview).toContainText("2 cups cooked rice");
+  await expect(preview).toContainText("not independently verified");
+  await page.getByRole("button", { name: "Add extracted details to recipe notes" }).click();
+  await expect(page.locator("#notes")).toHaveValue(/Ingredients \(extracted; not independently verified\)/);
+  await expect(page.locator("#notes")).toHaveValue(/2 cups cooked rice/);
+
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.locator("#edit-notes")).toHaveValue(/2 cups cooked rice/);
+  await expect(page.locator(".source")).toContainText(sourceUrl);
+});
+
+test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
   await page.goto("/");
   const sourceUrl = "https://www.youtube.com/watch?v=123456789ab";
   await page.locator("#workspace-command").fill(sourceUrl);
@@ -509,8 +561,8 @@ test("pasting a supported recipe or video URL into the chat dock prefills recipe
 
   await expect(page.locator("#url")).toHaveValue(sourceUrl);
   await expect(page.locator("#intake")).toBeVisible();
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("saves the URL only");
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("does not open or analyze linked content");
+  await expect(page.locator(".message[role=\"status\"]")).toContainText("added to recipe intake");
+  await expect(page.locator(".message[role=\"status\"]")).toContainText("video/Reel audio and frames are not analyzed");
   await expect(page.locator("#name")).toBeVisible();
 });
 
@@ -523,6 +575,13 @@ test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sour
   await expect(page.locator(".message[role=\"status\"]")).toContainText("Only a valid HTTP(S) link can be added");
 });
 
+
+test("AUTH: logged-out source inspection requests are rejected", async ({ page }) => {
+  const response = await page.request.post("/api/sources/inspect", {
+    data: { url: "https://recipes.example/lemon-rice" },
+  });
+  expect(response.status()).toBe(401);
+});
 
 test("AUTH: logged-out requests are redirected to the owner login page", async ({ page }) => {
   await page.goto("/");
