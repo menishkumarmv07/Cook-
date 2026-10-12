@@ -17,7 +17,7 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 - [ ] GitHub Actions result is green for the exact commit being reviewed.
 - [ ] Record commit SHA, run URL, date, and any warnings.
 
-**Current state (12 October 2026):** GitHub Actions run #79 passed on main commit `42d7e60dbc32b59579857b3c61af5a19a59b01d7`: [run #79](https://github.com/menishkumarmv07/Cook-/actions/runs/38170646309). Re-check the latest Actions run for the exact reviewed commit before marking this section complete. The real Android Chrome manual section remains not tested.
+**Current state (12 October 2026, verified after PR #28 merge):** GitHub Actions passed on merge commit `0308937b09abbb8889087b7e28854be66dd7d4e7`: [post-merge workflow run](https://github.com/menishkumarmv07/Cook-/actions/runs/38264929333). This confirms the configured automated checks for that commit only; it does not complete the checklist by itself. The real Android Chrome manual section, production deployment, and security acceptance remain not tested/blocked. Re-check the latest Actions run for the exact reviewed commit before marking automated checks complete.
 
 ## B. Android Chrome manual test
 
