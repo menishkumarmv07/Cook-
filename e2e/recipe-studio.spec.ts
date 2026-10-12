@@ -260,7 +260,7 @@ test("PWA manifest and service worker show a generic offline fallback without ca
   await page.context().setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "You’re offline" })).toBeVisible();
-  await expect(page.getByText(/private workspace requires a connection/i)).toBeVisible();
+  await expect(page.getByText(/private workspace needs an internet connection/i)).toBeVisible();
   await page.context().setOffline(false);
 });
 
