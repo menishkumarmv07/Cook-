@@ -95,7 +95,7 @@ export function isPublicIPAddress(address: string): boolean {
     (second >= 0x0030 && second <= 0x003f) // 2001:30::/28 — Drone Remote ID
   )) return false;
   if (first === 0x2620 && second === 0x004f && third === 0x8000) return false; // 2620:4f:8000::/48 — AS112 direct delegation
-  if (first === 0x3fff && second <= 0x000f) return false; // 3fff::/20 — documentation
+  if (first === 0x3fff && second <= 0x0fff) return false; // 3fff::/20 — documentation
   if (first === 0x2002) return false; // 2002::/16 — 6to4
   return true;
 }
