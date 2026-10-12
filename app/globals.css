@@ -396,3 +396,29 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .shell[data-theme="light"] .status-error { background: #f5f5f5; color: #404040; }
 .shell[data-theme="light"] .icon-button,
 .shell[data-theme="light"] .danger { background: #ffffff; color: #404040; border-color: #d4d4d4; }
+
+
+/* Evidence-linked nutrition worksheet: uses neutral theme tokens, no color accents. */
+.ingredient-list { display: grid; gap: 12px; }
+.ingredient-card { min-width: 0; border: 1px solid var(--app-line); border-radius: 11px; padding: 8px; background: var(--app-panel); }
+.ingredient-card .ingredient-row { border: 0; padding: 2px; }
+.ingredient-nutrition { margin: 7px 1px 0; border-top: 1px solid var(--app-line); padding-top: 8px; }
+.ingredient-nutrition summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; padding: 6px 3px; color: var(--app-ink); font-size: 11px; font-weight: 700; }
+.ingredient-nutrition summary span { font-size: 9px; font-weight: 500; color: var(--app-muted); text-align: right; }
+.ingredient-nutrition .hint { margin: 7px 3px 12px; }
+.nutrition-fields { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; padding: 0 3px 7px; }
+.nutrition-fields>div { min-width: 0; }
+.nutrition-fields label { margin: 8px 0 6px; line-height: 1.4; font-size: 10px; }
+.nutrition-fields input { min-width: 0; font-size: 11px; }
+.nutrition-wide { grid-column: 1/-1; }
+.nutrition-summary { margin-top: 20px; padding: 17px; border: 1px solid var(--app-line); border-radius: 13px; background: var(--app-soft); color: var(--app-ink); }
+.nutrition-summary .subsection-head { margin: 0 0 12px; }
+.nutrition-summary .subsection-head .muted { margin: 0; max-width: 480px; }
+.nutrition-result { display: grid; gap: 6px; padding: 16px; border: 1px solid var(--app-line); border-radius: 12px; background: var(--app-panel); color: var(--app-ink); }
+.nutrition-result>strong { color: var(--app-ink); font-size: 24px; letter-spacing: -.4px; }
+.nutrition-result>strong small { font-size: 11px; font-weight: 500; color: var(--app-muted); letter-spacing: 0; }
+.nutrition-result>span { font-size: 11px; color: var(--app-muted); }
+.nutrition-macros { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 7px; }
+.nutrition-macros span { display: inline-flex; padding: 7px 9px; border: 1px solid var(--app-line); border-radius: 20px; background: var(--app-soft); color: var(--app-ink); font-size: 10px; }
+@media(max-width:700px) { .nutrition-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media(max-width:390px) { .nutrition-summary { padding: 12px; } .nutrition-fields { grid-template-columns: 1fr; } .nutrition-wide { grid-column: auto; } }
