@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const worker = await readFile(new URL("../public/sw.js", import.meta.url), "utf8");
+const worker = readFileSync("public/sw.js", "utf8");
 
 test("service worker does not precache or store private HTML navigations", () => {
   assert.match(worker, /const PRECACHE_URLS = \[OFFLINE_URL, "\/icon\.svg", "\/manifest\.webmanifest"\]/);
