@@ -9,6 +9,7 @@ async function signIn(page: import("@playwright/test").Page) {
 
 test("chat home follows the requested mobile-first layout and opens the drawer", async ({ page }) => {
   await signIn(page);
+  await expect(page).toHaveTitle("cooking — Creator Chat");
   await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Get Plus" })).toBeVisible();
   await expect(page.getByRole("button", { name: "New chat" })).toBeVisible();
@@ -90,6 +91,7 @@ test("owner session cookie uses HttpOnly, Strict same-site, path scope, and an e
 
 test("login rejects an incorrect owner password without opening the workspace", async ({ page }) => {
   await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "cooking", exact: true })).toBeVisible();
   await page.getByLabel("Owner password").fill("incorrect-owner-password");
   await page.getByRole("button", { name: "Unlock workspace" }).click();
   await expect(page.getByText("Password not accepted.")).toBeVisible();
