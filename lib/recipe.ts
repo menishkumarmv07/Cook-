@@ -373,7 +373,7 @@ export function buildTutorialDraft(project: RecipeProject): string {
     "",
     "## Creator scene plan",
     ...project.scenes.flatMap((x, i) => [`### ${i + 1}. ${x.title}`, `Timing guide: ${x.timing}`, x.detail, ""]),
-    "## Source references (manual records)",
+    "## Source references and inspection records",
     ...(project.sourceReferences.length ? project.sourceReferences.map((source, i) =>
       `${i + 1}. ${source.kind} — ${source.url.trim() || "URL missing"}\n   Checked: ${source.checked.trim() || "Not recorded"}\n   Ingredient/quantity findings: ${source.ingredientFindings?.trim() || "Not recorded"}\n   Method/order findings: ${source.methodFindings?.trim() || "Not recorded"}\n   Timing/heat findings: ${source.timingFindings?.trim() || "Not recorded"}\n   Food-safety/storage notes: ${source.safetyStorageFindings?.trim() || "Not recorded"}\n   Notes / disagreements: ${source.notes.trim() || "None recorded"}`) : ["No structured source references recorded."]),
     "",
@@ -395,10 +395,10 @@ export function buildTutorialDraft(project: RecipeProject): string {
       : ["No calorie-per-serving result yet. Each ingredient needs calories for the exact quantity used, a matching amount/preparation basis, a valid source URL, and a simple positive serving count. No unit conversion or source verification is performed automatically."]),
     "",
     "## Verification status",
-    "- This draft reflects only information entered by the user.",
+    "- This draft reflects user-entered information and, if explicitly requested, app-extracted public HTML metadata; neither is independently verified.",
     "- Public HTML/Recipe metadata may be extracted only after explicit inspection; this is not independent recipe verification and does not analyze video frames/audio.",
     "- Manual source evidence notes are user-provided and have not been independently verified.",
-    "- Source references and checked items are manually recorded and have not been independently verified.",
+    "- Source references may include manual notes or an explicit public-HTML inspection record; neither is independent recipe verification.",
     "- Compare references yourself; conflicts or missing details must be resolved before publishing.",
     "- Missing amounts/timings must be checked; do not guess.",
     "- Food safety and nutrition have not been independently verified.",
@@ -485,7 +485,7 @@ export function buildNarrationScript(project: RecipeProject): string {
     "## Source uncertainties to resolve",
     ...(project.sourceReferences.length
       ? project.sourceReferences.map((source, index) =>
-          `${index + 1}. ${oneLine(source.url) || "Source URL missing"} — checked: ${oneLine(source.checked) || "Not recorded"} — ingredient/quantity findings: ${oneLine(source.ingredientFindings ?? "") || "Not recorded"} — method/order findings: ${oneLine(source.methodFindings ?? "") || "Not recorded"} — timing/heat findings: ${oneLine(source.timingFindings ?? "") || "Not recorded"} — food-safety/storage notes: ${oneLine(source.safetyStorageFindings ?? "") || "Not recorded"} — notes: ${oneLine(source.notes) || "No disagreement or uncertainty notes recorded"} (manual entry; not independently verified)`)
+          `${index + 1}. ${oneLine(source.url) || "Source URL missing"} — checked: ${oneLine(source.checked) || "Not recorded"} — ingredient/quantity findings: ${oneLine(source.ingredientFindings ?? "") || "Not recorded"} — method/order findings: ${oneLine(source.methodFindings ?? "") || "Not recorded"} — timing/heat findings: ${oneLine(source.timingFindings ?? "") || "Not recorded"} — food-safety/storage notes: ${oneLine(source.safetyStorageFindings ?? "") || "Not recorded"} — notes: ${oneLine(source.notes) || "No disagreement or uncertainty notes recorded"} (recorded/extracted; not independently verified)`)
       : ["No structured source references recorded. Optional public-page inspection extracts accessible HTML/metadata only; the app has not independently verified source claims and does not analyze video frames/audio."]),
     `Manual source evidence notes: ${oneLine(project.sourceEvidence) || "None recorded; links and content have not been independently checked."}`,
     "",
