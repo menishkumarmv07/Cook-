@@ -43,6 +43,17 @@ test("chat accepts a video link and clearly reports current integration limits",
   await expect(page.getByRole("status")).toContainText("V1 saves the URL only");
 });
 
+test("chat carries a new-recipe instruction into local notes without claiming automatic drafting", async ({ page }) => {
+  await signIn(page);
+  const prompt = "Start a new recipe draft for lemon rice. The rice is already cooked.";
+  await page.getByLabel("Ask cooking").fill(prompt);
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page).toHaveURL(/\/workspace$/);
+  await expect(page.locator("#notes")).toHaveValue(prompt);
+  await expect(page.getByRole("status")).toContainText("Instruction copied into Recipe notes");
+});
+
 test("mobile chat interface does not introduce horizontal overflow", async ({ page }) => {
   await signIn(page);
   const dimensions = await page.evaluate(() => ({
