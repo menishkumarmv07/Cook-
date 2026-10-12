@@ -134,11 +134,21 @@ Do not enter private passwords, API keys, real personal information, or valuable
 ## Workspace chat-dock link intake checks
 
 - [ ] Paste a complete valid YouTube, Instagram, or recipe-page HTTP(S) URL into the bottom workspace/chat dock; confirm the exact URL is copied into the recipe-intake source field and intake is brought into view.
-- [ ] Confirm the user-facing status clearly says the URL is only saved and the current V1 does not open, fetch, transcribe, or analyze linked content.
+- [ ] Confirm the user-facing status says the URL was added to intake, public HTML recipe pages can be inspected after an explicit click, and video-frame/audio analysis is not implemented.
 - [ ] Enter a recipe name and create a draft; verify the source URL is retained on that recipe.
 - [ ] Paste an unsupported scheme such as `ftp://`; confirm it is rejected, is not inserted into the source field, and a clear HTTP(S)-only message appears.
 - [ ] Confirm ordinary commands such as `research`, `new recipe`, `content studio`, and `publish` retain their existing navigation behavior.
 - [ ] Confirm the updated chat-dock placeholder says a recipe/video link can be pasted.
+
+## Public recipe-page inspection checks
+- [ ] In an authenticated session, enter an accessible public HTML recipe-page URL and select **Inspect public recipe page**; confirm a busy state appears and the returned preview includes page title, final URL, and available description/structured recipe facts.
+- [ ] Confirm the preview says extraction is not independent verification and never claims to inspect video frames or transcribe audio.
+- [ ] Select **Add extracted details to recipe notes** and confirm the text is explicitly labelled extracted/unverified; confirm this action does not silently fill structured ingredient rows or cooking steps.
+- [ ] Change the URL after inspection and confirm the previous preview is cleared, so stale content cannot be mistaken for the newly entered source.
+- [ ] Confirm a logged-out POST to `/api/sources/inspect` receives HTTP 401; the endpoint must remain owner-authenticated and fail closed if server auth configuration is missing.
+- [ ] For blocked, non-HTML, timeout, or oversized sources, confirm a clear message appears without exposing DNS/socket/upstream implementation details.
+- [ ] Test a YouTube/Instagram video URL and confirm a blocked/non-HTML response is not described as frame/audio analysis. Video analysis remains unimplemented.
+- [ ] A successful mocked browser test verifies the interface only; still perform a manual inspection against an accessible public recipe page on the dedicated deployed preview before marking live-source acceptance passed.
 
 ## Owner-only access security checks — release blocker
 
