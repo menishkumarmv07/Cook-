@@ -137,6 +137,43 @@ test("nutrition calculator refuses missing, negative, unsourced, or ambiguous va
   assert.equal(negative.totalCalories, null);
 });
 
+
+test("explicit step ingredient mappings produce addition narration and warn about unassigned ingredients", () => {
+  const recipe: RecipeProject = {
+    ...base,
+    ingredients: [
+      { id: "i-onion", amount: "1", unit: "cup", name: "diced onion", prep: "small dice" },
+      { id: "i-paste", amount: "2", unit: "tbsp", name: "tomato paste", prep: "" },
+    ],
+    steps: [
+      { id: "s1", action: "Cook the onions", duration: "5 minutes", heat: "medium", cue: "soft", ingredientIds: ["i-onion"] },
+      { id: "s2", action: "Stir in the tomato paste", duration: "1 minute", heat: "medium", cue: "fragrant", ingredientIds: ["i-paste"] },
+    ],
+  };
+  const narration = buildNarrationScript(recipe);
+  assert.match(narration, /Add 1 cup diced onion \(small dice\) now/);
+  assert.match(narration, /INGREDIENTS TO ADD NOW: 1 cup diced onion \(small dice\)/);
+  assert.match(narration, /Add 2 tbsp tomato paste now/);
+
+  const tutorial = buildTutorialDraft(recipe);
+  assert.match(tutorial, /Ingredients explicitly assigned to add now: 1 cup diced onion/);
+  const issues = validateRecipe({ ...recipe, steps: recipe.steps.map((step) => ({ ...step, ingredientIds: [] })) });
+  assert.match(issues.map((issue) => issue.message).join(" "), /Ingredients not explicitly assigned to a cooking step: diced onion, tomato paste/);
+});
+
+test("legacy steps without ingredient mappings remain valid and unknown imported mappings are cleared", () => {
+  const legacy = { ...base, steps: [{ id: "s1", action: "Boil pasta", duration: "10 minutes", heat: "boiling", cue: "tender" }] };
+  const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
+  assert.ok(restored);
+  assert.deepEqual(restored.steps[0].ingredientIds, []);
+
+  const unknownMapping = { ...base, steps: [{ ...base.steps[0], ingredientIds: ["missing-ingredient"] }] };
+  const sanitized = parseRecipeProjectJSON(JSON.stringify(unknownMapping));
+  assert.ok(sanitized);
+  assert.deepEqual(sanitized.steps[0].ingredientIds, []);
+  assert.equal(isRecipeProject({ ...base, steps: [{ ...base.steps[0], ingredientIds: [5] }] }), false);
+});
+
 test("scene template has six scenes with required headings", () => {
   assert.equal(SCENE_TEMPLATE.length, 6);
   assert.match(SCENE_TEMPLATE[0].title, /Hook/);
@@ -236,7 +273,7 @@ test("narration script preserves entered ingredient and step order without inven
   assert.ok(script.indexOf("Step 1: Boil the pasta") < script.indexOf("Step 2: Drain the pasta"));
   assert.match(script, /The recorded timing is 8 minutes/);
   assert.match(script, /timing is missing; confirm it rather than guessing/i);
-  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /Only creator-selected ingredient-to-step mappings are narrated/);
   assert.match(script, /Nutrition and calories have not been calculated/);
   assert.doesNotMatch(script, /Step 2: Drain the pasta\. The recorded timing is \d+/);
 });
@@ -273,7 +310,7 @@ test("narration script carries manual source uncertainty and keeps voice/video c
   assert.match(script, /Manual source evidence notes: Compared the ingredient lists; oil quantity differs/);
   assert.match(script, /Use medium heat/);
   assert.match(script, /Look for this cue: Fragrant, not smoking/);
-  assert.match(script, /Ingredient-to-step mapping is not inferred/);
+  assert.match(script, /Only creator-selected ingredient-to-step mappings are narrated/);
   assert.match(script, /has not generated voice, animated the chef, rendered a video, or published anything/);
 });
 

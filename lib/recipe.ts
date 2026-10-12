@@ -21,7 +21,15 @@ export type RecipeNutritionSummary = {
   fatGPerServing: number | null;
   missingIngredients: string[];
 };
-export type RecipeStep = { id: string; action: string; duration: string; heat: string; cue: string };
+export type RecipeStep = {
+  id: string;
+  action: string;
+  duration: string;
+  heat: string;
+  cue: string;
+  // Creator-selected ingredient IDs; legacy drafts may not have this field.
+  ingredientIds?: string[];
+};
 export type Scene = { title: string; detail: string; timing: string };
 export type SourceReference = {
   id: string;
@@ -255,7 +263,10 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Array.isArray(p.steps) &&
     p.steps.every((x) => typeof x === "object" && x !== null &&
       typeof x.id === "string" && typeof x.action === "string" &&
-      typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string") &&
+      typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string" &&
+      ((x as Record<string, unknown>).ingredientIds === undefined ||
+        (Array.isArray((x as Record<string, unknown>).ingredientIds) &&
+          ((x as Record<string, unknown>).ingredientIds as unknown[]).every((id) => typeof id === "string")))) &&
     Array.isArray(p.scenes) &&
     p.scenes.every((x) => typeof x === "object" && x !== null &&
       typeof x.title === "string" && typeof x.detail === "string" && typeof x.timing === "string");
@@ -288,6 +299,19 @@ export function validateRecipe(project: RecipeProject): ValidationIssue[] {
   });
   if (project.url.trim() || project.sourceReferences.length) issues.push({ level: "warning", field: "source", message: "Source link has not been fetched or analyzed by this app; manual notes and checked items are user-entered and have not been independently checked or verified." });
   else issues.push({ level: "warning", field: "source", message: "No source references have been recorded. Add multiple references and compare ingredient quantities, method order, and timings before treating the recipe as verified." });
+  const assignedIngredientIds = new Set(project.steps.flatMap((step) => step.ingredientIds ?? []));
+  const unmappedIngredients = project.ingredients.filter((ingredient) => !assignedIngredientIds.has(ingredient.id));
+  if (unmappedIngredients.length) {
+    issues.push({
+      level: "warning",
+      field: "ingredient-mapping",
+      message: `Ingredients not explicitly assigned to a cooking step: ${unmappedIngredients.map((ingredient) => ingredient.name.trim() || "Unnamed ingredient").join(", ")}. Confirm when each is added; the app will not infer the timing.`,
+    });
+  }
+  const knownIngredientIds = new Set(project.ingredients.map((ingredient) => ingredient.id));
+  if (project.steps.some((step) => (step.ingredientIds ?? []).some((id) => !knownIngredientIds.has(id)))) {
+    issues.push({ level: "warning", field: "ingredient-mapping-invalid", message: "One or more step ingredient mappings refer to a missing ingredient. Reassign them before recording." });
+  }
   issues.push({ level: "warning", field: "safety", message: "Food-safety guidance has not been independently verified." });
   const nutrition = calculateRecipeNutrition(project);
   if (nutrition.caloriesPerServing === null) {
@@ -312,8 +336,15 @@ export function buildTutorialDraft(project: RecipeProject): string {
       `${i + 1}. ${[x.amount, x.unit, x.name].filter(Boolean).join(" ")}${x.prep.trim() ? ` — ${x.prep.trim()}` : ""}`) : ["Ingredients not supplied."]),
     "",
     "## Cooking method",
-    ...(project.steps.length ? project.steps.map((x, i) =>
-      `${i + 1}. ${x.action.trim() || "[Action missing]"}${x.duration.trim() ? ` (recorded timing: ${x.duration.trim()})` : " (timing not provided)"}${x.heat.trim() ? ` Heat: ${x.heat.trim()}.` : ""}${x.cue.trim() ? ` Visual cue: ${x.cue.trim()}` : ""}`) : ["Cooking steps not supplied."]),
+    ...(project.steps.length ? project.steps.map((x, i) => {
+      const mappedIngredients = (x.ingredientIds ?? [])
+        .map((id) => project.ingredients.find((ingredient) => ingredient.id === id))
+        .filter((ingredient): ingredient is Ingredient => Boolean(ingredient));
+      const additions = mappedIngredients.length
+        ? ` Ingredients explicitly assigned to add now: ${mappedIngredients.map((ingredient) => [ingredient.amount, ingredient.unit, ingredient.name].filter(Boolean).join(" ")).join(", ")}.`
+        : " No ingredients are explicitly mapped to this step; confirm additions before recording.";
+      return `${i + 1}. ${x.action.trim() || "[Action missing]"}${x.duration.trim() ? ` (recorded timing: ${x.duration.trim()})` : " (timing not provided)"}${x.heat.trim() ? ` Heat: ${x.heat.trim()}.` : ""}${x.cue.trim() ? ` Visual cue: ${x.cue.trim()}` : ""}${additions}`;
+    }) : ["Cooking steps not supplied."]),
     "",
     "## Creator scene plan",
     ...project.scenes.flatMap((x, i) => [`### ${i + 1}. ${x.title}`, `Timing guide: ${x.timing}`, x.detail, ""]),
@@ -388,10 +419,28 @@ export function buildNarrationScript(project: RecipeProject): string {
           const duration = oneLine(step.duration);
           const heat = oneLine(step.heat);
           const cue = oneLine(step.cue);
+          const mappedIngredients = (step.ingredientIds ?? [])
+            .map((id) => project.ingredients.find((ingredient) => ingredient.id === id))
+            .filter((ingredient): ingredient is Ingredient => Boolean(ingredient));
+          const formattedAdditions = mappedIngredients.map((ingredient) => {
+            const quantity = [oneLine(ingredient.amount), oneLine(ingredient.unit)].filter(Boolean).join(" ");
+            const ingredientName = oneLine(ingredient.name);
+            const prep = oneLine(ingredient.prep);
+            if (!quantity || !oneLine(ingredient.unit) || !ingredientName) return `[DO NOT RECORD: confirm quantity/unit/name for ingredient ${project.ingredients.indexOf(ingredient) + 1}]`;
+            return `${quantity} ${ingredientName}${prep ? ` (${prep})` : ""}`;
+          });
+          const hasCompleteAdditions = mappedIngredients.length > 0 && formattedAdditions.every((text) => !text.startsWith("[DO NOT RECORD:"));
+          const additionNarration = hasCompleteAdditions ? ` Add ${formattedAdditions.join(", ")} now.` : "";
+          const additionChecklist = hasCompleteAdditions
+            ? `INGREDIENTS TO ADD NOW: ${formattedAdditions.join(", ")}.`
+            : mappedIngredients.length
+              ? "INGREDIENTS TO ADD NOW: [DO NOT RECORD] A mapped ingredient is missing its name/quantity/unit; complete it before recording."
+              : "INGREDIENTS TO ADD NOW: None explicitly mapped. Confirm which ingredients are added during this step; do not infer.";
           return [
             `### Step ${index + 1}`,
             `ON SCREEN: ${action || "Cooking action missing — resolve before filming."}`,
-            `NARRATION: ${action ? `Step ${index + 1}: ${action}.${duration ? ` The recorded timing is ${duration}.` : ""}${heat ? ` Use ${heat} heat.` : ""}${cue ? ` Look for this cue: ${cue.replace(/[.!?]+$/, "")}.` : ""}` : `Step ${index + 1} is incomplete. Confirm the action before filming.`}`,
+            `NARRATION: ${action ? `Step ${index + 1}: ${action}.${additionNarration}${duration ? ` The recorded timing is ${duration}.` : ""}${heat ? ` Use ${heat} heat.` : ""}${cue ? ` Look for this cue: ${cue.replace(/[.!?]+$/, "")}.` : ""}` : `Step ${index + 1} is incomplete. Confirm the action before filming.`}`,
+            additionChecklist,
             `TIMING: ${duration || "Not recorded — confirm from a reliable source; do not invent a time."}`,
             ...(duration ? [] : ["PRODUCTION CHECK: timing is missing; confirm it rather than guessing."]),
             `HEAT: ${heat || "Not recorded — check the source and method."}`,
@@ -421,7 +470,7 @@ export function buildNarrationScript(project: RecipeProject): string {
     "- Resolve source disagreements before filming.",
     "- Verify applicable food-safety guidance from an authoritative source.",
     "- Do not present uncalculated calories or unsupported health benefits as facts.",
-    "- Ingredient-to-step mapping is not inferred; confirm exactly when each ingredient is added.",
+    "- Only creator-selected ingredient-to-step mappings are narrated. Any unmapped ingredient must be assigned to a step before recording; the app does not infer timing.",
     "- Missing ingredient names, quantities, actions, or timings must be completed before recording. Do not guess.",
     ...(nutrition.caloriesPerServing !== null
       ? ["- Confirm the calorie worksheet against every source. Values are user-entered and not independently verified by the app."]
@@ -470,5 +519,12 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.scenes.length > MAX_RECIPE_SCENES ||
     candidate.sourceReferences.length > MAX_RECIPE_SOURCE_REFERENCES
   ) return null;
-  return candidate;
+  const validIngredientIds = new Set(candidate.ingredients.map((ingredient) => ingredient.id));
+  return {
+    ...candidate,
+    steps: candidate.steps.map((step) => ({
+      ...step,
+      ingredientIds: (step.ingredientIds ?? []).filter((id) => validIngredientIds.has(id)),
+    })),
+  };
 }

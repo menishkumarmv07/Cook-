@@ -422,3 +422,12 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
 .nutrition-macros span { display: inline-flex; padding: 7px 9px; border: 1px solid var(--app-line); border-radius: 20px; background: var(--app-soft); color: var(--app-ink); font-size: 10px; }
 @media(max-width:700px) { .nutrition-fields { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:390px) { .nutrition-summary { padding: 12px; } .nutrition-fields { grid-template-columns: 1fr; } .nutrition-wide { grid-column: auto; } }
+
+
+/* Creator-selected ingredient-to-step mapping; neutral theme tokens only. */
+.step-ingredient-map { min-width: 0; margin: 15px 0 0; padding: 12px; border: 1px solid var(--app-line); border-radius: 10px; color: var(--app-ink); }
+.step-ingredient-map legend { padding: 0 5px; font-size: 11px; font-weight: 700; }
+.step-ingredient-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.step-ingredient-options label { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 8px 10px; margin: 0; border: 1px solid var(--app-line); border-radius: 9px; background: var(--app-panel); color: var(--app-ink); font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
+.step-ingredient-options input { width: auto; min-width: 16px; margin: 0; accent-color: #171717; }
+.step-ingredient-map .hint { margin: 10px 0 0; }

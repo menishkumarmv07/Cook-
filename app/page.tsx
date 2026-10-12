@@ -50,10 +50,15 @@ function migrateProject(value: unknown): RecipeProject | null {
     nutritionBasis: typeof x.nutritionBasis === "string" ? x.nutritionBasis : "",
     nutritionSourceUrl: typeof x.nutritionSourceUrl === "string" ? x.nutritionSourceUrl : "",
   })) : [];
+  const knownIngredientIds = new Set(ingredients.map((ingredient) => ingredient.id));
   const steps = Array.isArray(old.steps) ? old.steps.filter((x): x is RecipeStep =>
     typeof x === "object" && x !== null && typeof x.id === "string" && typeof x.action === "string" &&
-    typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string"
-  ) : [];
+    typeof x.duration === "string" && typeof x.heat === "string" && typeof x.cue === "string" &&
+    (x.ingredientIds === undefined || (Array.isArray(x.ingredientIds) && x.ingredientIds.every((id) => typeof id === "string")))
+  ).map((step) => ({
+    ...step,
+    ingredientIds: (step.ingredientIds ?? []).filter((id) => knownIngredientIds.has(id)),
+  })) : [];
   if (Array.isArray(old.ingredients) && ingredients.length !== old.ingredients.length) return null;
   if (Array.isArray(old.steps) && steps.length !== old.steps.length) return null;
   if (old.sourceReferences !== undefined && !Array.isArray(old.sourceReferences)) return null;
@@ -830,7 +835,7 @@ export default function Home() {
                     <input aria-label={`Ingredient ${index + 1} unit`} value={item.unit} onChange={(event) => patchIngredient(item.id, { unit: event.target.value })} placeholder="Unit (g, cup, pieces)" />
                     <input aria-label={`Ingredient ${index + 1} name`} value={item.name} onChange={(event) => patchIngredient(item.id, { name: event.target.value })} placeholder="Ingredient name" />
                     <input aria-label={`Ingredient ${index + 1} prep`} value={item.prep} onChange={(event) => patchIngredient(item.id, { prep: event.target.value })} placeholder="Prep (chopped…)" />
-                    <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id) })}>×</button>
+                    <button className="icon-button" type="button" aria-label={`Remove ingredient ${index + 1}`} onClick={() => patchCurrent({ ingredients: current.ingredients.filter((x) => x.id !== item.id), steps: current.steps.map((step) => ({ ...step, ingredientIds: (step.ingredientIds ?? []).filter((id) => id !== item.id) })) })}>×</button>
                   </div>
                   <details className="ingredient-nutrition">
                     <summary>Nutrition values & source <span>{item.nutritionCalories?.trim() && item.nutritionSourceUrl?.trim() ? "Values entered" : "Optional · manual entry"}</span></summary>
@@ -852,7 +857,7 @@ export default function Home() {
                   <p className="hint">Suggested reference: <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noreferrer">USDA FoodData Central</a>. Confirm whether the reference describes the raw, cooked, drained, or otherwise prepared form. The app does not convert cups/pieces to grams.</p>
                 </section>
 
-                <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "" }] })}>＋ Add step</button></div>
+                <div className="subsection-head step-head"><div><h3>Cooking steps</h3><p className="muted">Keep the sequence intact. Add timing and cues only when known.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ steps: [...current.steps, { id: makeId(), action: "", duration: "", heat: "", cue: "", ingredientIds: [] }] })}>＋ Add step</button></div>
                 {current.steps.length === 0 ? <p className="empty-inline">No method steps yet. Add steps in the exact order they happen.</p> : <div className="step-list">{current.steps.map((step, index) => (
                   <div className="recipe-step" key={step.id}>
                     <div className="recipe-step-top"><span className="row-number">STEP {index + 1}</span><div className="step-controls"><button className="text-button" type="button" disabled={index === 0} onClick={() => moveStep(step.id, -1)} aria-label={`Move step ${index + 1} up`}>↑ Move up</button><button className="text-button" type="button" disabled={index === current.steps.length - 1} onClick={() => moveStep(step.id, 1)} aria-label={`Move step ${index + 1} down`}>↓ Move down</button><button className="text-button" type="button" onClick={() => patchCurrent({ steps: current.steps.filter((x) => x.id !== step.id) })}>Remove</button></div></div>
@@ -862,6 +867,14 @@ export default function Home() {
                       <div><label htmlFor={`heat-${step.id}`}>Heat / setting</label><input id={`heat-${step.id}`} value={step.heat} onChange={(event) => patchStep(step.id, { heat: event.target.value })} placeholder="e.g. medium heat" /></div>
                       <div className="cue-field"><label htmlFor={`cue-${step.id}`}>Visual / doneness cue</label><input id={`cue-${step.id}`} value={step.cue} onChange={(event) => patchStep(step.id, { cue: event.target.value })} placeholder="What should the cook observe?" /></div>
                     </div>
+                    <fieldset className="step-ingredient-map">
+                      <legend>Ingredients added during this step</legend>
+                      {current.ingredients.length ? <div className="step-ingredient-options">{current.ingredients.map((ingredient, ingredientIndex) => {
+                        const ingredientLabel = [ingredient.amount, ingredient.unit, ingredient.name].filter(Boolean).join(" ").trim() || `Ingredient ${ingredientIndex + 1}`;
+                        return <label key={ingredient.id}><input type="checkbox" aria-label={`Add ${ingredient.name.trim() || `ingredient ${ingredientIndex + 1}`} at step ${index + 1}`} checked={(step.ingredientIds ?? []).includes(ingredient.id)} onChange={(event) => patchStep(step.id, { ingredientIds: event.target.checked ? [...new Set([...(step.ingredientIds ?? []), ingredient.id])] : (step.ingredientIds ?? []).filter((id) => id !== ingredient.id) })} /><span>{ingredientLabel}</span></label>;
+                      })}</div> : <p className="hint">Add ingredients first, then return here to assign additions.</p>}
+                      <p className="hint">Only selected ingredients will be named as additions in the narration. Nothing is assigned automatically.</p>
+                    </fieldset>
                   </div>
                 ))}</div>}
 
