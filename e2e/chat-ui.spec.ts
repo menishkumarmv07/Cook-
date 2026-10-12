@@ -55,6 +55,42 @@ test("chat theme setting persists and is shared with the recipe workspace", asyn
   await expect(page.locator(".chat-app")).toHaveAttribute("data-theme", "light");
 });
 
+test("chat history persists separate conversations and can be cleared", async ({ page }) => {
+  await signIn(page);
+  const firstPrompt = "First chat: plan lentil soup";
+  const secondPrompt = "Second chat: prepare a kitchen set";
+
+  await page.getByLabel("Ask cooking").fill(firstPrompt);
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(firstPrompt, { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "New chat" }).click();
+  await page.getByLabel("Ask cooking").fill(secondPrompt);
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.getByText(secondPrompt, { exact: true })).toBeVisible();
+
+  await page.reload();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  const firstThread = page.getByRole("button", { name: firstPrompt });
+  const secondThread = page.getByRole("button", { name: secondPrompt });
+  await expect(firstThread).toBeVisible();
+  await expect(secondThread).toBeVisible();
+
+  await firstThread.click();
+  await expect(page.getByText(firstPrompt, { exact: true })).toBeVisible();
+  await expect(page.getByText(secondPrompt, { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.getByRole("button", { name: "Clear chat history" }).click();
+  await page.getByRole("button", { name: "Clear saved chats" }).click();
+  await expect(page.getByRole("status")).toContainText("Chat history has been cleared");
+
+  await page.getByRole("button", { name: "Back to chat" }).click();
+  await page.getByRole("button", { name: "Open menu" }).click();
+  await expect(page.getByText("Your recent conversations will appear here.")).toBeVisible();
+});
+
 test("chat accepts a video link and clearly reports current integration limits", async ({ page }) => {
   await signIn(page);
   await page.getByLabel("Ask cooking").fill("Please inspect this recipe https://youtu.be/dQw4w9WgXcQ");
