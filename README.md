@@ -75,3 +75,28 @@ The app is being designed for a US-first creator workflow and publishing strateg
 ## Cost and privacy
 
 The current prototype has no required AI API key or paid creative provider. GitHub Actions and Vercel availability/limits depend on account settings and may change. Do not add paid services, billing, card verification, credentials, or secret keys without explicit approval. Keep the repository private and do not commit credentials or private chef/background assets.
+
+
+## Owner-only access (release-blocking)
+
+The app must never offer public sign-up or multi-user registration. The owner-only access gate is being developed on branch `feat/owner-only-access-gate`; do not deploy this branch until all required checks pass and the gate is reviewed.
+
+Required server environment variables (never commit real values):
+- `COOKING_OWNER_PASSWORD`: a long, unique owner password stored only in deployment secrets.
+- `COOKING_SESSION_SECRET`: at least 32 random characters, stored only in deployment secrets.
+
+Generate a session secret locally with Node.js using `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`. Do not paste the resulting secret into chat, source control, screenshots, or Notion. Set both variables in the hosting provider's encrypted environment settings. If either is missing, access must fail closed.
+
+The login endpoint issues an HTTP-only, SameSite=Strict, eight-hour signed session cookie; production cookies are Secure. App routes and API routes are guarded by middleware. This is an initial single-owner gate, not a full security audit: before deployment, add/verify rate limiting at the hosting edge, HTTPS, secret configuration, logout behavior, session tampering/expiry tests, CSRF review for future state-changing APIs, and production-route checks. Browser-local recipe data remains unencrypted and is not protected against someone who already has access to the unlocked browser profile.
+
+### Owner-only release checklist
+
+- [ ] No sign-up, invitation, public user creation, or shared demo credentials.
+- [ ] Anonymous page requests redirect to `/login`; anonymous API requests return 401.
+- [ ] Invalid passwords are rejected and do not set a session cookie.
+- [ ] Valid owner login sets an HttpOnly, SameSite=Strict cookie; Secure is enabled in production.
+- [ ] Missing secrets fail closed; expired/tampered cookies are rejected.
+- [ ] Logout clears the session cookie.
+- [ ] Rate limiting and HTTPS are enabled before hosting publicly.
+- [ ] Unit tests, lint, TypeScript, production build, and Android browser acceptance all pass.
+- [ ] Do not describe a deployment as private until the deployed routes are independently tested.
