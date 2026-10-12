@@ -21,6 +21,15 @@ import {
   type Scene,
   type SourceReference,
 } from "@/lib/recipe";
+import type { RecipePageExtraction } from "@/lib/source-extraction";
+
+type SourceInspectionResult = RecipePageExtraction & {
+  requestedUrl: string;
+  finalUrl: string;
+  contentType: string;
+  redirectCount: number;
+  limitation: string;
+};
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -162,6 +171,9 @@ function downloadFile(name: string, content: string, type: string) {
 export default function Home() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [sourceInspection, setSourceInspection] = useState<SourceInspectionResult | null>(null);
+  const [sourceInspectBusy, setSourceInspectBusy] = useState(false);
+  const [sourceInspectError, setSourceInspectError] = useState("");
   const [notes, setNotes] = useState("");
   const [servings, setServings] = useState("4");
   const [projects, setProjects] = useState<RecipeProject[]>([]);
@@ -380,13 +392,36 @@ export default function Home() {
       setMessage("Enter a valid http:// or https:// source URL, or leave the URL blank.");
       return;
     }
+    const normalizedInputUrl = url.trim() ? new URL(url.trim()).toString() : "";
+    const matchedInspection = sourceInspection && sourceInspection.requestedUrl === normalizedInputUrl
+      ? sourceInspection
+      : null;
+    const structuredRecipe = matchedInspection?.structuredRecipe;
     const project: RecipeProject = {
       id: Date.now(),
       name: name.trim(),
       url: url.trim(),
       notes: notes.trim(),
-      sourceEvidence: "",
-      sourceReferences: [],
+      sourceEvidence: matchedInspection
+        ? `Automatic HTML extraction recorded from ${matchedInspection.finalUrl}. Page content and structured recipe fields are unverified and must be checked against the source and independent references.`
+        : "",
+      sourceReferences: matchedInspection ? [{
+        id: makeId(),
+        url: matchedInspection.finalUrl,
+        kind: "recipe-page",
+        checked: "The app fetched public HTML and extracted page metadata and any available Schema.org Recipe fields. The creator has not independently verified these claims.",
+        notes: `Requested URL: ${matchedInspection.requestedUrl}. Redirects followed: ${matchedInspection.redirectCount}. ${matchedInspection.limitation}`,
+        ingredientFindings: structuredRecipe?.ingredients.length
+          ? structuredRecipe.ingredients.map((item) => `• ${item}`).join("\\n")
+          : "",
+        methodFindings: structuredRecipe?.instructions.length
+          ? structuredRecipe.instructions.map((item, index) => `${index + 1}. ${item}`).join("\\n")
+          : "",
+        timingFindings: structuredRecipe
+          ? [structuredRecipe.prepTime && `Prep: ${structuredRecipe.prepTime}`, structuredRecipe.cookTime && `Cook: ${structuredRecipe.cookTime}`, structuredRecipe.totalTime && `Total: ${structuredRecipe.totalTime}`].filter(Boolean).join("; ")
+          : "",
+        safetyStorageFindings: "",
+      }] : [],
       trialStatus: "untested",
       trialRating: "",
       trialNotes: "",
@@ -402,11 +437,96 @@ export default function Home() {
     setActive(project.id);
     setName("");
     setUrl("");
+    setSourceInspection(null);
+    setSourceInspectError("");
     setNotes("");
     setServings("4");
     setShowTutorial(false); setShowNarration(false); setShowContentPack(false);
-    setMessage("Recipe draft created on this device. Add ingredients and steps below; links are not analyzed automatically.");
+    setMessage(matchedInspection
+      ? "Recipe draft created with public-page extraction notes and a source reference. The source claims are not verified; compare independent sources and inspect each recipe step before approval."
+      : "Recipe draft created on this device. Add ingredients and steps; a link without a successful inspection remains a reference only.");
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  async function inspectSourceLink() {
+    const sourceUrl = url.trim();
+    if (!isHttpUrl(sourceUrl)) {
+      setSourceInspectError("Enter a complete HTTP(S) recipe-page URL before inspection.");
+      setSourceInspection(null);
+      return;
+    }
+    setSourceInspectBusy(true);
+    setSourceInspectError("");
+    setSourceInspection(null);
+    try {
+      const response = await fetch("/api/sources/inspect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: sourceUrl }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const error = typeof payload === "object" && payload !== null && "error" in payload
+          && typeof (payload as { error?: unknown }).error === "string"
+          ? (payload as { error: string }).error
+          : "The source page could not be inspected.";
+        setSourceInspectError(error);
+        return;
+      }
+      const source = typeof payload === "object" && payload !== null && "source" in payload
+        ? (payload as { source?: unknown }).source
+        : null;
+      if (typeof source !== "object" || source === null
+          || typeof (source as SourceInspectionResult).title !== "string"
+          || typeof (source as SourceInspectionResult).finalUrl !== "string"
+          || typeof (source as SourceInspectionResult).limitation !== "string") {
+        setSourceInspectError("The server returned an unexpected extraction result. No source notes were added.");
+        return;
+      }
+      const result = source as SourceInspectionResult;
+      if (result.requestedUrl !== new URL(sourceUrl).toString()) {
+        setSourceInspectError("The result did not match the current URL. Re-enter the source and inspect it again.");
+        return;
+      }
+      setSourceInspection(result);
+      setMessage("Public HTML extracted. Review the source and compare its claims; this is not independent verification.");
+    } catch {
+      setSourceInspectError("Could not contact the source-inspection endpoint. Check your connection and try again.");
+    } finally {
+      setSourceInspectBusy(false);
+    }
+  }
+
+  function addInspectionToRecipeNotes() {
+    if (!sourceInspection) return;
+    const recipe = sourceInspection.structuredRecipe;
+    const details = [
+      "AUTOMATIC PUBLIC-PAGE EXTRACTION — NOT VERIFIED",
+      `Page title: ${sourceInspection.title}`,
+      `Source URL: ${sourceInspection.finalUrl}`,
+      sourceInspection.description ? `Page description: ${sourceInspection.description}` : "",
+      recipe ? `Structured recipe name: ${recipe.name || "Not provided"}` : "No Schema.org Recipe block was found in the fetched HTML.",
+      recipe?.author ? `Listed author: ${recipe.author}` : "",
+      recipe?.servings ? `Listed yield: ${recipe.servings}` : "",
+      recipe?.prepTime ? `Listed preparation time: ${recipe.prepTime}` : "",
+      recipe?.cookTime ? `Listed cooking time: ${recipe.cookTime}` : "",
+      recipe?.totalTime ? `Listed total time: ${recipe.totalTime}` : "",
+      recipe?.ingredients.length ? `Ingredients reported by page:\\n${recipe.ingredients.map((item) => `• ${item}`).join("\\n")}` : "",
+      recipe?.instructions.length ? `Instructions reported by page:\\n${recipe.instructions.map((item, index) => `${index + 1}. ${item}`).join("\\n")}` : "",
+      sourceInspection.textExcerpt ? `Text excerpt:\\n${sourceInspection.textExcerpt}` : "",
+      sourceInspection.limitation,
+    ].filter(Boolean).join("\\n\\n");
+    const existing = notes.trim();
+    const available = Math.max(0, 5_000 - existing.length - (existing ? 2 : 0));
+    if (available < 150) {
+      setMessage("The recipe notes are nearly at the 5,000-character limit. Create the draft first, then use the source research desk to record the extracted details.");
+      return;
+    }
+    setNotes(`${existing ? `${existing}\\n\\n` : ""}${details.slice(0, available)}`);
+    if (!name.trim()) setName(recipe?.name || sourceInspection.title.slice(0, 100));
+    setMessage(details.length > available
+      ? "Extracted notes added, shortened to fit the notes limit. The original page is linked below the result; verify missing details at the source."
+      : "Extracted notes added. Check every amount, step, and timing against the linked page and at least one independent source.");
   }
 
   function patchProfile(patch: Partial<CreatorProfile>) { setProfile((existing) => ({ ...existing, ...patch })); }
@@ -789,8 +909,35 @@ export default function Home() {
                 <label htmlFor="name">Recipe name <b>*</b></label>
                 <input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Spicy chicken gravy" required maxLength={100} />
                 <label htmlFor="url">Video or recipe URL <span>OPTIONAL</span></label>
-                <input id="url" type="url" value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://youtube.com/..." />
-                <p className="hint">This saves the link only. V1 does not fetch, transcribe, or analyze linked videos.</p>
+                <input id="url" type="url" value={url} onChange={(event) => { setUrl(event.target.value); setSourceInspection(null); setSourceInspectError(""); }} placeholder="https://www.example.com/recipe" />
+                <div className="source-inspect-actions">
+                  <button className="secondary" type="button" disabled={sourceInspectBusy || !url.trim()} onClick={() => void inspectSourceLink()}>
+                    {sourceInspectBusy ? "Inspecting public page…" : "Inspect public recipe page"}
+                  </button>
+                  <span className="hint">Public HTML only · no paid AI API · no video/audio analysis</span>
+                </div>
+                <p className="hint">Reads accessible HTML page text and optional Schema.org Recipe fields. It does not run page scripts, bypass sign-in, download a video, transcribe audio, or visually inspect frames. Extracted claims are unverified until you compare sources.</p>
+                {sourceInspectError && <p className="message source-inspect-error" role="alert">{sourceInspectError}</p>}
+                {sourceInspection && (
+                  <section className="source-inspection-result" aria-label="Extracted public recipe page">
+                    <p className="eyebrow">PUBLIC HTML EXTRACTED · NOT VERIFIED</p>
+                    <h4>{sourceInspection.title}</h4>
+                    {sourceInspection.description && <p>{sourceInspection.description}</p>}
+                    <p className="hint">Host: {new URL(sourceInspection.finalUrl).hostname} · Redirects followed: {sourceInspection.redirectCount}</p>
+                    <a href={sourceInspection.finalUrl} target="_blank" rel="noreferrer">Open the source page ↗</a>
+                    {sourceInspection.structuredRecipe ? (
+                      <div className="source-inspection-fields">
+                        <strong>Structured recipe fields found</strong>
+                        {sourceInspection.structuredRecipe.ingredients.length > 0 && <p>Ingredients: {sourceInspection.structuredRecipe.ingredients.length}</p>}
+                        {sourceInspection.structuredRecipe.instructions.length > 0 && <p>Instructions: {sourceInspection.structuredRecipe.instructions.length}</p>}
+                        {!sourceInspection.structuredRecipe.ingredients.length && !sourceInspection.structuredRecipe.instructions.length && <p>The page declares a Recipe block but does not expose ingredients or instructions in the extracted fields.</p>}
+                      </div>
+                    ) : <p className="hint">No structured Recipe block was found. The page title, description, and text excerpt may still help you research it manually.</p>}
+                    {sourceInspection.textExcerpt && <details><summary>View extracted page text excerpt</summary><p className="source-inspection-excerpt">{sourceInspection.textExcerpt}</p></details>}
+                    <p className="hint">{sourceInspection.limitation}</p>
+                    <button className="secondary" type="button" onClick={addInspectionToRecipeNotes}>Add extracted notes to recipe intake</button>
+                  </section>
+                )}
                 <label htmlFor="servings">Servings <b>*</b></label>
                 <input id="servings" value={servings} onChange={(event) => setServings(event.target.value)} placeholder="e.g. 4 people" maxLength={40} required />
                 <label htmlFor="notes">Recipe notes <span>OPTIONAL</span></label>
