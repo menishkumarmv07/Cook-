@@ -32,6 +32,7 @@ const SOCIAL_PLATFORMS: SocialPlatform[] = [
 ];
 
 const PENDING_SOURCE_KEY = "cooking-pending-source-url-v1";
+const PENDING_RECIPE_PROMPT_KEY = "cooking-pending-recipe-prompt-v1";
 
 function findHttpUrl(text: string): string | null {
   const match = text.match(/https?:\/\/[^\s<>"']+/i);
@@ -119,11 +120,20 @@ export default function ChatHome() {
     } else if (/connect|instagram|youtube|social account|account/i.test(text)) {
       response = "Open the menu and choose Connect apps to review the planned official account connections. No account is connected in this build yet, and I will not ask you for a social-media password.";
     } else if (/new recipe|recipe draft|start recipe/i.test(text)) {
-      response = "I can take you to the structured recipe workspace, where you can create and edit a recipe draft. The current chat does not yet create that draft automatically.";
+      response = "I’ll carry your instruction into the Recipe notes field so you can structure it there. This version does not automatically turn chat text into a complete recipe draft.";
       next.push({ id: `${id}-a`, role: "assistant", text: response });
       setMessages((existing) => [...existing, ...next]);
       setDraft("");
-      router.push("/workspace");
+      if (text.length > 5000) {
+        setNotice("This request is longer than the Recipe notes field can hold (5,000 characters). Shorten it and try again.");
+        return;
+      }
+      try {
+        window.sessionStorage.setItem(PENDING_RECIPE_PROMPT_KEY, text);
+        router.push("/workspace");
+      } catch {
+        setNotice("Temporary note transfer is blocked by this browser. Copy your request before opening the recipe workspace.");
+      }
       return;
     }
 
