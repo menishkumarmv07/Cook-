@@ -246,9 +246,24 @@ export default function Home() {
 
   function submitWorkspaceCommand(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const request = command.trim().toLowerCase();
+    const rawRequest = command.trim();
+    const request = rawRequest.toLowerCase();
     if (!request) {
-      setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or “publish”.");
+      setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or paste a recipe/video link.");
+      return;
+    }
+
+    // Pasting a complete URL into the chat-style dock should carry it into recipe intake.
+    // It is saved as a source reference only; this V1 does not fetch or analyze the link.
+    if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
+      if (!isHttpUrl(rawRequest)) {
+        setMessage("Only a valid HTTP(S) link can be added. Use a full https:// or http:// recipe/video URL.");
+        return;
+      }
+      setUrl(rawRequest);
+      setCommand("");
+      goToSection("intake");
+      setMessage("Source link copied into recipe intake. This saves the URL only; V1 does not open or analyze linked content. Add a recipe name and create the draft.");
       return;
     }
     if (/new recipe|create recipe|start recipe|add recipe/.test(request)) {
@@ -937,7 +952,7 @@ export default function Home() {
         <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => goToSection("intake")}>＋</button>
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
-          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Ask your workspace… try “new recipe”" />
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Ask or paste a recipe/video link…" />
           <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
         </form>
       </div>

@@ -443,3 +443,26 @@ test("ingredient additions are explicitly mapped to cooking steps and spoken in 
   await expect(script).toContainText("Add 2 tbsp tomato paste now");
   await expect(script).toContainText("INGREDIENTS TO ADD NOW: 2 tbsp tomato paste");
 });
+
+
+test("pasting a supported recipe or video URL into the chat dock prefills recipe intake without claiming analysis", async ({ page }) => {
+  await page.goto("/");
+  const sourceUrl = "https://www.youtube.com/watch?v=123456789ab";
+  await page.locator("#workspace-command").fill(sourceUrl);
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+
+  await expect(page.locator("#url")).toHaveValue(sourceUrl);
+  await expect(page.locator("#intake")).toBeVisible();
+  await expect(page.locator(".message[role=\"status\"]")).toContainText("saves the URL only");
+  await expect(page.locator(".message[role=\"status\"]")).toContainText("does not open or analyze linked content");
+  await expect(page.locator("#name")).toBeVisible();
+});
+
+test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#workspace-command").fill("ftp://example.com/recipe");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+
+  await expect(page.locator("#url")).toHaveValue("");
+  await expect(page.locator(".message[role=\"status\"]")).toContainText("Only a valid HTTP(S) link can be added");
+});
