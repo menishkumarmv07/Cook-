@@ -241,7 +241,7 @@ test("exports structured source references without claiming verification", () =>
 
 
 test("source comparison worksheet validates optional field types and preserves legacy source records", () => {
-  const legacy = {
+  const legacy: RecipeProject = {
     ...base,
     sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page", checked: "ingredients", notes: "" }],
   };
