@@ -551,8 +551,9 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   await expect(page.locator("#edit-notes")).toHaveValue(/2 cups cooked rice/);
   await expect(page.locator(".source")).toContainText(sourceUrl);
-  await expect(page.locator(".source-reference")).toContainText("Public HTML fetched by the app");
-  await expect(page.locator(".source-reference")).toContainText("not independently verified");
+  await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/Public HTML fetched by the app/);
+  await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/not independently verified/);
+  await expect(page.locator('.source-reference textarea[id^="source-notes-"]')).toHaveValue(/Nothing was independently verified/);
 });
 
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
