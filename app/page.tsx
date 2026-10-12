@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState, type FormEvent, type TouchEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
-  ArrowUp, AudioLines, Check, ChevronRight, CircleHelp, ExternalLink, Facebook,
-  Headphones, Image as ImageIcon, Instagram, Link2, Menu, MessageSquare, MessageSquarePlus,
-  Mic, MoreHorizontal, Paperclip, Plus, Search, Send, Settings2, ShieldCheck, Sparkles,
-  Youtube, X, Plug, BookOpen, Pencil, Clapperboard, type LucideIcon,
+  ArrowUp, AudioLines, ChevronRight, ExternalLink, Facebook, Instagram, Link2, Menu,
+  MessageSquare, Mic, MoreHorizontal, Plus, Search, ShieldCheck, Sparkles, Youtube, X,
+  Plug, BookOpen, Clapperboard, type LucideIcon,
 } from "lucide-react";
-import { CHAT_APP_NAME, CHAT_MENU_ITEMS, CHAT_SUGGESTIONS, CHAT_TITLES } from "@/lib/chat-config";
+import { CHAT_APP_NAME, CHAT_MENU_ITEMS, CHAT_SUGGESTIONS } from "@/lib/chat-config";
 
 type ChatMessage = {
   id: string;
@@ -67,7 +66,6 @@ export default function ChatHome() {
   const [plusInfo, setPlusInfo] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const drawerRef = useRef<HTMLElement>(null);
   const drawerButtonRef = useRef<HTMLButtonElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const hasText = draft.trim().length > 0;
@@ -327,7 +325,7 @@ export default function ChatHome() {
         {drawerOpen && (
           <>
             <button className="chat-drawer-scrim" type="button" aria-label="Close menu" onClick={() => setDrawerOpen(false)} />
-            <aside ref={drawerRef} className="chat-drawer" aria-label="Main menu">
+            <aside className="chat-drawer" aria-label="Main menu">
               <div className="chat-drawer-header">
                 <div className="chat-drawer-brand">{CHAT_APP_NAME}</div>
                 <button className="chat-round-button chat-search-button" type="button" aria-label="Search chats" onClick={() => { setSearchOpen((open) => !open); setSearchText(""); }}>
