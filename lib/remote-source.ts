@@ -139,7 +139,7 @@ async function resolvePublicAddresses(hostname: string, remainingMs: number): Pr
     if (error instanceof RemoteSourceError) throw error;
     throw new RemoteSourceError("SOURCE_UNAVAILABLE", 422, "The source website could not be resolved. Check the URL and try again.");
   } finally {
-    if (timeout.handle) clearTimeout(timeout.handle);
+    if (timeout) clearTimeout(timeout);
   }
 }
 
