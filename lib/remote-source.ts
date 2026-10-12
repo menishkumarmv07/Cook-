@@ -80,7 +80,7 @@ export function isPublicIPAddress(address: string): boolean {
   // 2001:30::/28 is registered for Drone Remote ID identifiers; 3fff::/20 is
   // reserved for documentation. Neither should be treated as a generic public web host.
   if (first === 0x2001 && (
-    second === 0x0000 ||
+    second <= 0x0001 ||
     second === 0x0002 ||
     second === 0x0db8 ||
     (second >= 0x0010 && second <= 0x001f) ||
