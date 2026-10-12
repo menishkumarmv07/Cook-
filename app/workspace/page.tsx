@@ -23,6 +23,7 @@ import {
 } from "@/lib/recipe";
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
+const PENDING_SOURCE_KEY = "cooking-pending-source-url-v1";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
@@ -189,6 +190,20 @@ export default function WorkspacePage() {
     window.addEventListener("keydown", handleDrawerKeydown);
     return () => window.removeEventListener("keydown", handleDrawerKeydown);
   }, [menuOpen]);
+
+  useEffect(() => {
+    try {
+      const pendingSource = window.sessionStorage.getItem(PENDING_SOURCE_KEY);
+      if (!pendingSource) return;
+      window.sessionStorage.removeItem(PENDING_SOURCE_KEY);
+      if (pendingSource.trim() && isHttpUrl(pendingSource)) {
+        setUrl(pendingSource.trim());
+        setMessage("Source link added to the recipe form. V1 saves the URL only; it does not fetch, transcribe, or analyze linked media.");
+      }
+    } catch {
+      setMessage("The source link could not be handed off automatically. Paste it into the Video or recipe URL field manually.");
+    }
+  }, []);
 
   useEffect(() => {
     try {
