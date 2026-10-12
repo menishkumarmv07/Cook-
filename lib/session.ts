@@ -54,29 +54,51 @@ export async function createSessionToken(secret: string, expiresAt: number): Pro
   return `${expiresAt}.${encodeBase64Url(new Uint8Array(signature))}`;
 }
 
-export async function verifySessionToken(
+export type SessionVerification =
+  | { valid: true; reason: "valid" }
+  | { valid: false; reason: "missing-token" | "secret-unavailable" | "malformed-token" | "expired-token" | "expiry-out-of-range" | "malformed-signature" | "invalid-signature" | "crypto-error" };
+
+export async function inspectSessionToken(
   token: string | undefined,
   secret: string | undefined,
   nowSeconds = Math.floor(Date.now() / 1000),
-): Promise<boolean> {
-  if (!token || !secret || new TextEncoder().encode(secret).length < MIN_AUTH_SECRET_BYTES) return false;
+): Promise<SessionVerification> {
+  if (!token) return { valid: false, reason: "missing-token" };
+  if (!secret || new TextEncoder().encode(secret).length < MIN_AUTH_SECRET_BYTES) {
+    return { valid: false, reason: "secret-unavailable" };
+  }
   const parts = token.split(".");
-  if (parts.length !== 2 || !/^\d{10,12}$/.test(parts[0])) return false;
+  if (parts.length !== 2 || !/^\d{10,12}$/.test(parts[0])) {
+    return { valid: false, reason: "malformed-token" };
+  }
   const expiresAt = Number(parts[0]);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= nowSeconds || expiresAt > nowSeconds + SESSION_TTL_SECONDS + 60) return false;
+  if (!Number.isSafeInteger(expiresAt)) return { valid: false, reason: "malformed-token" };
+  if (expiresAt <= nowSeconds) return { valid: false, reason: "expired-token" };
+  if (expiresAt > nowSeconds + SESSION_TTL_SECONDS + 60) {
+    return { valid: false, reason: "expiry-out-of-range" };
+  }
   const signature = decodeBase64Url(parts[1]);
-  if (!signature || signature.length !== 32) return false;
+  if (!signature || signature.length !== 32) return { valid: false, reason: "malformed-signature" };
   try {
     const key = await getSigningKey(secret, ["verify"]);
     const signatureBytes = new Uint8Array(signature.length);
     signatureBytes.set(signature);
-    return await crypto.subtle.verify(
+    const valid = await crypto.subtle.verify(
       "HMAC",
       key,
       signatureBytes.buffer,
       new TextEncoder().encode(`cooking-creator-session:${expiresAt}`),
     );
+    return valid ? { valid: true, reason: "valid" } : { valid: false, reason: "invalid-signature" };
   } catch {
-    return false;
+    return { valid: false, reason: "crypto-error" };
   }
+}
+
+export async function verifySessionToken(
+  token: string | undefined,
+  secret: string | undefined,
+  nowSeconds = Math.floor(Date.now() / 1000),
+): Promise<boolean> {
+  return (await inspectSessionToken(token, secret, nowSeconds)).valid;
 }
