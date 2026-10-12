@@ -6,7 +6,15 @@ async function signInOwner(page: import("@playwright/test").Page) {
   if (!ownerPassword) throw new Error("OWNER_PASSWORD must be set to a test-only value for the Playwright server.");
   await page.goto("/login");
   await page.locator("#owner-password").fill(ownerPassword);
+  const loginResponsePromise = page.waitForResponse((response) =>
+    response.url().includes("/api/auth/login") && response.request().method() === "POST"
+  );
   await page.getByRole("button", { name: "Unlock workspace" }).click();
+  const loginResponse = await loginResponsePromise;
+  const responseBody = await loginResponse.json().catch(() => null);
+  if (!loginResponse.ok()) {
+    throw new Error(`Test owner sign-in failed with HTTP ${loginResponse.status()}: ${JSON.stringify(responseBody)}`);
+  }
   await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
 }
 
