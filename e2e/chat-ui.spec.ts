@@ -77,6 +77,17 @@ test("owner-only middleware redirects anonymous workspace requests and blocks an
   expect(api.status()).toBe(401);
 });
 
+test("owner session cookie uses HttpOnly, Strict same-site, path scope, and an expiry", async ({ page }) => {
+  await signIn(page);
+  const cookie = (await page.context().cookies()).find((item) => item.name === "cooking_owner_session");
+
+  expect(cookie).toBeDefined();
+  expect(cookie?.httpOnly).toBe(true);
+  expect(cookie?.sameSite).toBe("Strict");
+  expect(cookie?.path).toBe("/");
+  expect(cookie?.expires).toBeGreaterThan(Date.now() / 1000);
+});
+
 test("login rejects an incorrect owner password without opening the workspace", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Owner password").fill("incorrect-owner-password");
