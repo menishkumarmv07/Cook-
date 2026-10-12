@@ -9,7 +9,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Installable PWA manifest, SVG app icon, service-worker app-shell caching, and offline fallback page; offline reopening is verified in CI after the first connected visit.
 - Recipe intake with HTTP(S) source URL, servings/yield, and notes.
 - Structured ingredient rows: amount, unit, name, preparation note.
-- Ordered cooking-step editor: action, timing, heat/setting, and visual/doneness cue.
+- Ordered cooking-step editor: action, timing, heat/setting, visual/doneness cue, and explicit ingredient-addition mapping. Ingredient timing is never inferred; unassigned ingredients are flagged.
 - Six-scene creator outline that can be edited.
 - Rule-based validation warnings for missing amounts, units, steps, timings, serving count, source analysis, food safety, and nutrition.
 - Structured multi-source research desk for recipe pages, videos/Reels, transcripts, and other references; captures what was checked and unresolved differences, flags invalid/duplicate URLs, and exports the evidence log without claiming independent verification.
