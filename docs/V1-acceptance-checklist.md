@@ -26,15 +26,17 @@ Run npm run check from the repository root. This runs the unit tests, ESLint, Ty
 
 ## Current verified repository state — 13 October 2026
 
-**Latest verified main commit:** `fa52d7a619532be0cb4bd5db79fa23778ece4950`. Its post-merge GitHub Actions workflow [#221](https://github.com/menishkumarmv07/Cook-/actions/runs/38293398470) completed successfully. The CI job includes the clean dependency install, unit tests, ESLint, TypeScript, production build, Chromium setup, owner-auth browser smoke, and Playwright end-to-end tests.
+**Latest main commit:** `68b66ca0a45bbe78786ba84aa236f72f8e004bec`. Its post-merge GitHub Actions workflow [#225](https://github.com/menishkumarmv07/Cook-/actions/runs/38298905562) completed successfully. It passed clean dependency installation, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and Playwright desktop/mobile end-to-end tests.
 
-Additional merged improvements and their verification:
-- **PR #41 — truthful source-inspection evidence:** merge commit `cbd0f859e710fdd7aa93ffb1bf15ac2095cfdaba`; PR-head workflow [#212](https://github.com/menishkumarmv07/Cook-/actions/runs/38290927887) passed. The draft records explicitly inspected public HTML separately from manual notes and labels extracted claims unverified; it does not add extracted text to structured ingredients/steps or claim video/audio analysis.
-- **PR #42 — complete IPv6 documentation prefix block:** merge commit `0aa58f39c29cde7d8497601584a3383f6418fde2`; final PR-head workflow [#214](https://github.com/menishkumarmv07/Cook-/actions/runs/38291368510) passed. This fixes the boundary for the IANA documentation prefix `3fff::/20` and tests addresses across the prefix.
-- **Baseline response security headers:** current main commit `fa52d7a619532be0cb4bd5db79fa23778ece4950` adds X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy to all routes; its unit regression test passed in run #221. These are baseline protections, not a full production security review.
-- Earlier PR #40 adds additional special-purpose IPv4 checks and was merged as `f7344a86a77f6b511db65c0a676192508de3be51`; post-merge main workflows [#205](https://github.com/menishkumarmv07/Cook-/actions/runs/38289022274) and [#206](https://github.com/menishkumarmv07/Cook-/actions/runs/38289061560) passed.
+Recent verified changes:
+- **PR #46 — CI runtime maintenance:** merge commit `68b66ca0a45bbe78786ba84aa236f72f8e004bec`; PR workflow [#224](https://github.com/menishkumarmv07/Cook-/actions/runs/38298482233) and post-merge main workflow #225 both passed. CI now uses `actions/checkout@v7`, `actions/setup-node@v7`, and Node.js 22. The completed PR log no longer contains the earlier Node.js 20 deprecation warning.
+- **PR #45 — acceptance documentation:** merged as `a2b787a36098e24a3deaf2f439fb947b0ca72bba`; PR workflow #222 and post-merge main workflow #223 passed.
+- **PR #41 — truthful source-inspection evidence:** merge commit `cbd0f859e710fdd7aa93ffb1bf15ac2095cfdaba`; PR-head workflow #212 passed. Public HTML extraction remains distinct from manual notes and is clearly unverified; no video/audio analysis is claimed.
+- **PR #42 — full IPv6 documentation prefix block:** merge commit `0aa58f39c29cde7d8497601584a3383f6418fde2`; final PR-head workflow #214 passed.
+- **PR #40 — additional special-purpose IPv4 checks:** merged as `f7344a86a77f6b511db65c0a676192508de3be51`; post-merge main workflows #205 and #206 passed.
+- **Baseline response security headers:** main commit `fa52d7a619532be0cb4bd5db79fa23778ece4950` adds X-Content-Type-Options, X-Frame-Options, Referrer-Policy, and Permissions-Policy across all routes; regression test passed in #221.
 
-**Important:** green automated CI proves the tested repository state only. It does not prove that Vercel is linked/protected, that the deployed app is reachable, or that physical Android Chrome and real cooking acceptance have passed. Those gates below remain open.
+**Open release gates:** Vercel repository linkage/deployment access is unverified; the connected integration previously received 404 on project inspection and 403 on deployment listing. Real Android Chrome acceptance, the owner’s real-recipe cooking trial, and production security review remain unperformed. Green CI does not replace these gates.
 
 ## B. Android Chrome manual test
 
@@ -218,12 +220,14 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - Remaining known limitations:
 
 
-## Latest repository status — 12 October 2026
+## Latest repository status — 13 October 2026
 
-- Latest application-code commit at the time of this status entry: `0aa58f39c29cde7d8497601584a3383f6418fde2` — [commit](https://github.com/menishkumarmv07/Cook-/commit/0aa58f39c29cde7d8497601584a3383f6418fde2). This document-only PR changes no application code.
-- PR #41 merged the explicit public-HTML inspection record and accurate unverified-source caveats into the recipe draft, validation, tutorial/narration, UI, and docs. Latest PR CI [#212](https://github.com/menishkumarmv07/Cook-/actions/runs/38290927887) and post-merge main CI [#215](https://github.com/menishkumarmv07/Cook-/actions/runs/38291407217) both passed all stages, including Playwright.
-- PR #42 merged IANA-aligned IPv6 special-purpose address filtering, including the full `2001::/23` non-globally-reachable space with the three registered globally reachable anycast exceptions, and the full `3fff::/20` documentation range. Latest PR CI [#214](https://github.com/menishkumarmv07/Cook-/actions/runs/38291368510) passed all stages, including Playwright.
-- Post-merge main workflow [#216](https://github.com/menishkumarmv07/Cook-/actions/runs/38291819754) completed successfully on the application-code commit above, including the full Playwright E2E suite.
-- Fresh creator profile defaults remain English and US customary units; Metric and dual-unit preferences remain selectable. This is a US-first workflow foundation, not automatic translation or direct platform publishing.
-- Still not implemented: video frame/audio analysis, verified multi-source recipe research, automated nutrition lookup, chef animation/voice/video rendering, social account connections, scheduled publishing, and analytics. Browser-local data is unencrypted, and the app is not security-release-ready.
-- Still blocked: Vercel repository/deployment access, real Android Chrome acceptance, and an actual recipe cooking trial. Keep the V1 status **in progress** until those are completed and documented.
+- Latest main commit: `68b66ca0a45bbe78786ba84aa236f72f8e004bec`; post-merge workflow [#225](https://github.com/menishkumarmv07/Cook-/actions/runs/38298905562) passed every stage, including Playwright desktop/mobile E2E.
+- The latest application-code commit remains `fa52d7a619532be0cb4bd5db79fa23778ece4950` (baseline security headers). Later main commits update acceptance documentation and CI tooling.
+- CI uses the current `actions/checkout@v7` and `actions/setup-node@v7` with Node 22. PR #46 workflow #224 and post-merge #225 passed; the PR log no longer shows the previous Node.js 20 action-runtime deprecation warning.
+- The default creator profile is verified in code and unit tests: English, US customary units, worldwide recipes, with YouTube Shorts and Instagram Reels as initial platform guidance. Metric and dual-unit choices remain available. This does not imply automatic translation, video creation, or direct social publishing.
+- Public HTML inspection is an explicit user action. It extracts selected page text and optional Schema.org Recipe fields only; it does not verify source claims, transcribe audio, inspect video frames, or automatically fill structured ingredient/step rows.
+- Additional source URL protections cover special-purpose IPv4/IPv6 ranges, including the full IANA `3fff::/20` documentation range. Baseline response security headers are configured and tested. These are not a substitute for hosting-level rate limiting, production access-control verification, or encrypted local storage.
+- Still not implemented: video frame/audio analysis, evidence-backed multi-source recipe verification, automatic nutrition database lookup/unit conversion, chef voice/animation/video rendering, social account connections, scheduled publishing, analytics, and monetization integrations.
+- Still blocked: Vercel repository/deployment access, real Android Chrome acceptance, and an actual recipe cooking trial. Browser localStorage remains unencrypted. Keep V1 **in progress** until the owner-dependent gates are completed and documented.
+
