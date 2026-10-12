@@ -7,6 +7,7 @@ async function signInToChat(page: import("@playwright/test").Page) {
   await expect(page).toHaveURL(/127\.0\.0\.1:3000\/$/);
   await expect(page.getByRole("button", { name: "Open menu" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Ask cooking" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Ask cooking" })).toHaveAttribute("placeholder", "Ask ChatGPT");
 }
 
 test("chat-first home shows the cooking prompt, suggestions, and responsive layout", async ({ page }) => {
