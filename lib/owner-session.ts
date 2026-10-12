@@ -32,7 +32,9 @@ export function verifyOwnerSession(value: string | undefined, now = Date.now()):
 
 export function verifyOwnerPassword(candidate: string): boolean {
   const expected = process.env.COOKING_OWNER_PASSWORD;
-  if (!expected) throw new Error("COOKING_OWNER_PASSWORD is not configured.");
+  if (!expected || expected.length < 16) {
+    throw new Error("COOKING_OWNER_PASSWORD must be configured with at least 16 characters.");
+  }
   const candidateBytes = Buffer.from(candidate);
   const expectedBytes = Buffer.from(expected);
   return candidateBytes.length === expectedBytes.length && timingSafeEqual(candidateBytes, expectedBytes);
