@@ -113,6 +113,17 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
 
 test("schedule planner builds, edits, saves, and exports seven-post drafts", async ({ page }) => {
   await page.goto("/");
+  const expectedEasternDate = await page.evaluate(() => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
+    return `${part("year")}-${part("month")}-${part("day")}`;
+  });
+  await expect(page.locator("#schedule-start-date")).toHaveValue(expectedEasternDate);
   const urls = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
   await page.locator("#schedule-links").fill(urls.join("\n"));
   await page.locator("#schedule-start-date").fill("2026-10-14");
