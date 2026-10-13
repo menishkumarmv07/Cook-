@@ -646,6 +646,12 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\\n"));
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
