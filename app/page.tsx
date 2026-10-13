@@ -291,6 +291,17 @@ export default function Home() {
     if (chatMessages.length > 0) chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatMessages]);
 
+  const lastChatStatusRef = useRef("");
+  useEffect(() => {
+    if (!message || message === lastChatStatusRef.current) return;
+    lastChatStatusRef.current = message;
+    setChatMessages((previous) => [...previous, {
+      id: Date.now().toString(36) + "-status-" + previous.length,
+      role: "assistant",
+      text: message,
+    }]);
+  }, [message]);
+
   function responseForTool(tool: WorkspaceTool): string {
     if (tool === "home") return "Your chat workspace is ready. Choose a task from the three-line menu or type a request below.";
     if (tool === "plan") return current
