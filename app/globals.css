@@ -1028,3 +1028,36 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
     width: 39px;
   }
 }
+
+
+/* Keep the local workspace backup action beside Send in the fixed composer. */
+.shell .command-download {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid #E3D4C8;
+  border-radius: 22px;
+  background: #FFF9F3;
+  color: #624536;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.shell .command-download span { font-size: 17px; line-height: 1; }
+.shell .command-download small { font-size: 10px; font-weight: 700; }
+.shell .command-download:hover { background: #F3E1D3; }
+.shell .command-download:focus-visible { outline: 3px solid #B95738; outline-offset: 2px; }
+.shell[data-theme="dark"] .command-download { background: #26201D; border-color: #514039; color: #F2DED2; }
+.shell[data-theme="dark"] .command-download:hover { background: #382820; }
+@media (max-width: 650px) {
+  .shell .command-download { gap: 3px; min-height: 36px; padding: 0 7px; }
+  .shell .command-download small { font-size: 9px; }
+}
+@media (max-width: 370px) {
+  .shell .command-download { gap: 0; width: 34px; padding: 0; }
+  .shell .command-download small { display: none; }
+}
