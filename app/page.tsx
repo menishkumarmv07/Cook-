@@ -830,7 +830,7 @@ export default function Home() {
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}><span className="brand-icon">cc</span><span><b>Cooking Creator</b><small>CREATOR WORKSPACE</small></span></a>
+          <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}><span className="brand-icon" aria-hidden="true">👨‍🍳</span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
           <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
         <p className="nav-label">WORKSPACE</p>
@@ -1141,7 +1141,7 @@ export default function Home() {
       <nav className="quick-dock" aria-label="Quick actions">
         <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
         <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research & Trends</small></button>
-        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Content Studio</small></button>
+        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Plan Content</small></button>
         <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
       </nav>
     </main>
