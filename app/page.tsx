@@ -859,7 +859,7 @@ export default function Home() {
       <section className="main" id="dashboard">
         <header className="top">
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
-          <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
+          <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / {activeWorkspaceView === "chat" ? "AI chat" : activeWorkspaceView === "plan" ? "Today’s Plan" : activeWorkspaceView === "studio" ? "Plan Content" : activeWorkspaceView === "research" ? "Research Studio" : activeWorkspaceView === "publish" ? "Publish" : activeWorkspaceView}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>
@@ -1138,7 +1138,7 @@ export default function Home() {
         <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => goToSection("intake")}>＋</button>
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
-          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Ask or paste a recipe/video link…" />
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator or paste a recipe/video link…" />
           <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
         </form>
       </div>
