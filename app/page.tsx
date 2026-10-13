@@ -320,7 +320,7 @@ export default function Home() {
     }
 
     // Multiple links and natural-language scheduling requests flow from chat into the local planner.
-    const pastedUrls = (rawRequest.match(/https?:\/\/[^\s]+/gi) ?? []).map((item) => item.replace(/[),.;]+$/, ""));
+    const pastedUrls = (rawRequest.match(/https?:[^\s]+/gi) ?? []).map((item) => item.replace(/[),.;]+$/, ""));
     const scheduleIntent = /\b(schedule|scheduling|posting plan|post (?:these|each|one|them)|reels?|videos?|\b(?:3|three)[ -]?days?\b|\b(?:7|seven)[ -]?days?\b|\b(?:one|1) per day\b|\bweek\b|\bmorning\b|\bafternoon\b|\bevening\b)/i.test(rawRequest);
     if (pastedUrls.length > 1 || (pastedUrls.length === 1 && scheduleIntent)) {
       const invalid = pastedUrls.filter((item) => !isHttpUrl(item));
