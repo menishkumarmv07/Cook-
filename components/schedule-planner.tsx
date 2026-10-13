@@ -11,17 +11,6 @@ type ScheduledPost = {
 };
 
 const STORAGE_KEY = "cooking-creator-local-schedule-v1";
-const THREE_DAY_TIMES = [
-  { day: 0, time: "09:00" },
-  { day: 0, time: "18:00" },
-  { day: 1, time: "09:00" },
-  { day: 1, time: "13:00" },
-  { day: 2, time: "09:00" },
-  { day: 2, time: "13:00" },
-  { day: 2, time: "18:00" },
-];
-const WEEK_TIMES = Array.from({ length: 7 }, (_, day) => ({ day, time: "18:00" }));
-
 function localDateString(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -66,8 +55,10 @@ function validHttpUrl(value: string): boolean {
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
+  const [durationDays, setDurationDays] = useState("7");
+  const [timesText, setTimesText] = useState("09:00, 13:00, 18:00");
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
-  const [message, setMessage] = useState("Add up to seven public Reel or video URLs, one per line.");
+  const [message, setMessage] = useState("Paste as many video or Reel links as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -78,14 +69,16 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; plan?: unknown };
+        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; durationDays?: unknown; timesText?: unknown; plan?: unknown };
         if (typeof saved.linksText === "string") setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
+        if (typeof saved.durationDays === "string" && /^\\d+$/.test(saved.durationDays) && Number(saved.durationDays) > 0) setDurationDays(saved.durationDays);
+        if (typeof saved.timesText === "string") setTimesText(saved.timesText);
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
           typeof item.date === "string" && isValidCalendarDate(item.date) &&
-          (item.time === "09:00" || item.time === "13:00" || item.time === "18:00") &&
+          typeof item.time === "string" && /^([01]\\d|2[0-3]):[0-5]\\d$/.test(item.time) &&
           item.status === "Draft — approval needed"
         )) setPlan(saved.plan as ScheduledPost[]);
       }
@@ -98,40 +91,55 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, plan }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, durationDays, timesText, plan }));
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
-  }, [hydrated, linksText, startDate, plan]);
+  }, [hydrated, linksText, startDate, durationDays, timesText, plan]);
 
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
-  function generateSchedule(mode: "three-day" | "seven-day") {
+  const times = useMemo(() => timesText.split(",").map((time) => time.trim()).filter(Boolean), [timesText]);
+  const invalidTimes = useMemo(() => times.filter((time) => !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)), [times]);
+
+  function generateSchedule() {
+    const days = Number(durationDays);
     if (!isValidCalendarDate(startDate)) {
       setMessage("Choose a valid start date before generating the plan.");
       return;
     }
-    if (links.length !== 7) {
-      setMessage(`Add exactly 7 URLs first. Currently found ${links.length}.`);
+    if (!links.length) {
+      setMessage("Paste at least one video or Reel URL first.");
       return;
     }
     if (invalidLinks.length) {
-      setMessage("Every line must be a complete http:// or https:// URL. Fix the highlighted invalid links first.");
+      setMessage("Every non-empty line must be a complete HTTP(S) URL. Fix invalid links first.");
       return;
     }
-    const slots = mode === "three-day" ? THREE_DAY_TIMES : WEEK_TIMES;
-    const next = links.map((url, index) => ({
-      id: `${Date.now()}-${index}`,
-      url,
-      date: addDays(startDate, slots[index].day),
-      time: slots[index].time,
-      status: "Draft — approval needed" as const,
-    }));
+    if (!Number.isInteger(days) || days < 1 || days > 3650) {
+      setMessage("Choose a schedule length from 1 to 3650 days.");
+      return;
+    }
+    if (!times.length || invalidTimes.length) {
+      setMessage("Enter valid 24-hour times separated by commas, e.g. 09:00, 13:30, 19:00.");
+      return;
+    }
+    const next = links.map((url, index) => {
+      const day = Math.floor(index * days / links.length);
+      const postIndexForDay = links.slice(0, index).filter((_, previousIndex) =>
+        Math.floor(previousIndex * days / links.length) === day
+      ).length;
+      return {
+        id: `${Date.now()}-${index}`,
+        url,
+        date: addDays(startDate, day),
+        time: times[postIndexForDay % times.length],
+        status: "Draft — approval needed" as const,
+      };
+    });
     setPlan(next);
-    setMessage(mode === "three-day"
-      ? "Created a local three-day draft: 2 posts on Day 1, 2 on Day 2 and 3 on Day 3."
-      : "Created a local seven-day draft with one post per day.");
+    setMessage(`Created a local draft for ${links.length} post(s) across ${days} day(s). Review and edit each date and time before exporting.`);
   }
 
   function updatePost(id: string, field: "date" | "time", value: string) {
@@ -139,14 +147,14 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   }
 
   function exportPlan() {
-    if (plan.some((post) => !isValidCalendarDate(post.date) || !["09:00", "13:00", "18:00"].includes(post.time))) {
+    if (plan.some((post) => !isValidCalendarDate(post.date) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(post.time))) {
       setMessage("Choose a valid date and suggested time for every post before exporting.");
       return;
     }
     const blob = new Blob([JSON.stringify({
       version: 1,
       audienceTimezone: "America/New_York",
-      timesAre: "Suggested local draft times; not analytics-backed and not scheduled with a social platform.",
+      timesAre: "Creator-selected local draft times; not analytics-backed and not scheduled with a social platform.",
       posts: plan,
     }, null, 2)], { type: "application/json" });
     const objectUrl = URL.createObjectURL(blob);
@@ -165,15 +173,15 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       <div className="section-head">
         <div>
           <p className="eyebrow">CONTENT CALENDAR · LOCAL DRAFT</p>
-          <h2 id="schedule-preview-title">Plan your next seven posts</h2>
-          <p>Paste seven video links, choose a start date, then generate either a three-day batch or one post each day for a week.</p>
+          <h2 id="schedule-preview-title">Plan your content schedule</h2>
+          <p>Add any number of video links, choose how many days to use, and set your preferred posting times.</p>
         </div>
         <span className="step">APPROVAL REQUIRED</span>
       </div>
 
       <div className="schedule-builder">
         <div className="schedule-inputs">
-          <label htmlFor="schedule-links">Seven Reel / video URLs <span>{links.length}/7</span></label>
+          <label htmlFor="schedule-links">Reel / video URLs <span>{links.length} link(s)</span></label>
           <textarea
             id="schedule-links"
             value={linksText}
@@ -184,12 +192,17 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           {invalidLinks.length > 0 && <p className="schedule-error" role="alert">{invalidLinks.length} invalid URL(s) found. Use complete HTTP(S) links.</p>}
           <label htmlFor="schedule-start-date">Start date (US Eastern Time)</label>
           <input id="schedule-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <p className="hint">Suggested slots use US Eastern Time (ET): morning 9:00 AM, afternoon 1:00 PM, evening 6:00 PM. These are starting suggestions, not predictions of reach.</p>
+          <label htmlFor="schedule-duration">Schedule length (days)</label>
+          <input id="schedule-duration" type="number" min="1" max="3650" step="1" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} />
+          <label htmlFor="schedule-times">Your posting times (24-hour format)</label>
+          <input id="schedule-times" type="text" value={timesText} onChange={(event) => setTimesText(event.target.value)} placeholder="09:00, 13:00, 19:30" />
+          {invalidTimes.length > 0 && <p className="schedule-error" role="alert">Use valid times like 09:00 or 19:30, separated by commas.</p>}
+          <p className="hint">Posts are spread as evenly as possible across your chosen days. Your listed times repeat for multiple posts on a day. You can edit each post’s date and time below.</p>
         </div>
         <div className="schedule-actions">
-          <button className="primary action-primary" type="button" onClick={() => generateSchedule("three-day")}>Build 3-day plan (2 / 2 / 3)</button>
-          <button className="secondary" type="button" onClick={() => generateSchedule("seven-day")}>Build 7-day plan (1 per day)</button>
-          <p className="hint">Links stay in this browser unless you export them. No external platform is contacted.</p>
+          <button className="primary action-primary" type="button" onClick={generateSchedule}>Build my schedule</button>
+          <p className="hint">Your example is not a fixed rule. Links, schedule length, and times are up to you.</p>
+          <p className="hint">This creates a local draft only. It does not contact or schedule posts on a social platform.</p>
         </div>
       </div>
 
@@ -205,7 +218,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
                   <td>{index + 1}</td>
                   <td><a href={post.url} target="_blank" rel="noreferrer">{post.url}</a></td>
                   <td><input aria-label={`Post ${index + 1} date`} type="date" value={post.date} onChange={(event) => updatePost(post.id, "date", event.target.value)} /></td>
-                  <td><select aria-label={`Post ${index + 1} time`} value={post.time} onChange={(event) => updatePost(post.id, "time", event.target.value)}><option value="09:00">9:00 AM</option><option value="13:00">1:00 PM</option><option value="18:00">6:00 PM</option></select></td>
+                  <td><input aria-label={`Post ${index + 1} time (24-hour format)`} type="time" value={post.time} onChange={(event) => updatePost(post.id, "time", event.target.value)} /></td>
                   <td><span className="status status-warning">{post.status}</span></td>
                 </tr>
               ))}
