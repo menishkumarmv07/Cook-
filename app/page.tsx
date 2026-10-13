@@ -29,7 +29,10 @@ const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
-const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1";
+const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1"; // Legacy flat history key; used only for migration.
+const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
+const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
+const MAX_CHAT_HISTORY_CONVERSATIONS = 25;
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
@@ -60,7 +63,14 @@ type SourceInspectionResult = {
 };
 
 type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections";
-type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
+type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
+type ChatConversation = {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messages: ChatMessage[];
+};
 
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
@@ -167,6 +177,73 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function getConversationTitle(messages: ChatMessage[]): string {
+  const firstUserMessage = messages.find((item) => item.role === "user")?.text.trim();
+  if (!firstUserMessage) return "New chat";
+  const firstLine = firstUserMessage.split(/\r?\n/).find((line) => line.trim())?.trim() || firstUserMessage;
+  return firstLine.length > 44 ? `${firstLine.slice(0, 41).trimEnd()}…` : firstLine;
+}
+
+function normalizeChatMessages(value: unknown): ChatMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ChatMessage =>
+      Boolean(item) &&
+      typeof item === "object" &&
+      typeof (item as ChatMessage).id === "string" &&
+      ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
+      typeof (item as ChatMessage).text === "string"
+    )
+    .slice(-MAX_CHAT_HISTORY_MESSAGES)
+    .map((item) => ({
+      id: item.id,
+      role: item.role,
+      text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
+      timestamp: typeof item.timestamp === "string" && !Number.isNaN(Date.parse(item.timestamp))
+        ? item.timestamp
+        : new Date().toISOString(),
+    }));
+}
+
+function normalizeChatConversations(value: unknown): ChatConversation[] {
+  if (!Array.isArray(value)) return [];
+  const normalized: ChatConversation[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const item = entry as Record<string, unknown>;
+    if (typeof item.id !== "string" || !Array.isArray(item.messages)) continue;
+    const messages = normalizeChatMessages(item.messages);
+    const createdAt = typeof item.createdAt === "string" && !Number.isNaN(Date.parse(item.createdAt))
+      ? item.createdAt
+      : new Date().toISOString();
+    const updatedAt = typeof item.updatedAt === "string" && !Number.isNaN(Date.parse(item.updatedAt))
+      ? item.updatedAt
+      : createdAt;
+    const requestedTitle = typeof item.title === "string" ? item.title.trim().slice(0, 80) : "";
+    const generatedTitle = getConversationTitle(messages);
+    normalized.push({
+      id: item.id,
+      title: generatedTitle !== "New chat" ? generatedTitle : (requestedTitle || "New chat"),
+      createdAt,
+      updatedAt,
+      messages,
+    });
+  }
+  return normalized
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+}
+
+function formatChatHistoryTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
   const tone = profile.tone.trim() || DEFAULT_CREATOR_PROFILE.tone;
@@ -257,6 +334,8 @@ export default function Home() {
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
   const [activeToolReady, setActiveToolReady] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatHistoryReady, setChatHistoryReady] = useState(false);
   const [schedulePrefill, setSchedulePrefill] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -323,25 +402,42 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
-      if (saved) {
-        const parsed: unknown = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const valid = parsed.filter((item): item is ChatMessage =>
-            Boolean(item) &&
-            typeof item === "object" &&
-            typeof (item as ChatMessage).id === "string" &&
-            ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
-            typeof (item as ChatMessage).text === "string"
-          ).slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
-            ...item,
-            text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
-          }));
-          setChatMessages(valid);
+      const savedConversations = window.localStorage.getItem(CHAT_CONVERSATIONS_STORAGE_KEY);
+      let loadedConversations: ChatConversation[] = [];
+
+      if (savedConversations) {
+        loadedConversations = normalizeChatConversations(JSON.parse(savedConversations));
+      } else {
+        // Migrate the original V1 flat message list into one recoverable conversation.
+        const legacyHistory = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+        if (legacyHistory) {
+          const legacyMessages = normalizeChatMessages(JSON.parse(legacyHistory));
+          if (legacyMessages.length > 0) {
+            const firstTimestamp = legacyMessages[0].timestamp || new Date().toISOString();
+            const lastTimestamp = legacyMessages[legacyMessages.length - 1].timestamp || firstTimestamp;
+            loadedConversations = [{
+              id: makeId(),
+              title: getConversationTitle(legacyMessages),
+              createdAt: firstTimestamp,
+              updatedAt: lastTimestamp,
+              messages: legacyMessages,
+            }];
+          }
         }
       }
+
+      setChatConversations(loadedConversations);
+      const savedActiveId = window.localStorage.getItem(ACTIVE_CHAT_STORAGE_KEY);
+      const chosen = loadedConversations.find((conversation) => conversation.id === savedActiveId)
+        || loadedConversations[0]
+        || null;
+      setActiveConversationId(chosen?.id ?? null);
+      setChatMessages(chosen?.messages ?? []);
     } catch {
-      // Invalid or blocked history must never prevent opening the workspace.
+      // Damaged or unavailable local history must never block opening the workspace.
+      setChatConversations([]);
+      setActiveConversationId(null);
+      setChatMessages([]);
     } finally {
       setChatHistoryReady(true);
     }
@@ -350,17 +446,51 @@ export default function Home() {
   useEffect(() => {
     if (!chatHistoryReady) return;
     try {
-      window.localStorage.setItem(
-        CHAT_HISTORY_STORAGE_KEY,
-        JSON.stringify(chatMessages.slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
-          ...item,
-          text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
-        })))
-      );
+      const archive = normalizeChatConversations(chatConversations);
+      window.localStorage.setItem(CHAT_CONVERSATIONS_STORAGE_KEY, JSON.stringify(archive));
     } catch {
-      // Chat remains usable for this session when browser storage is unavailable.
+      setMessage("Chat history could not be saved because browser storage is unavailable or full. Export important recipe drafts and free device storage before continuing.");
     }
-  }, [chatMessages, chatHistoryReady]);
+  }, [chatConversations, chatHistoryReady]);
+
+  useEffect(() => {
+    if (!chatHistoryReady) return;
+    try {
+      if (activeConversationId) window.localStorage.setItem(ACTIVE_CHAT_STORAGE_KEY, activeConversationId);
+      else window.localStorage.removeItem(ACTIVE_CHAT_STORAGE_KEY);
+    } catch {
+      // Opening and switching chats still work for the current session.
+    }
+  }, [activeConversationId, chatHistoryReady]);
+
+  useEffect(() => {
+    if (!chatHistoryReady || !activeConversationId) return;
+    const messages = normalizeChatMessages(chatMessages);
+    const now = new Date().toISOString();
+    setChatConversations((previous) => {
+      const index = previous.findIndex((conversation) => conversation.id === activeConversationId);
+      if (index < 0) {
+        return [{
+          id: activeConversationId,
+          title: getConversationTitle(messages),
+          createdAt: now,
+          updatedAt: now,
+          messages,
+        }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+      }
+      const current = previous[index];
+      const generatedTitle = getConversationTitle(messages);
+      const nextConversation: ChatConversation = {
+        ...current,
+        title: generatedTitle === "New chat" ? current.title : generatedTitle,
+        updatedAt: now,
+        messages,
+      };
+      return [nextConversation, ...previous.filter((conversation) => conversation.id !== activeConversationId)]
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+        .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+    });
+  }, [chatMessages, activeConversationId, chatHistoryReady]);
 
   useEffect(() => {
     try {
@@ -374,6 +504,66 @@ export default function Home() {
     setMenuOpen(true);
     // Wait for the drawer to become visible before moving keyboard focus.
     window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+  }
+
+  function ensureActiveChat(): string {
+    if (activeConversationId) return activeConversationId;
+    const id = makeId();
+    const now = new Date().toISOString();
+    setActiveConversationId(id);
+    setChatConversations((previous) => [{
+      id,
+      title: "New chat",
+      createdAt: now,
+      updatedAt: now,
+      messages: [],
+    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    return id;
+  }
+
+  function startNewChat() {
+    const id = makeId();
+    const now = new Date().toISOString();
+    setChatConversations((previous) => [{
+      id,
+      title: "New chat",
+      createdAt: now,
+      updatedAt: now,
+      messages: [],
+    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    setActiveConversationId(id);
+    setChatMessages([]);
+    setCommand("");
+    setSchedulePrefill("");
+    setActiveTool("home");
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function openConversation(conversation: ChatConversation) {
+    setActiveConversationId(conversation.id);
+    setChatMessages(conversation.messages);
+    setCommand("");
+    setActiveTool("home");
+    setMenuOpen(false);
+    window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function deleteConversation(conversationId: string) {
+    const conversation = chatConversations.find((item) => item.id === conversationId);
+    if (!conversation) return;
+    const confirmed = window.confirm(`Delete “${conversation.title}”? This removes the conversation from this browser.`);
+    if (!confirmed) return;
+    const remaining = chatConversations.filter((item) => item.id !== conversationId)
+      .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    setChatConversations(remaining);
+    if (activeConversationId === conversationId) {
+      const nextConversation = remaining[0] || null;
+      setActiveConversationId(nextConversation?.id ?? null);
+      setChatMessages(nextConversation?.messages ?? []);
+      setActiveTool("home");
+      setCommand("");
+    }
   }
 
   async function logOut() {
@@ -398,7 +588,8 @@ export default function Home() {
       id: Date.now().toString(36) + "-status-" + previous.length,
       role: "assistant",
       text: message,
-    }]);
+      timestamp: new Date().toISOString(),
+    }].slice(-MAX_CHAT_HISTORY_MESSAGES));
   }, [message]);
 
   function responseForTool(tool: WorkspaceTool): string {
@@ -423,6 +614,7 @@ export default function Home() {
 
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
+    ensureActiveChat();
     setActiveTool(tool);
     setMenuOpen(false);
     setCommand("");
@@ -430,9 +622,9 @@ export default function Home() {
       const base = Date.now().toString(36) + "-" + previous.length;
       return [
         ...previous,
-        { id: base + "-user", role: "user", text: shownText },
-        { id: base + "-assistant", role: "assistant", text: customResponse ?? responseForTool(tool) },
-      ];
+        { id: base + "-user", role: "user", text: shownText, timestamp: new Date().toISOString() },
+        { id: base + "-assistant", role: "assistant", text: customResponse ?? responseForTool(tool), timestamp: new Date().toISOString() },
+      ].slice(-MAX_CHAT_HISTORY_MESSAGES);
     });
     const targetId =
       tool === "home" ? "chat-transcript" :
@@ -519,11 +711,12 @@ export default function Home() {
     if (/library|recent drafts/.test(request)) { openTool("library", rawRequest); return; }
 
     const time = Date.now().toString(36);
+    ensureActiveChat();
     setChatMessages((previous) => [
       ...previous,
-      { id: time + "-user-" + previous.length, role: "user", text: rawRequest },
-      { id: time + "-assistant-" + (previous.length + 1), role: "assistant", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue." },
-    ]);
+      { id: time + "-user-" + previous.length, role: "user", text: rawRequest, timestamp: new Date().toISOString() },
+      { id: time + "-assistant-" + (previous.length + 1), role: "assistant", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue.", timestamp: new Date().toISOString() },
+    ].slice(-MAX_CHAT_HISTORY_MESSAGES));
     setCommand("");
   }
 
@@ -1003,6 +1196,35 @@ export default function Home() {
           <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
           <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
+        <section className="chat-history-section" aria-label="Saved chat history">
+          <div className="chat-history-header">
+            <p className="nav-label">CHAT HISTORY</p>
+            <button className="new-chat-button" type="button" onClick={startNewChat}><span aria-hidden="true">＋</span> New Chat</button>
+          </div>
+          <div className="chat-history-list">
+            {chatConversations.length === 0 ? (
+              <p className="chat-history-empty">Your conversations will appear here. Start a new chat to keep each topic separate.</p>
+            ) : chatConversations
+              .slice()
+              .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+              .map((conversation) => {
+                const lastMessage = conversation.messages[conversation.messages.length - 1];
+                const preview = lastMessage?.text.trim() || "Blank conversation";
+                return (
+                  <div className={conversation.id === activeConversationId ? "chat-history-row is-active" : "chat-history-row"} key={conversation.id}>
+                    <button className="chat-history-open" type="button" onClick={() => openConversation(conversation)} aria-current={conversation.id === activeConversationId ? "page" : undefined}>
+                      <strong>{conversation.title || "New chat"}</strong>
+                      <small>{preview.length > 68 ? `${preview.slice(0, 65)}…` : preview}</small>
+                      <time dateTime={conversation.updatedAt}>{formatChatHistoryTime(conversation.updatedAt)}</time>
+                    </button>
+                    <button className="chat-history-delete" type="button" aria-label={`Delete chat: ${conversation.title || "New chat"}`} title="Delete conversation" onClick={() => deleteConversation(conversation.id)}>×</button>
+                  </div>
+                );
+              })}
+          </div>
+          <p className="chat-history-storage-note">Saved in this browser on this device.</p>
+        </section>
+        <div className="drawer-divider" />
         <p className="nav-label">YOUR WORKFLOW</p>
         <button className={activeTool === "plan" ? "nav active" : "nav"} type="button" onClick={() => openTool("plan")}><span aria-hidden="true">▣</span> Today&apos;s Plan</button>
         <button className={activeTool === "content" ? "nav active" : "nav"} type="button" onClick={() => openTool("content")}><span aria-hidden="true">▤</span> Plan Content</button>
