@@ -426,6 +426,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   const exported = JSON.parse(await readFile(path!, "utf8")) as { creatorProfile?: { tone?: string; sampleCaptions?: string } };
   expect(exported.creatorProfile?.tone).toBe("Professional and concise");
   expect(exported.creatorProfile?.sampleCaptions).toContain("A simple dinner with clear steps.");
+  await chooseMenuTool(page, "Creator profile");
   await page.locator("#profile-tone").fill("Casual");
   await page.locator("#import-backup").setInputFiles(path!);
   await expect(page.locator("#profile-tone")).toHaveValue("Professional and concise");
@@ -440,6 +441,7 @@ test("workspace backup exports all drafts and restores them with explicit confir
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("First backup recipe");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await chooseMenuTool(page, "Creator profile");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export all drafts" }).click();
@@ -460,15 +462,19 @@ test("workspace backup exports all drafts and restores them with explicit confir
   expect(backup.creatorProfile.units).toBe("US customary");
 
   await page.getByLabel("Voice / tone").fill("Changed before restore");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Temporary current draft");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await chooseMenuTool(page, "Creator profile");
   page.on("dialog", (dialog) => dialog.accept());
   await page.locator("#import-backup").setInputFiles(path!);
 
+  await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
+  await chooseMenuTool(page, "New recipe");
   await expect(page.getByRole("heading", { name: "First backup recipe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Temporary current draft" })).toHaveCount(0);
+  await chooseMenuTool(page, "Library / recent drafts");
   await expect(page.locator(".recent-item strong")).toHaveCount(1);
-  await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
 });
 
 
