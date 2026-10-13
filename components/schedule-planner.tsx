@@ -169,7 +169,7 @@ export default function SchedulePlanner() {
         </div>
       </div>
 
-      <p className="message" role="status" aria-live="polite">{message}</p>
+      <p className="message" aria-live="polite">{message}</p>
 
       {plan.length > 0 && (
         <div className="schedule-table-wrap">
