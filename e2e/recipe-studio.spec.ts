@@ -690,7 +690,7 @@ test("chat history keeps separate conversations, reopens them, continues them, a
   const drawer = page.locator("#workspace-drawer");
   await expect(drawer.locator(".drawer-chat-row")).toHaveCount(2);
   await expect(drawer.locator(".drawer-chat-open").first()).toContainText("Second conversation: tomato pasta");
-  await drawer.getByRole("button", { name: /First conversation: lemon rice/ }).click();
+  await drawer.locator(".drawer-chat-open").filter({ hasText: "First conversation: lemon rice" }).click();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("First conversation: lemon rice");
   await expect(page.locator(".chat-message.from-user")).not.toContainText("Second conversation: tomato pasta");
 
