@@ -390,7 +390,12 @@ test("PWA manifest and service worker support reopening the app offline after fi
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
-  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await page.evaluate(async () => {
+    if ("serviceWorker" in navigator) await navigator.serviceWorker.ready;
+  });
+  // A fresh navigation gives the newly installed worker a chance to control this page.
+  await page.reload();
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller), null, { timeout: 15_000 });
   await page.context().setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: /You’re offline/ })).toBeVisible();
