@@ -827,3 +827,16 @@ button:focus-visible,a:focus-visible{outline-color:#B95738}
 .shell[data-theme="dark"] .chat-bubble { background: #24201E; border-color: #49403A; }
 .shell[data-theme="dark"] .chat-bubble p { color: #F8EEE7; }
 .shell[data-theme="dark"] .user-bubble { background: #3B2A23; }
+
+
+/* Keep the selected task visible directly beneath its short chat confirmation. */
+.content[data-view]:not([data-view="chat"]) .chat-home {
+  min-height: 0;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 10px 0 14px;
+}
+.content[data-view]:not([data-view="chat"]) .chat-welcome,
+.content[data-view]:not([data-view="chat"]) .chat-starters { display: none; }
+.content[data-view]:not([data-view="chat"]) .chat-thread { max-height: 190px; }
+.content[data-view]:not([data-view="chat"]) .chat-back { margin: 0 auto; }
