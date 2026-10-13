@@ -88,6 +88,10 @@ export default function SchedulePlanner() {
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
   function generateSchedule(mode: "three-day" | "seven-day") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(`${startDate}T12:00:00`).getTime())) {
+      setMessage("Choose a valid start date before generating the plan.");
+      return;
+    }
     if (links.length !== 7) {
       setMessage(`Add exactly 7 URLs first. Currently found ${links.length}.`);
       return;
