@@ -1140,7 +1140,7 @@ export default function Home() {
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
         <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
-        <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research & Trends</small></button>
+        <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research Studio</small></button>
         <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Plan Content</small></button>
         <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
       </nav>
