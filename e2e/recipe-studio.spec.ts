@@ -665,6 +665,48 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
+test("chat history keeps separate conversations, reopens them, continues them, and deletes selected chats", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.removeItem("cooking-creator-chat-threads-v1");
+    localStorage.removeItem("cooking-creator-active-chat-id-v1");
+    localStorage.removeItem("cooking-creator-chat-history-v1");
+  });
+  await page.reload();
+
+  await page.locator("#workspace-command").fill("First conversation: lemon rice");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("First conversation: lemon rice");
+
+  await page.getByRole("button", { name: "New Chat", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+  await expect(page.locator(".chat-message")).toHaveCount(0);
+
+  await page.locator("#workspace-command").fill("Second conversation: tomato pasta");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Second conversation: tomato pasta");
+
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  const drawer = page.locator("#workspace-drawer");
+  await expect(drawer.locator(".drawer-chat-row")).toHaveCount(2);
+  await expect(drawer.locator(".drawer-chat-open").first()).toContainText("Second conversation: tomato pasta");
+  await drawer.getByRole("button", { name: /First conversation: lemon rice/ }).click();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("First conversation: lemon rice");
+  await expect(page.locator(".chat-message.from-user")).not.toContainText("Second conversation: tomato pasta");
+
+  await page.locator("#workspace-command").fill("Continue the first conversation with one more note");
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Continue the first conversation");
+
+  await page.reload();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Continue the first conversation");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "Delete chat Second conversation: tomato pasta" }).click();
+  await expect(page.locator("#workspace-drawer .drawer-chat-row")).toHaveCount(1);
+  await expect(page.locator("#workspace-drawer .drawer-chat-open").first()).toContainText("First conversation: lemon rice");
+});
+
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
   await page.goto("/");
   await page.locator("#workspace-command").fill("ftp://example.com/recipe");
