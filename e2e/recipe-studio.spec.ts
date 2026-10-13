@@ -100,6 +100,7 @@ test("JSON backup import restores a legacy draft and rejects unsafe source URLs"
     notes: "Recovered from an older export.",
     scenes: [{ title: "Hook", detail: "Show the dish", timing: "0:00–0:08" }],
   };
+  await openPlanContent(page);
   await page.locator("#import-backup").setInputFiles({
     name: "legacy-recipe.json",
     mimeType: "application/json",
@@ -447,6 +448,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   const exported = JSON.parse(await readFile(path!, "utf8")) as { creatorProfile?: { tone?: string; sampleCaptions?: string } };
   expect(exported.creatorProfile?.tone).toBe("Professional and concise");
   expect(exported.creatorProfile?.sampleCaptions).toContain("A simple dinner with clear steps.");
+  await openCreatorProfile(page);
   await page.locator("#profile-tone").fill("Casual");
   await page.locator("#import-backup").setInputFiles(path!);
   await openCreatorProfile(page);
