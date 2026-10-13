@@ -81,6 +81,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
   await expect(preview).toContainText("Food safety and nutrition have not been independently verified");
 
   await page.reload();
+  await openPlanContent(page);
   await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("cooked rice");
   await expect(page.getByLabel("Action / instruction").nth(0)).toHaveValue("Fold in the rice");
 
@@ -182,6 +183,7 @@ test("schedule planner builds, edits, saves, and exports seven-post drafts", asy
 
   await page.getByLabel("Post 1 time").selectOption("13:00");
   await page.reload();
+  await openTodayPlan(page);
   await expect(rows).toHaveCount(7);
   await expect(page.getByLabel("Post 1 time")).toHaveValue("13:00");
   await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
@@ -286,6 +288,7 @@ test("source research desk records references and exports uncertainty honestly",
   await expect(preview).toContainText("conflicts or missing details must be resolved before publishing");
 
   await page.reload();
+  await openPlanContent(page);
   await expect(page.getByLabel("Reference URL").first()).toHaveValue("https://example.com/recipe");
   await expect(page.getByLabel("Reference URL").nth(1)).toHaveValue("https://example.org/video");
   await expect(page.getByLabel("Ingredient quantities & differences").first()).toHaveValue("Oil is 1 tbsp in this reference");
