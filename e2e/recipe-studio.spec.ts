@@ -134,6 +134,11 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
 test("chat-first home records the selected task and sends seven pasted links to the schedule planner", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "What are we cooking today?" })).toBeVisible();
+  await page.getByRole("button", { name: /Plan Content/ }).first().click();
+  await expect(page.locator(".chat-thread")).toContainText("Plan Content");
+  await expect(page.locator("#intake")).toBeVisible();
+  await page.getByRole("button", { name: "← Back to chat home" }).click();
+
   const urls = Array.from({ length: 7 }, (_, index) => "https://example.com/reel-" + (index + 1));
   await page.locator("#workspace-command").fill("Take these seven Reels and schedule them over three days. " + urls.join(" "));
   await page.getByRole("button", { name: "Run workspace command" }).click();
@@ -482,6 +487,7 @@ test("workspace backup exports all drafts and restores them with explicit confir
   expect(backup.creatorProfile.tone).toBe("Workspace backup profile");
   expect(backup.creatorProfile.units).toBe("US customary");
 
+  await openCreatorProfile(page);
   await page.getByLabel("Voice / tone").fill("Changed before restore");
   await openPlanContent(page);
   await page.locator("#name").fill("Temporary current draft");
@@ -656,7 +662,7 @@ test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sour
   await page.getByRole("button", { name: "Run workspace command" }).click();
 
   await expect(page.locator("#url")).toHaveValue("");
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("Only a valid HTTP(S) link can be added");
+  await expect(page.locator(".chat-thread")).toContainText("Only a valid HTTP(S) link can be added");
 });
 
 
