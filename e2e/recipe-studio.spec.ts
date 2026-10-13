@@ -629,7 +629,7 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 
-  await chooseMenuTool(page, "Today’s Plan");
+  await chooseMenuTool(page, "Today's Plan");
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
