@@ -212,6 +212,8 @@ export default function Home() {
   const [showContentPack, setShowContentPack] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [command, setCommand] = useState("");
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState<"chat" | "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections">("chat");
+  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
@@ -277,6 +279,19 @@ export default function Home() {
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
     setMenuOpen(false);
+    setActiveWorkspaceView(section);
+    const labels = { plan: "Today’s Plan", research: "Research Studio", studio: "Plan Content", publish: "Publish", intake: "New recipe", profile: "Creator profile", library: "Recent drafts", connections: "Social connections" } as const;
+    const replies = {
+      plan: "Let’s plan your posts. Add seven links below and choose a three-day schedule or one post per day for a week. Times are suggestions in US Eastern Time; nothing is published automatically.",
+      research: current ? "Research Studio is selected. Use the source desk to record recipe references, compare quantities and steps, and keep uncertainties visible. Video frames and audio are not analyzed in this V1." : "Research Studio is selected. Start a recipe draft or paste a recipe URL first; source notes and comparisons are saved with that draft.",
+      studio: current ? "Plan Content is selected. Continue editing the recipe, ingredient order, steps, narration and content pack. The current version prepares text, not a rendered chef video." : "Plan Content is selected. Start with a recipe name or paste a source link to create a draft before preparing its tutorial.",
+      publish: current ? "Publish is selected. Review the pack and approval status. V1 supports manual export/share only; it does not connect accounts or publish/schedule posts." : "Publish is selected. Create a recipe draft first. Publishing connections are not configured in this version.",
+      intake: "New recipe is selected. Add a recipe name, optional source link, and any notes you already have.",
+      profile: "Creator profile is selected. Your creator preferences are saved locally on this device.",
+      library: "Recent drafts is selected. Open an existing draft or create a new one.",
+      connections: "Social connections is selected. Official account connections are not configured yet; no account is connected."
+    } as const;
+    setChatMessages((previous) => [...previous, { role: "user", text: labels[section] }, { role: "assistant", text: replies[section] }].slice(-12));
     const targetId =
       section === "plan" ? "daily-plan" :
       section === "research" ? (current ? "research-desk" : "research-trends") :
@@ -836,7 +851,12 @@ export default function Home() {
           <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
         <p className="nav-label">WORKSPACE</p>
-        <button className="nav active" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">⌂</span> Home</button>
+        <button className="nav" type="button" onClick={() => { setMenuOpen(false); setActiveWorkspaceView("chat"); }}><span aria-hidden="true">⌂</span> Chat home</button>
+        <button className="nav" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▦</span> Today&apos;s Plan</button>
+        <button className="nav" type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">✎</span> Plan Content</button>
+        <button className="nav" type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span> Research Studio</button>
+        <button className="nav" type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span> Publish</button>
+        <p className="nav-label">MORE</p>
         <button className="nav nav-unavailable" type="button" disabled title="An image library is planned but is not implemented in V1"><span aria-hidden="true">▧</span> Images <small>Later</small></button>
         <button className="nav" type="button" onClick={() => goToSection("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
         <button className="nav" type="button" onClick={() => goToSection("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
@@ -863,7 +883,28 @@ export default function Home() {
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
         </header>
-        <div className="content">
+        <div className="content" data-view={activeWorkspaceView}>
+          <section className="chat-home" aria-label="Cooking Creator chat">
+            <div className="chat-welcome">
+              <span className="chat-chef-mark" aria-hidden="true">♨</span>
+              <p className="eyebrow">COOKING CREATOR · AI COOKING CONTENT APP</p>
+              <h1>What are we cooking today?</h1>
+              <p>Your workspace starts here. Choose a task or tell me what you want to do.</p>
+            </div>
+            {chatMessages.length > 0 && <div className="chat-thread" aria-live="polite" aria-label="Conversation">
+              {chatMessages.map((entry, index) => <article key={`chat-${index}`} className={entry.role === "user" ? "chat-bubble user-bubble" : "chat-bubble assistant-bubble"}>
+                <span>{entry.role === "user" ? "You" : "Cooking Creator"}</span><p>{entry.text}</p>
+              </article>)}
+            </div>}
+            <div className="chat-starters" aria-label="Choose a workspace task">
+              <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▦</span><strong>Today&apos;s Plan</strong><small>Plan posts and timing</small></button>
+              <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">✎</span><strong>Plan Content</strong><small>Recipe to tutorial draft</small></button>
+              <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><strong>Research Studio</strong><small>Sources and recipe notes</small></button>
+              <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><strong>Publish</strong><small>Review and prepare to share</small></button>
+            </div>
+            {activeWorkspaceView !== "chat" && <button className="text-button chat-back" type="button" onClick={() => setActiveWorkspaceView("chat")}>← Back to chat home</button>}
+          </section>
+          <div className="legacy-workspace">
           <section className="hero">
             <div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Good cooking deserves a story.</h1><p>Research the recipe, plan every step, and prepare a reviewed content pack. This version keeps drafts on this device.</p></div>
             <div className="dish" aria-hidden="true">✦</div>
@@ -1131,6 +1172,7 @@ export default function Home() {
           {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
+          </div>
         </div>
       </section>
 
@@ -1144,8 +1186,8 @@ export default function Home() {
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
         <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
+        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">✎</span><small>Plan Content</small></button>
         <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research Studio</small></button>
-        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">◉</span><small>Plan Content</small></button>
         <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
       </nav>
     </main>
