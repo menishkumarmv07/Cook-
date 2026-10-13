@@ -57,8 +57,12 @@ test("chat history creates separate conversations and restores a conversation af
   await expect(page.locator(".chat-message.from-user").filter({ hasText: "Tell me about garlic" })).toBeVisible();
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("not connected to an AI model yet");
 
+  await sendChatMessage(page, "Add one more note about fresh basil");
+  await expect(page.locator(".chat-message.from-user")).toContainText(["Tell me about garlic", "Add one more note about fresh basil"]);
+
   await page.reload();
   await expect(page.locator(".chat-message.from-user").filter({ hasText: "Tell me about garlic" })).toBeVisible();
+  await expect(page.locator(".chat-message.from-user").filter({ hasText: "Add one more note about fresh basil" })).toBeVisible();
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(2);
 });
