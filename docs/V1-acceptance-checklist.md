@@ -279,3 +279,15 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - **Next release gates:** latest exact-head Playwright desktop/mobile run must pass; review the authenticated preview; merge and verify the resulting production deployment; complete real Android Chrome interaction checks and an actual cooking trial. Also keep the existing production security/local-storage gates open.
 
 **Status remains IN PROGRESS.** This is a documented implementation effort and preview build, not a declaration that every V1 gate is complete.
+
+
+## Chat-first interface implementation — 13 October 2026, 10:15 UTC
+
+- Implemented on feature branch `feat/chat-first-cooking-workspace-2026-10-13`; pull request [#51](https://github.com/menishkumarmv07/Cook-/pull/51).
+- The dashboard-first view is replaced with a mostly blank AI-chat-style home, warm cream and terracotta palette, chef-hat brand mark, fixed pill composer, and three-line navigation drawer.
+- Primary drawer actions: Today’s Plan, Plan Content, Research Studio, Publish. Secondary actions remain under More. A selected action is added to the chat transcript and scrolls to its corresponding workspace area.
+- The selected workspace section is persisted locally. Multi-link requests with HTTP(S) URLs are added to the existing Plan Content link list. The current implementation creates a local draft schedule only; it does not analyze reel audio/frames or publish to social platforms.
+- Added a Playwright flow that checks visible tool selection, seven-link intake, three-day 2/2/3 schedule creation, and the explicit “Draft — approval needed” status. Updated previous E2E expectations that assumed the old dashboard.
+- The current PR head has a Vercel preview deployment marked READY and the Vercel commit status is successful. Preview UI is protected by Vercel authentication, so unauthenticated external scraping cannot verify the rendered workspace.
+- Latest GitHub Actions run [#287](https://github.com/menishkumarmv07/Cook-/actions/runs/38381454092) has passed dependency install, unit tests, ESLint, TypeScript, production build, and owner-auth browser smoke; Playwright E2E is still running at the time of this note.
+- This change is not merged to main yet. Keep V1 **IN PROGRESS** until CI completes, changes are reviewed/merged, production deployment is confirmed, and the owner-dependent Android/cooking/security gates are actually completed.
