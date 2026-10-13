@@ -261,3 +261,37 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - GitHub Actions run #258 on application commit `b59d71746658cb67bdef4317564b58f0abeb9606` passed install, unit tests, ESLint, TypeScript, production build, Chromium setup, owner-auth smoke, and Playwright E2E. The workflow-run connector only returns PR-triggered runs for a commit, so it returned no run record for the documentation-only commit `cd2d9fce98f1eb456ae0bdaffe2fb89b1eaafdc7`; do not misstate that as a failed CI run.
 - Remaining release gates: real Android Chrome authenticated acceptance; a documented actual recipe/cooking trial; confirm production host-level rate limiting/access controls; address unencrypted browser-local storage before storing sensitive information.
 - **Status remains IN PROGRESS.** The app is deployed and the public login page responds, but V1 is not fully accepted. Video/audio analysis, chef animation/voice/rendering, automatic nutrition lookup, authorized social publishing/scheduling, analytics, and monetization integrations remain future work.
+
+
+## Chat-first interface customization — 13 October 2026
+
+**Change record for PR #51 — chat-first Cooking Creator workspace.** This section records the requested UI change; it does not mark V1 accepted or the production deployment updated.
+
+- Main workspace presentation is now a mostly blank chat screen with the Cooking Creator chef-hat mark, cream/terracotta palette, top-left three-line menu, and a fixed rounded message bar at the bottom. The former dashboard panels are hidden unless their tool is active.
+- The drawer places **Today’s Plan**, **Plan Content**, **Research Studio**, and **Publish** first, in that order. Creator profile, library/recent drafts, new recipe, and social connections sit under the secondary More grouping.
+- Selecting a tool adds the selected label and a truthful V1 response to the chat transcript, then focuses the associated workspace surface. Chat requests and previous tool-selection messages remain in the transcript while navigating within the session. The last active tool is saved locally so a refresh does not automatically return the owner to Home.
+- Plan Content continues to use the existing seven-link local planner: seven valid URLs can be pasted with a schedule request and prefilled into the planner; the owner chooses either a 3-day 2/2/3 draft or a seven-day one-post-per-day draft. Suggested US Eastern slots are not analytics-backed. No social platform is contacted and nothing is automatically scheduled or published.
+- Research Studio has a separate empty state when no recipe is open. With a recipe open, it focuses the structured source-research desk. Publish focuses the approval/export controls when a recipe draft exists, while clearly stating the actual publishing integration is not connected.
+- Existing theme preference is retained, including a dark appearance variant. Recipe, creator profile, and schedule data remain browser-local; chat message history is currently session-only and is not a cloud-synced AI conversation.
+- **AI limitation:** the chat UI is a task router and V1 workspace interface, not yet connected to a conversational AI model. It can navigate current functions and transfer a set of pasted links to the scheduling tool; it does not automatically analyze video audio/frames or perform full recipe research.
+- **Automated validation:** unit tests, ESLint, TypeScript, and production build passed in the chat-first PR workflow before its Playwright stage. Earlier PR run #282’s browser suite exposed old-dashboard assumptions and reload-state issues; later changes updated the assertions, persist the active tool, and added a direct test for the Today’s Plan → seven pasted links → three-day draft flow. Treat the latest head’s end-to-end result as **pending until the exact workflow run reports success**.
+- **Deployment:** Vercel reports the preview deployment for commit 6d0a00b3bd15ce05abbcd75df8081e538bfcb26f as READY, but preview access redirects to Vercel authentication in the public fetcher so the authenticated interface was not visually inspected there. The newest test commit then started its own preview deployment. Do not describe the preview as the production rollout.
+- **Next release gates:** latest exact-head Playwright desktop/mobile run must pass; review the authenticated preview; merge and verify the resulting production deployment; complete real Android Chrome interaction checks and an actual cooking trial. Also keep the existing production security/local-storage gates open.
+
+**Status remains IN PROGRESS.** This is a documented implementation effort and preview build, not a declaration that every V1 gate is complete.
+
+
+## Chat-first interface implementation — 13 October 2026, 10:15 UTC
+
+- Implemented on feature branch `feat/chat-first-cooking-workspace-2026-10-13`; pull request [#51](https://github.com/menishkumarmv07/Cook-/pull/51).
+- The dashboard-first view is replaced with a mostly blank AI-chat-style home, warm cream and terracotta palette, chef-hat brand mark, fixed pill composer, and three-line navigation drawer.
+- Primary drawer actions: Today’s Plan, Plan Content, Research Studio, Publish. Secondary actions remain under More. A selected action is added to the chat transcript and scrolls to its corresponding workspace area.
+- The selected workspace section is persisted locally. Multi-link requests with HTTP(S) URLs are added to the existing Plan Content link list. The current implementation creates a local draft schedule only; it does not analyze reel audio/frames or publish to social platforms.
+- Added a Playwright flow that checks visible tool selection, seven-link intake, three-day 2/2/3 schedule creation, and the explicit “Draft — approval needed” status. Updated previous E2E expectations that assumed the old dashboard.
+- The current PR head has a Vercel preview deployment marked READY and the Vercel commit status is successful. Preview UI is protected by Vercel authentication, so unauthenticated external scraping cannot verify the rendered workspace.
+- Latest GitHub Actions run [#287](https://github.com/menishkumarmv07/Cook-/actions/runs/38381454092) has passed dependency install, unit tests, ESLint, TypeScript, production build, and owner-auth browser smoke; Playwright E2E is still running at the time of this note.
+- This change is not merged to main yet. Keep V1 **IN PROGRESS** until CI completes, changes are reviewed/merged, production deployment is confirmed, and the owner-dependent Android/cooking/security gates are actually completed.
+
+
+- Follow-up hardening: the chat transcript is stored locally with schema checks and bounds of 100 messages / 12,000 characters per message; malformed or unavailable history is ignored so it cannot lock the app. The seven-link Playwright flow now reloads the page and asserts the conversation and saved planner links remain available.
+- Current latest branch commit for these changes: `f58e6ded66cba2b7db94e6301f06e2d0017a91f2`. Workflow [#290](https://github.com/menishkumarmv07/Cook-/actions/runs/38382738146) is running; do not treat it as passed until the E2E job completes.

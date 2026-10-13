@@ -22,12 +22,20 @@ async function signInOwner(page: import("@playwright/test").Page) {
     throw new Error(`Test owner sign-in failed with HTTP ${loginResponse.status()}: ${JSON.stringify(responseBody)}`);
   }
   try {
-    await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
   } catch {
     const cookies = await page.context().cookies();
     const hasSessionCookie = cookies.some((cookie) => cookie.name === "cooking_creator_session");
     throw new Error(`Owner login returned HTTP ${loginResponse.status()} but workspace stayed locked; sessionCookiePresent=${hasSessionCookie}; middlewareDiagnostic=${middlewareDiagnostic}; finalPath=${new URL(page.url()).pathname}`);
   }
+}
+
+async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  const drawer = page.locator("#workspace-drawer");
+  if (await drawer.getAttribute("aria-hidden") === "true") {
+    await page.getByRole("button", { name: "Open navigation menu" }).click();
+  }
+  await page.getByRole("button", { name: label, exact: true }).click();
 }
 
 test.beforeEach(async ({ page }, testInfo) => {
@@ -37,6 +45,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test("recipe draft can be created, edited, reordered, saved, and exported", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.locator("#servings").fill("3");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
@@ -74,6 +83,8 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
 
 test("JSON backup import restores a legacy draft and rejects unsafe source URLs", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await chooseMenuTool(page, "New recipe");
   const legacyDraft = {
     id: 17,
     name: "Imported legacy recipe",
@@ -101,11 +112,15 @@ test("JSON backup import restores a legacy draft and rejects unsafe source URLs"
 
 test("mobile workspace shows the screenshot-inspired home and no horizontal overflow", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+  await expect(page.locator("#name")).not.toBeVisible();
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByRole("button", { name: "Today's Plan" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Research Studio" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Plan Content" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close menu" }).click();
+  await chooseMenuTool(page, "New recipe");
   await expect(page.locator("#name")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
@@ -113,6 +128,7 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
 
 test("schedule planner builds, edits, saves, and exports seven-post drafts", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
   const expectedEasternDate = await page.evaluate(() => {
     const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
@@ -165,7 +181,7 @@ test("schedule planner builds, edits, saves, and exports seven-post drafts", asy
 test("navigation drawer, workspace command, and theme toggle work and persist", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await expect(page.getByRole("button", { name: /Projects \/ new recipe/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New recipe", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close menu" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("#workspace-drawer")).toHaveAttribute("aria-hidden", "true");
@@ -205,6 +221,7 @@ test("social connection center shows honest OAuth readiness without collecting s
 
 test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Source-checked soup");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -266,13 +283,14 @@ test("malformed saved source-reference records are skipped with a visible warnin
     }]));
   });
   await page.goto("/");
-  await expect(page.getByRole("status")).toContainText("Some saved data was invalid and was skipped");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Some saved data was invalid and was skipped");
   await expect(page.getByRole("heading", { name: "Corrupt saved draft" })).toHaveCount(0);
 });
 
 
 test("narration script preserves recipe order and flags missing timing before recording", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -305,6 +323,7 @@ test("narration script preserves recipe order and flags missing timing before re
 
 test("tested recipe must be approved before share; recipe edits reset trust and approval", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -345,6 +364,7 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
 
 test("content pack export downloads a text file without publishing", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   const downloadPromise = page.waitForEvent("download");
@@ -368,9 +388,14 @@ test("PWA manifest and service worker support reopening the app offline after fi
   expect(await workerResponse.text()).toContain("caches.open");
 
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
   await expect.poll(() => page.evaluate(() => "serviceWorker" in navigator)).toBe(true);
-  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller));
+  await page.evaluate(async () => {
+    if ("serviceWorker" in navigator) await navigator.serviceWorker.ready;
+  });
+  // A fresh navigation gives the newly installed worker a chance to control this page.
+  await page.reload();
+  await page.waitForFunction(() => Boolean(navigator.serviceWorker?.controller), null, { timeout: 15_000 });
   await page.context().setOffline(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: /You’re offline/ })).toBeVisible();
@@ -381,11 +406,13 @@ test("PWA manifest and service worker support reopening the app offline after fi
 
 test("creator profile saves locally, shapes content-pack guidance, and travels with JSON backup", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "Creator profile");
   await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Professional and concise");
   await page.getByLabel("Main language").fill("English");
   await page.getByLabel("Target platforms").fill("YouTube Shorts, Instagram Reels");
   await page.getByLabel("3–5 sample captions in your real voice").fill("A simple dinner with clear steps.\\nCook with me tonight.");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Tomato pasta");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   await page.getByRole("button", { name: "Prepare content pack" }).click();
@@ -404,6 +431,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   const exported = JSON.parse(await readFile(path!, "utf8")) as { creatorProfile?: { tone?: string; sampleCaptions?: string } };
   expect(exported.creatorProfile?.tone).toBe("Professional and concise");
   expect(exported.creatorProfile?.sampleCaptions).toContain("A simple dinner with clear steps.");
+  await chooseMenuTool(page, "Creator profile");
   await page.locator("#profile-tone").fill("Casual");
   await page.locator("#import-backup").setInputFiles(path!);
   await expect(page.locator("#profile-tone")).toHaveValue("Professional and concise");
@@ -412,10 +440,13 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
 
 test("workspace backup exports all drafts and restores them with explicit confirmation", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "Creator profile");
   await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Workspace backup profile");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("First backup recipe");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await chooseMenuTool(page, "Library / recent drafts");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export all drafts" }).click();
@@ -435,16 +466,21 @@ test("workspace backup exports all drafts and restores them with explicit confir
   expect(backup.creatorProfile.tone).toBe("Workspace backup profile");
   expect(backup.creatorProfile.units).toBe("US customary");
 
+  await chooseMenuTool(page, "Creator profile");
   await page.getByLabel("Voice / tone").fill("Changed before restore");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Temporary current draft");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
   page.on("dialog", (dialog) => dialog.accept());
   await page.locator("#import-backup").setInputFiles(path!);
+  await chooseMenuTool(page, "Creator profile");
 
+  await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
+  await chooseMenuTool(page, "New recipe");
   await expect(page.getByRole("heading", { name: "First backup recipe" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Temporary current draft" })).toHaveCount(0);
+  await chooseMenuTool(page, "Library / recent drafts");
   await expect(page.locator(".recent-item strong")).toHaveCount(1);
-  await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
 });
 
 
@@ -464,6 +500,7 @@ test("light workspace theme uses the requested warm cream and terracotta palette
 
 test("manual sourced nutrition worksheet calculates exact entries and labels the estimate honestly", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Pasta nutrition check");
   await page.locator("#servings").fill("4");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
@@ -500,6 +537,7 @@ test("manual sourced nutrition worksheet calculates exact entries and labels the
 
 test("ingredient additions are explicitly mapped to cooking steps and spoken in narration", async ({ page }) => {
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Tomato onion base");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
 
@@ -564,6 +602,7 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   });
 
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.locator("#url").fill(sourceUrl);
   await page.getByRole("button", { name: "Inspect public recipe page" }).click();
@@ -593,9 +632,37 @@ test("pasting a supported recipe or video URL into the chat dock prefills intake
 
   await expect(page.locator("#url")).toHaveValue(sourceUrl);
   await expect(page.locator("#intake")).toBeVisible();
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("added to recipe intake");
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("video/Reel audio and frames are not analyzed");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("added your source URL to recipe intake");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Video/Reel audio and frames are not analyzed");
   await expect(page.locator("#name")).toBeVisible();
+});
+
+test("chat menu selections are shown in the transcript and seven pasted links prefill Plan Content", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+
+  await chooseMenuTool(page, "Today's Plan");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
+
+  const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
+  await page.locator("#workspace-command").fill(request);
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
+  await expect(page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" })).toBeVisible();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
+  await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
+
+  await page.reload();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
@@ -604,7 +671,7 @@ test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sour
   await page.getByRole("button", { name: "Run workspace command" }).click();
 
   await expect(page.locator("#url")).toHaveValue("");
-  await expect(page.locator(".message[role=\"status\"]")).toContainText("Only a valid HTTP(S) link can be added");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Only a valid HTTP(S) URL can be added");
 });
 
 
@@ -631,7 +698,7 @@ test("AUTH: a wrong password is rejected and the configured owner can sign in", 
 
   await page.locator("#owner-password").fill(process.env.OWNER_PASSWORD ?? "");
   await page.getByRole("button", { name: "Unlock workspace" }).click();
-  await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 });
 
 test("AUTH: logging out clears the session and protects later workspace requests", async ({ page }) => {

@@ -28,6 +28,11 @@ import {
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
+const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
+const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1";
+const MAX_CHAT_HISTORY_MESSAGES = 100;
+const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -52,6 +57,14 @@ type SourceInspectionResult = {
     ingredients: string[];
     instructions: string[];
   } | null;
+};
+
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections";
+type ChatMessage = { id: string; role: "user" | "assistant"; text: string };
+
+const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
+  home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
+  intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -212,6 +225,12 @@ export default function Home() {
   const [showContentPack, setShowContentPack] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [command, setCommand] = useState("");
+  const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
+  const [activeToolReady, setActiveToolReady] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatHistoryReady, setChatHistoryReady] = useState(false);
+  const [schedulePrefill, setSchedulePrefill] = useState("");
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
@@ -253,6 +272,69 @@ export default function Home() {
 
   useEffect(() => {
     try {
+      const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
+      if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
+        setActiveTool(savedTool as WorkspaceTool);
+      }
+    } catch {
+      // The default chat home remains available if browser storage is blocked.
+    } finally {
+      setActiveToolReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeToolReady) return;
+    try {
+      window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, activeTool);
+    } catch {
+      // Navigation still works for this session even if it cannot persist.
+    }
+  }, [activeTool, activeToolReady]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((item): item is ChatMessage =>
+            Boolean(item) &&
+            typeof item === "object" &&
+            typeof (item as ChatMessage).id === "string" &&
+            ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
+            typeof (item as ChatMessage).text === "string"
+          ).slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
+            ...item,
+            text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
+          }));
+          setChatMessages(valid);
+        }
+      }
+    } catch {
+      // Invalid or blocked history must never prevent opening the workspace.
+    } finally {
+      setChatHistoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatHistoryReady) return;
+    try {
+      window.localStorage.setItem(
+        CHAT_HISTORY_STORAGE_KEY,
+        JSON.stringify(chatMessages.slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
+          ...item,
+          text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
+        })))
+      );
+    } catch {
+      // Chat remains usable for this session when browser storage is unavailable.
+    }
+  }, [chatMessages, chatHistoryReady]);
+
+  useEffect(() => {
+    try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch {
       // The app remains usable if the browser blocks local storage.
@@ -275,8 +357,76 @@ export default function Home() {
     }
   }
 
+  useEffect(() => {
+    if (chatMessages.length > 0) chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [chatMessages]);
+
+  const lastChatStatusRef = useRef("");
+  useEffect(() => {
+    if (!message || message === lastChatStatusRef.current) return;
+    lastChatStatusRef.current = message;
+    setChatMessages((previous) => [...previous, {
+      id: Date.now().toString(36) + "-status-" + previous.length,
+      role: "assistant",
+      text: message,
+    }]);
+  }, [message]);
+
+  function responseForTool(tool: WorkspaceTool): string {
+    if (tool === "home") return "Your chat workspace is ready. Choose a task from the three-line menu or type a request below.";
+    if (tool === "plan") return current
+      ? `Today’s Plan is open for “${current.name}”. Review the next step below. Your saved local posting schedule is also shown here when available.`
+      : "Today’s Plan is open. Create a local posting draft with Plan Content, then return here to review your plan. Nothing is scheduled or published by this screen.";
+    if (tool === "content") return "Plan Content is open. Add seven public video/Reel URLs, then choose a 3-day plan (2/2/3 posts) or a 7-day plan (one post per day). Suggested US Eastern times are placeholders, not audience-analytics predictions. This creates a local draft only; it does not schedule or publish posts.";
+    if (tool === "research") return current
+      ? `Research Studio is open for “${current.name}”. Add source references and record the ingredients, steps, timings, and safety/storage notes you actually checked. Public HTML extraction is not independent verification; video frames and audio are not analyzed.`
+      : "Research Studio is open. Start a recipe draft below first, then add source references in its research desk. An accessible public recipe page can be inspected only after you request it; video/Reel frame and audio analysis is not implemented.";
+    if (tool === "publish") return current
+      ? (current.trialStatus === "tested"
+          ? `Publish review is open for “${current.name}”. Review the text pack and approve it before using manual share/export. Social accounts are not connected, so no post will be scheduled or published automatically.`
+          : `Publish review is open for “${current.name}”, but the recipe is still marked untested. Complete a real cooking trial and review the sources before approval. V1 does not publish directly to social platforms.`)
+      : "Publish is open, but there is no recipe draft yet. Create a recipe first; then review the content pack. Official social publishing connections are not configured in this V1.";
+    if (tool === "intake") return "Recipe intake is open. Enter a recipe name and optionally add a source URL. The draft is stored in this browser on this device; save an export backup for important work.";
+    if (tool === "profile") return "Your creator profile settings are open. Preferences save in this browser. This screen is not connected to an AI model and does not automatically enforce every wording rule.";
+    if (tool === "library") return projects.length ? `Your local library is open with ${projects.length} recipe draft(s). Select a draft to continue editing. Drafts are saved on this device only.` : "Your local library is open, but there are no recipe drafts saved in this browser yet.";
+    return "Social connections are open. Official account authorization is not configured yet, so every platform remains disconnected and nothing can be posted from this screen.";
+  }
+
+  function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
+    const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
+    setActiveTool(tool);
+    setMenuOpen(false);
+    setCommand("");
+    setChatMessages((previous) => {
+      const base = Date.now().toString(36) + "-" + previous.length;
+      return [
+        ...previous,
+        { id: base + "-user", role: "user", text: shownText },
+        { id: base + "-assistant", role: "assistant", text: customResponse ?? responseForTool(tool) },
+      ];
+    });
+    const targetId =
+      tool === "home" ? "chat-transcript" :
+      tool === "plan" ? "daily-plan" :
+      tool === "content" ? "schedule-preview-title" :
+      tool === "research" ? (current ? "research-desk" : "research-trends") :
+      tool === "publish" ? (current ? "publish-queue" : "recipe-editor") :
+      tool === "intake" ? "intake" :
+      tool === "profile" ? "creator-profile" :
+      tool === "library" ? "recent-projects" : "social-connections";
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
     setMenuOpen(false);
+    setActiveTool(
+      section === "plan" ? "plan" : section === "research" ? "research" :
+      section === "connections" ? "connections" : section === "publish" ? "publish" :
+      section === "intake" ? "intake" : section === "profile" ? "profile" :
+      section === "library" ? "library" : "intake"
+    );
     const targetId =
       section === "plan" ? "daily-plan" :
       section === "research" ? (current ? "research-desk" : "research-trends") :
@@ -297,66 +447,55 @@ export default function Home() {
     event.preventDefault();
     const rawRequest = command.trim();
     const request = rawRequest.toLowerCase();
-    if (!request) {
-      setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or paste a recipe/video link.");
+    if (!rawRequest) return;
+
+    const detectedUrls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
+    if (detectedUrls.length > 1 || (scheduleIntent && detectedUrls.length > 0)) {
+      const invalidLinks = detectedUrls.filter((link) => !isHttpUrl(link));
+      setSchedulePrefill(detectedUrls.filter(isHttpUrl).join("\n"));
+      if (invalidLinks.length > 0) {
+        openTool("content", rawRequest, `I found ${detectedUrls.length} link(s), but ${invalidLinks.length} do not look like valid HTTP(S) URLs. I placed the valid links into the planner. Correct the invalid link(s) and confirm there are exactly seven before generating a schedule.`);
+        return;
+      }
+      openTool("content", rawRequest, detectedUrls.length === 7
+        ? "I found seven valid HTTP(S) links and placed them in the Plan Content list. Choose the 3-day or 7-day draft option below. Times are suggested US Eastern slots; no posts are scheduled or published."
+        : `I found ${detectedUrls.length} valid link(s) and placed them in the Plan Content list. The current planner needs exactly seven links to build a schedule; add or remove links before generating it. Nothing is scheduled or published.`);
       return;
     }
 
-    // Pasting a complete URL into the chat-style dock carries it into recipe intake.
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
       if (!isHttpUrl(rawRequest)) {
-        setMessage("Only a valid HTTP(S) link can be added. Use a full https:// or http:// recipe/video URL.");
+        openTool("intake", rawRequest, "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added.");
         return;
       }
       setSourceInspection(null);
       setUrl(rawRequest);
-      setCommand("");
-      goToSection("intake");
-      setMessage("Source link added to recipe intake. Public recipe pages can be inspected there; video/Reel audio and frames are not analyzed.");
+      openTool("intake", `Add this recipe/video source: ${rawRequest}`, "I added your source URL to recipe intake. Enter the recipe name, then review any extracted public-page details yourself. Video/Reel audio and frames are not analyzed.");
       return;
     }
-    if (/connect|accounts?|integration|social/.test(request)) {
-      setCommand("");
-      goToSection("connections");
+
+    if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) {
+      setSchedulePrefill("");
+      openTool("content", rawRequest);
       return;
     }
-    if (/new recipe|create recipe|start recipe|add recipe/.test(request)) {
-      setCommand("");
-      goToSection("intake");
-      return;
-    }
-    if (/research|source|trend|video link/.test(request)) {
-      setCommand("");
-      goToSection("research");
-      return;
-    }
-    if (/publish|share|approval|queue/.test(request)) {
-      setCommand("");
-      goToSection("publish");
-      return;
-    }
-    if (/studio|editor|script|storyboard|content/.test(request)) {
-      setCommand("");
-      goToSection("studio");
-      return;
-    }
-    if (/plan|today|next step/.test(request)) {
-      setCommand("");
-      goToSection("plan");
-      return;
-    }
-    if (/theme|settings/.test(request)) {
-      setCommand("");
-      setMenuOpen(true);
-      setMessage("Use Appearance in this menu to switch the saved light/dark theme.");
-      return;
-    }
-    if (/profile/.test(request)) {
-      setCommand("");
-      goToSection("profile");
-      return;
-    }
-    setMessage("This command bar navigates the current V1 workspace but is not connected to an AI model yet. Try “new recipe”, “research”, “content studio”, or “publish”.");
+    if (/connect|accounts?|integration|social/.test(request)) { openTool("connections", rawRequest); return; }
+    if (/new recipe|create recipe|start recipe|add recipe/.test(request)) { openTool("intake", rawRequest); return; }
+    if (/research|source|trend|video link/.test(request)) { openTool("research", rawRequest); return; }
+    if (/publish|share|approval|queue/.test(request)) { openTool("publish", rawRequest); return; }
+    if (/studio|editor|script|storyboard|content/.test(request)) { openTool("intake", rawRequest); return; }
+    if (/today'?s plan|my plan|daily plan|next step|\bplan\b/.test(request)) { openTool("plan", rawRequest); return; }
+    if (/theme|settings|profile/.test(request)) { openTool("profile", rawRequest); setMenuOpen(/theme|settings/.test(request)); return; }
+    if (/library|recent drafts/.test(request)) { openTool("library", rawRequest); return; }
+
+    const time = Date.now().toString(36);
+    setChatMessages((previous) => [
+      ...previous,
+      { id: time + "-user-" + previous.length, role: "user", text: rawRequest },
+      { id: time + "-assistant-" + (previous.length + 1), role: "assistant", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue." },
+    ]);
+    setCommand("");
   }
 
   useEffect(() => {
@@ -828,23 +967,24 @@ export default function Home() {
   }
 
   return (
-    <main className="shell" data-theme={theme}>
+    <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={() => setMenuOpen(false)}><span className="brand-icon" aria-hidden="true">👨‍🍳</span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
+          <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
           <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
-        <p className="nav-label">WORKSPACE</p>
-        <button className="nav active" type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">⌂</span> Home</button>
-        <button className="nav nav-unavailable" type="button" disabled title="An image library is planned but is not implemented in V1"><span aria-hidden="true">▧</span> Images <small>Later</small></button>
-        <button className="nav" type="button" onClick={() => goToSection("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
-        <button className="nav" type="button" onClick={() => goToSection("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
-        <button className="nav" type="button" onClick={() => goToSection("intake")}><span aria-hidden="true">＋</span> Projects / new recipe</button>
-        <button className="nav" type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">◷</span> Publish queue</button>
-        <button className="nav" type="button" onClick={() => goToSection("connections")}><span aria-hidden="true">◎</span> Connect social accounts</button>
-        <button className="nav" type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span> Explore research</button>
-        <button className="nav nav-unavailable" type="button" disabled title="Remote workspace is not implemented in V1"><span aria-hidden="true">▱</span> Remote <small>Later</small></button>
+        <p className="nav-label">YOUR WORKFLOW</p>
+        <button className={activeTool === "plan" ? "nav active" : "nav"} type="button" onClick={() => openTool("plan")}><span aria-hidden="true">▣</span> Today&apos;s Plan</button>
+        <button className={activeTool === "content" ? "nav active" : "nav"} type="button" onClick={() => openTool("content")}><span aria-hidden="true">▤</span> Plan Content</button>
+        <button className={activeTool === "research" ? "nav active" : "nav"} type="button" onClick={() => openTool("research")}><span aria-hidden="true">⌕</span> Research Studio</button>
+        <button className={activeTool === "publish" ? "nav active" : "nav"} type="button" onClick={() => openTool("publish")}><span aria-hidden="true">➤</span> Publish</button>
+        <div className="drawer-divider" />
+        <p className="nav-label">MORE</p>
+        <button className={activeTool === "intake" ? "nav active" : "nav"} type="button" onClick={() => openTool("intake")}><span aria-hidden="true">＋</span> New recipe</button>
+        <button className={activeTool === "profile" ? "nav active" : "nav"} type="button" onClick={() => openTool("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
+        <button className={activeTool === "library" ? "nav active" : "nav"} type="button" onClick={() => openTool("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
+        <button className={activeTool === "connections" ? "nav active" : "nav"} type="button" onClick={() => openTool("connections")}><span aria-hidden="true">◎</span> Connect social accounts</button>
         <div className="drawer-theme">
           <span><strong>Appearance</strong><small>Saved on this device</small></span>
           <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((value) => value === "light" ? "dark" : "light")}>{theme === "light" ? "☾ Dark" : "☀ Light"}</button>
@@ -859,11 +999,30 @@ export default function Home() {
       <section className="main" id="dashboard">
         <header className="top">
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
-          <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / Home</small></span>
+          <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
-          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
+          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => openTool("profile")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg><i aria-hidden="true" /></button>
         </header>
         <div className="content">
+          <section className="chat-transcript" aria-label="Cooking Creator chat" role="log" aria-live="polite">
+            {chatMessages.length === 0 ? (
+              <div className="chat-empty">
+                <span className="chat-chef-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg></span>
+                <h1>What are we cooking today?</h1>
+                <p>Choose a task from the three-line menu, or type your request below.</p>
+              </div>
+            ) : (
+              <div className="chat-messages">
+                {chatMessages.map((item) => (
+                  <div key={item.id} className={item.role === "user" ? "chat-message from-user" : "chat-message from-assistant"}>
+                    {item.role === "assistant" && <span className="chat-avatar" aria-hidden="true">♨</span>}
+                    <p>{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </section>
           <section className="hero">
             <div><p className="eyebrow">YOUR CREATOR WORKSPACE</p><h1>Good cooking deserves a story.</h1><p>Research the recipe, plan every step, and prepare a reviewed content pack. This version keeps drafts on this device.</p></div>
             <div className="dish" aria-hidden="true">✦</div>
@@ -878,7 +1037,7 @@ export default function Home() {
             </div>
           </section>
 
-          <SchedulePlanner />
+          <SchedulePlanner prefillLinksText={schedulePrefill} />
 
           <div className="stats">
             <div><small>Recipe projects</small><strong>{projects.length}</strong><em>Saved in this browser</em></div>
@@ -887,7 +1046,7 @@ export default function Home() {
           </div>
 
           <section className="research-hub panel" id="research-trends">
-            <div className="section-head"><div><p className="eyebrow">RESEARCH & TRENDS</p><h2>Build from evidence, not guesses.</h2><p>Record recipe sources, compare the details you actually checked, and flag gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
+            <div className="section-head"><div><p className="eyebrow">RESEARCH STUDIO</p><h2>Build from evidence, not guesses.</h2><p>Compare recipe sources, record ingredients and ordered steps, and flag timing or safety gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
             <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Public HTML recipe pages can be inspected after an explicit action during intake. Extraction is not verification; video frames and audio are not analyzed. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
           </section>
 
@@ -1135,10 +1294,10 @@ export default function Home() {
       </section>
 
       <div className="command-dock" role="region" aria-label="Workspace command">
-        <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => goToSection("intake")}>＋</button>
+        <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => openTool("intake")}>＋</button>
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
-          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Ask or paste a recipe/video link…" />
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator… paste links or ask for a plan" />
           <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
         </form>
       </div>

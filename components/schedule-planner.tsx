@@ -63,12 +63,16 @@ function validHttpUrl(value: string): boolean {
   }
 }
 
-export default function SchedulePlanner() {
+export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Add up to seven public Reel or video URLs, one per line.");
   const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    if (prefillLinksText.trim()) setLinksText(prefillLinksText);
+  }, [prefillLinksText]);
 
   useEffect(() => {
     try {
