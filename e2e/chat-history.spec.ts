@@ -39,24 +39,24 @@ test("chat history creates separate conversations and restores a conversation af
   await page.getByRole("button", { name: /New Chat/ }).click();
   await expect(page.locator(".chat-empty")).toBeVisible();
 
-  await sendChatMessage(page, "Help me plan tomato soup");
+  await sendChatMessage(page, "Tell me about garlic");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("not connected to an AI model yet");
 
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(1);
-  await expect(page.locator(".chat-history-row")).toContainText("Help me plan tomato soup");
+  await expect(page.locator(".chat-history-row")).toContainText("Tell me about garlic");
 
   await page.getByRole("button", { name: /New Chat/ }).click();
   await expect(page.locator(".chat-empty")).toBeVisible();
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(2);
 
-  await page.getByRole("button", { name: /Help me plan tomato soup/ }).click();
-  await expect(page.locator(".chat-message.from-user").filter({ hasText: "Help me plan tomato soup" })).toBeVisible();
+  await page.getByRole("button", { name: /Tell me about garlic/ }).click();
+  await expect(page.locator(".chat-message.from-user").filter({ hasText: "Tell me about garlic" })).toBeVisible();
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("not connected to an AI model yet");
 
   await page.reload();
-  await expect(page.locator(".chat-message.from-user").filter({ hasText: "Help me plan tomato soup" })).toBeVisible();
+  await expect(page.locator(".chat-message.from-user").filter({ hasText: "Tell me about garlic" })).toBeVisible();
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(2);
 });
