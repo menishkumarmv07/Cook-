@@ -28,6 +28,8 @@ import {
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
+const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -221,6 +223,7 @@ export default function Home() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [command, setCommand] = useState("");
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
+  const [activeToolReady, setActiveToolReady] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [schedulePrefill, setSchedulePrefill] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -262,6 +265,28 @@ export default function Home() {
       // The light theme remains the safe default when storage is unavailable.
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
+      if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
+        setActiveTool(savedTool as WorkspaceTool);
+      }
+    } catch {
+      // The default chat home remains available if browser storage is blocked.
+    } finally {
+      setActiveToolReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeToolReady) return;
+    try {
+      window.localStorage.setItem(ACTIVE_TOOL_STORAGE_KEY, activeTool);
+    } catch {
+      // Navigation still works for this session even if it cannot persist.
+    }
+  }, [activeTool, activeToolReady]);
 
   useEffect(() => {
     try {
@@ -334,6 +359,18 @@ export default function Home() {
         { id: base + "-user", role: "user", text: shownText },
         { id: base + "-assistant", role: "assistant", text: customResponse ?? responseForTool(tool) },
       ];
+    });
+    const targetId =
+      tool === "home" ? "chat-transcript" :
+      tool === "plan" ? "daily-plan" :
+      tool === "content" ? "schedule-preview-title" :
+      tool === "research" ? (current ? "research-desk" : "intake") :
+      tool === "publish" ? (current ? "publish-queue" : "intake") :
+      tool === "intake" ? "intake" :
+      tool === "profile" ? "creator-profile" :
+      tool === "library" ? "recent-projects" : "social-connections";
+    window.requestAnimationFrame(() => {
+      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
