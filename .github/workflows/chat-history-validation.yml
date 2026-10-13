@@ -22,5 +22,6 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      # Re-run the repository's real test/lint/type/build gate for each update.
       - name: Run existing project checks
         run: npm run check
