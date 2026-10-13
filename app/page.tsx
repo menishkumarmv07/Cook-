@@ -1,5 +1,7 @@
 "use client";
 
+import SchedulePlanner from "@/components/schedule-planner";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import type { FormEvent } from "react";
@@ -876,16 +878,7 @@ export default function Home() {
             </div>
           </section>
 
-          <section className="schedule-preview panel" aria-labelledby="schedule-preview-title">
-            <div className="section-head"><div><p className="eyebrow">CONTENT CALENDAR · EXAMPLE</p><h2 id="schedule-preview-title">Seven links across three days</h2><p>A preview of the schedule format for a US audience. Times are illustrative recommendations, not analytics-backed selections.</p></div><span className="step">DRAFT PLAN</span></div>
-            <div className="schedule-table-wrap"><table className="schedule-table"><thead><tr><th>Day</th><th>Suggested slot</th><th>Reel links</th><th>Status</th></tr></thead><tbody>
-              <tr><td>Day 1</td><td>Morning · Evening</td><td>Links 1–2</td><td><span className="status status-warning">Needs links</span></td></tr>
-              <tr><td>Day 2</td><td>Morning · Afternoon</td><td>Links 3–4</td><td><span className="status status-warning">Needs links</span></td></tr>
-              <tr><td>Day 3</td><td>Morning · Afternoon · Evening</td><td>Links 5–7</td><td><span className="status status-warning">Needs links</span></td></tr>
-            </tbody></table></div>
-            <p className="hint">A working scheduler must attach each real URL, date, exact time and approval status. Audience analytics and platform publishing connections are not configured in this V1, so no post is scheduled or published by this preview.</p>
-            <div className="action-row"><button className="secondary" type="button" onClick={() => { setCommand(""); goToSection("research"); }}>Research links</button><button className="primary action-primary" type="button" onClick={() => goToSection("publish")}>Review publishing workflow</button></div>
-          </section>
+          <SchedulePlanner />
 
           <div className="stats">
             <div><small>Recipe projects</small><strong>{projects.length}</strong><em>Saved in this browser</em></div>
