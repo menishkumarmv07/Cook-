@@ -76,7 +76,7 @@ export default function SchedulePlanner() {
       if (raw) {
         const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; plan?: unknown };
         if (typeof saved.linksText === "string") setLinksText(saved.linksText);
-        if (typeof saved.startDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(saved.startDate)) setStartDate(saved.startDate);
+        if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
@@ -103,7 +103,7 @@ export default function SchedulePlanner() {
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
   function generateSchedule(mode: "three-day" | "seven-day") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate) || Number.isNaN(new Date(`${startDate}T12:00:00`).getTime())) {
+    if (!isValidCalendarDate(startDate)) {
       setMessage("Choose a valid start date before generating the plan.");
       return;
     }
