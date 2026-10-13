@@ -456,6 +456,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   await openCreatorProfile(page);
   await page.locator("#profile-tone").fill("Casual");
   await page.locator("#import-backup").setInputFiles(path!);
+  await openPlanContent(page);
   await openCreatorProfile(page);
   await expect(page.locator("#profile-tone")).toHaveValue("Professional and concise");
 });
