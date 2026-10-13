@@ -315,7 +315,9 @@ export default function Home() {
     const rawRequest = command.trim();
     const request = rawRequest.toLowerCase();
     if (!request) {
-      setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or paste a recipe/video link.");
+      const response = "Try a workspace command such as “new recipe”, “research”, “content studio”, or paste a recipe/video link.";
+      setMessage(response);
+      setChatMessages((previous) => [...previous, { role: "assistant" as const, text: response }].slice(-12));
       return;
     }
 
@@ -340,7 +342,10 @@ export default function Home() {
     // Pasting a complete URL into the chat-style dock carries it into recipe intake.
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
       if (!isHttpUrl(rawRequest)) {
-        setMessage("Only a valid HTTP(S) link can be added. Use a full https:// or http:// recipe/video URL.");
+        const response = "Only a valid HTTP(S) link can be added. Use a full https:// or http:// recipe/video URL.";
+        setMessage(response);
+        setChatMessages((previous) => [...previous, { role: "user" as const, text: rawRequest }, { role: "assistant" as const, text: response }].slice(-12));
+        setCommand("");
         return;
       }
       setSourceInspection(null);
@@ -391,7 +396,10 @@ export default function Home() {
       goToSection("profile");
       return;
     }
-    setMessage("This command bar navigates the current V1 workspace but is not connected to an AI model yet. Try “new recipe”, “research”, “content studio”, or “publish”.");
+    const response = "This command bar navigates the current V1 workspace but is not connected to an AI model yet. Try “new recipe”, “research”, “content studio”, or “publish”.";
+    setMessage(response);
+    setChatMessages((previous) => [...previous, { role: "user" as const, text: rawRequest }, { role: "assistant" as const, text: response }].slice(-12));
+    setCommand("");
   }
 
   useEffect(() => {
