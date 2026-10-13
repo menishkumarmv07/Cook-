@@ -410,7 +410,7 @@ export default function Home() {
       tool === "plan" ? "daily-plan" :
       tool === "content" ? "schedule-preview-title" :
       tool === "research" ? (current ? "research-desk" : "research-trends") :
-      tool === "publish" ? (current ? "publish-queue" : "intake") :
+      tool === "publish" ? (current ? "publish-queue" : "recipe-editor") :
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" : "social-connections";
