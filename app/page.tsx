@@ -1298,7 +1298,8 @@ export default function Home() {
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
           <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator… paste links or ask for a plan" />
-          <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
+          <button type="button" className="command-download" aria-label="Download workspace backup" title="Download all local drafts and creator profile as a backup" onClick={exportWorkspaceBackup}><span aria-hidden="true">↓</span><small>Download</small></button>
+          <button type="submit" className="command-submit" aria-label="Ask AI agent" title="Ask AI agent">✦</button>
         </form>
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
