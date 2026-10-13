@@ -931,3 +931,52 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .shell[data-theme="dark"] .schedule-actions { background: var(--chat-soft); color: var(--chat-ink); border-color: var(--chat-line); }
 .shell[data-theme="dark"] .logout-trigger,
 .shell[data-theme="dark"] .secondary { background: var(--chat-card); color: var(--chat-ink); border-color: var(--chat-line); }
+
+
+/* Responsive recovery: keep the workspace centered and restore composer actions. */
+html, body { width: 100%; max-width: 100%; }
+body { overflow-x: clip; }
+.shell, .main, .content { min-width: 0; }
+.main { width: 100%; max-width: 100%; }
+.content { width: 100%; margin-inline: auto; }
+.command-dock, .quick-dock { left: 50%; right: auto; }
+.command-dock { max-width: calc(100vw - 24px); }
+.command-form { flex: 1 1 auto; min-width: 0; }
+.command-form input { min-width: 0; }
+.command-download {
+  display: flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 5px;
+  min-height: 38px; padding: 0 10px; border: 1px solid #e3e3e3; border-radius: 22px;
+  background: #f8f8f8; color: #222; cursor: pointer; white-space: nowrap;
+}
+.command-download span { font-size: 17px; line-height: 1; }
+.command-download small { font-size: 10px; font-weight: 650; }
+.command-download:hover { background: #eeeeee; }
+.command-download:focus-visible, .command-submit:focus-visible {
+  outline: 3px solid #999; outline-offset: 2px;
+}
+[data-theme="dark"] .command-download { background: #262626; border-color: #3d3d3d; color: #f1f1f1; }
+[data-theme="dark"] .command-download:hover { background: #333333; }
+@media (max-width: 600px) {
+  .content { max-width: 100%; padding-left: 14px; padding-right: 14px; }
+  .command-dock {
+    left: 12px; right: 12px; width: auto; max-width: none; transform: none;
+    gap: 5px; padding-left: 8px; padding-right: 7px;
+  }
+  .command-add { width: 28px; flex: 0 0 28px; }
+  .command-download { gap: 3px; padding: 0 7px; min-height: 36px; }
+  .command-download small { font-size: 9px; }
+  .command-form { gap: 4px; }
+  .command-form input { font-size: 12px; padding-left: 2px; padding-right: 1px; }
+  .command-submit { width: 36px; height: 36px; flex-basis: 36px; }
+  .quick-dock { left: 10px; right: 10px; width: auto; max-width: none; transform: none; }
+  .plan-next, .research-hub-row { min-width: 0; }
+  .plan-next > *, .research-hub-row > * { min-width: 0; }
+}
+@media (max-width: 370px) {
+  .command-dock { left: 7px; right: 7px; gap: 3px; padding-left: 5px; padding-right: 5px; }
+  .command-add { width: 24px; flex-basis: 24px; }
+  .command-download { padding: 0 5px; }
+  .command-download small { font-size: 8px; }
+  .command-submit { width: 33px; height: 33px; flex-basis: 33px; }
+  .command-form input { font-size: 11px; }
+}
