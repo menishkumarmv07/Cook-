@@ -111,6 +111,38 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
   expect(overflow).toBe(false);
 });
 
+test("schedule planner builds, edits, saves, and exports seven-post drafts", async ({ page }) => {
+  await page.goto("/");
+  const urls = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  await page.locator("#schedule-links").fill(urls.join("\n"));
+  await page.locator("#schedule-start-date").fill("2026-10-14");
+
+  await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
+  const rows = page.locator(".schedule-table tbody tr");
+  await expect(rows).toHaveCount(7);
+  await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
+  await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
+  await expect(page.getByLabel("Post 2 time")).toHaveValue("18:00");
+  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-10-15");
+  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-10-16");
+  await expect(page.getByText("Draft — approval needed").first()).toBeVisible();
+
+  await page.getByLabel("Post 1 time").selectOption("13:00");
+  await page.reload();
+  await expect(rows).toHaveCount(7);
+  await expect(page.getByLabel("Post 1 time")).toHaveValue("13:00");
+  await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
+
+  await page.getByRole("button", { name: "Build 7-day plan (1 per day)" }).click();
+  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-10-20");
+  await expect(page.getByLabel("Post 7 time")).toHaveValue("18:00");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export schedule JSON" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-schedule-draft.json");
+});
+
 test("navigation drawer, workspace command, and theme toggle work and persist", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation menu" }).click();
