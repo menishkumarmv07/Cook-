@@ -80,7 +80,8 @@ export default function SchedulePlanner() {
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
-          typeof item.date === "string" && typeof item.time === "string" &&
+          typeof item.date === "string" && isValidCalendarDate(item.date) &&
+          (item.time === "09:00" || item.time === "13:00" || item.time === "18:00") &&
           item.status === "Draft — approval needed"
         )) setPlan(saved.plan as ScheduledPost[]);
       }
@@ -134,6 +135,10 @@ export default function SchedulePlanner() {
   }
 
   function exportPlan() {
+    if (plan.some((post) => !isValidCalendarDate(post.date) || !["09:00", "13:00", "18:00"].includes(post.time))) {
+      setMessage("Choose a valid date and suggested time for every post before exporting.");
+      return;
+    }
     const blob = new Blob([JSON.stringify({
       version: 1,
       audienceTimezone: "America/New_York",
