@@ -569,3 +569,114 @@ body, .shell, .main { background-color: #ffffff; color: #171717; }
   .connection-card { padding: 14px; }
   .connection-notice { padding: 12px; }
 }
+
+
+/* Cooking Creator warm organic terracotta design system */
+:root {
+  color-scheme: light;
+  --paper: #FDFBF7;
+  --paper-raised: #FFFEFB;
+  --paper-soft: #F6EDE2;
+  --terracotta: #B95738;
+  --terracotta-deep: #87402C;
+  --caramel: #D69A63;
+  --clay-peach: #EBC6A6;
+  --cocoa: #38271F;
+  --cocoa-muted: #796458;
+  --earth-line: #DCC4AF;
+  --app-bg: var(--paper);
+  --app-panel: var(--paper-raised);
+  --app-ink: var(--cocoa);
+  --app-muted: var(--cocoa-muted);
+  --app-line: var(--earth-line);
+  --app-soft: var(--paper-soft);
+  --app-accent: var(--terracotta);
+  --app-shadow: 0 8px 28px rgba(83, 48, 31, .075);
+}
+html, body, .shell, .main { background: var(--paper); color: var(--cocoa); }
+body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.top {
+  background: rgba(253, 251, 247, .95);
+  border-bottom-color: var(--earth-line);
+  color: var(--cocoa);
+}
+.menu-trigger { background: var(--paper-soft); color: var(--terracotta-deep); }
+.menu-trigger:hover, .drawer-close:hover { background: #EEDCCB; }
+.assistant-mark, .brand-icon { background: var(--terracotta); color: #FFFEFB; }
+.assistant-mark i { border-color: var(--paper); background: #6E966C; }
+.top-context strong { color: var(--cocoa); }
+.top-context small { color: var(--cocoa-muted); }
+.hero { border-bottom-color: var(--earth-line); }
+.hero h1, .section-head h2, .plan-card h2, .research-hub h2 { color: var(--cocoa); }
+.hero .eyebrow, .eyebrow, .muted, .hint { color: var(--cocoa-muted); }
+.dish { background: var(--paper-soft); color: var(--terracotta); }
+.stats > div, .panel, .plan-card, .research-hub, .empty, .recent-item,
+.profile-panel, .source-research-panel, .trial-panel, .approval-panel,
+.validation-panel, .tutorial-preview, .source-reference, .recipe-step,
+.ingredient-row, .trial-photo-field {
+  background: var(--paper-raised);
+  border-color: var(--earth-line);
+  box-shadow: 0 5px 18px rgba(83, 48, 31, .045);
+}
+.plan-next, .research-hub-row { background: var(--paper-soft); }
+.message, .warning, .notes, .step, .draft, .status, .private,
+.checklist li > b, .plan-check, .research-icon, .profile-chevron,
+.empty > span, .recent-item > span, .row-number, .number {
+  background: #F3E5D6;
+  color: var(--terracotta-deep);
+}
+.plan-check, .research-icon { border-radius: 13px; }
+input, textarea, select, .tutorial-preview pre {
+  background: #FFFEFB;
+  color: var(--cocoa);
+  border-color: var(--earth-line);
+}
+input::placeholder, textarea::placeholder { color: #A28A79; }
+input:focus, textarea:focus, select:focus {
+  border-color: var(--terracotta);
+  box-shadow: 0 0 0 3px rgba(185, 87, 56, .13);
+}
+.primary, .command-submit {
+  background: var(--terracotta);
+  color: #fffdf9;
+}
+.primary:hover { background: var(--terracotta-deep); }
+.secondary, .danger, .icon-button {
+  background: var(--paper-raised);
+  color: var(--terracotta-deep);
+  border-color: var(--earth-line);
+}
+.secondary:hover, .danger:hover, .icon-button:hover { background: var(--paper-soft); }
+.chef { background: var(--terracotta-deep); color: #fffaf4; }
+.chef .eyebrow, .chef p:not(.eyebrow), .chef small { color: #F7E5D5; }
+.recent-item.selected { border-color: var(--terracotta); background: #FAEBDD; }
+.sidebar {
+  background: var(--paper-raised);
+  color: var(--cocoa);
+  border-right-color: var(--earth-line);
+  box-shadow: 18px 0 60px rgba(70, 39, 24, .15);
+}
+.sidebar .brand b { color: var(--cocoa); }
+.sidebar .brand small, .sidebar .nav-label { color: var(--cocoa-muted); }
+.sidebar .nav { color: #624536; }
+.sidebar .nav.active { background: #F3E5D6; color: var(--terracotta-deep); }
+.drawer-close { background: var(--paper-soft); color: var(--terracotta-deep); }
+.drawer-backdrop { background: rgba(56, 39, 31, .36); }
+.trial-panel select, .trial-panel textarea {
+  background: #FFFEFB; color: var(--cocoa); border-color: var(--earth-line);
+}
+.trial-photo-preview img { border-color: var(--earth-line); background: var(--paper-soft); }
+footer { border-top-color: var(--earth-line); color: var(--cocoa-muted); }
+button:focus-visible, a:focus-visible { outline-color: var(--terracotta); }
+.command-dock, .quick-dock {
+  background: rgba(253, 251, 247, .97);
+  border-color: var(--earth-line);
+}
+.command-form { background: var(--paper-raised); border-color: var(--earth-line); }
+.command-form input { background: transparent; }
+.command-submit, .quick-dock button span { color: var(--terracotta-deep); }
+.quick-dock button { color: var(--cocoa); }
+.badge, .pill, .tag { border-radius: 999px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
