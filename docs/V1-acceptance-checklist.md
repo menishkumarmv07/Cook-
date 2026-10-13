@@ -295,3 +295,14 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 
 - Follow-up hardening: the chat transcript is stored locally with schema checks and bounds of 100 messages / 12,000 characters per message; malformed or unavailable history is ignored so it cannot lock the app. The seven-link Playwright flow now reloads the page and asserts the conversation and saved planner links remain available.
 - Current latest branch commit for these changes: `f58e6ded66cba2b7db94e6301f06e2d0017a91f2`. Workflow [#290](https://github.com/menishkumarmv07/Cook-/actions/runs/38382738146) is running; do not treat it as passed until the E2E job completes.
+
+
+## Chat-first V1 continuation — 13 October 2026, 10:46 UTC
+
+- PR #51 was merged to `main` by squash merge as `176c568f2b57ecd90cdc764e0d3fca0884cbc297`.
+- Exact PR-head workflow [#299](https://github.com/menishkumarmv07/Cook-/actions/runs/38385223710) completed successfully: dependency installation, unit tests, ESLint, TypeScript, production build, Chromium installation, owner-auth browser smoke, and full desktop/mobile Playwright end-to-end tests all passed.
+- The failure that blocked the previous run was a test expectation using the wrong newline separator for the seven prefilled schedule URLs. The assertion was corrected to use an actual newline character; the application behavior itself had already populated all seven URLs correctly.
+- Vercel created production deployment [4pqAGxeZZFWb7pX1dJgwhQABzMNH](https://vercel.com/menishkumarmv07/cook/4pqAGxeZZFWb7pX1dJgwhQABzMNH) for the merge commit. At the time of this note, Vercel still reports the deployment as BUILDING; do not mark the production rollout ready until its status becomes READY and the public login gate is checked.
+- **Still owner-dependent / not verified:** real Android Chrome acceptance while authenticated; documented one-recipe cooking trial; production host-level rate limiting/access-control review; localStorage data is not encrypted. CI's mobile-sized browser test is not a substitute for an actual Android device test.
+- **Still not implemented in V1:** automated video/audio/frame analysis, evidence-backed multi-source recipe validation, automatic nutrition database lookup, chef character animation/voice/lip-sync/video rendering, social OAuth connections, actual social scheduling/publishing, platform analytics, and monetization integrations. Keep these explicitly labelled as future capabilities.
+- Status: **IN PROGRESS — automated quality gate passed and chat-first change merged; production rollout and manual release gates remain open.**
