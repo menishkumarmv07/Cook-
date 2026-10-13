@@ -429,6 +429,10 @@ export default function Home() {
           }
         }
       }
+      if (threads.length > 0) {
+        // The thread store is now authoritative; do not let a stale legacy key resurrect deleted chats.
+        try { window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY); } catch { /* Storage may be read-only. */ }
+      }
       setChatThreads(threads);
       const activeThread = threads.find((thread) => thread.id === activeId) ?? threads[0];
       if (activeThread) {
