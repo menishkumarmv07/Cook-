@@ -741,3 +741,18 @@ button:focus-visible,a:focus-visible{outline-color:#B95738}
 .schedule-table td:first-child{font-weight:700;color:var(--app-ink)}
 .schedule-preview .hint{line-height:1.7;margin-top:12px}
 @media(max-width:650px){.schedule-preview{padding:15px}.schedule-table{font-size:11px}.schedule-table th,.schedule-table td{padding:10px}}
+
+
+/* Interactive local schedule planner */
+.schedule-builder{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(220px,.75fr);gap:16px;margin:16px 0}
+.schedule-inputs,.schedule-actions{padding:16px;border:1px solid var(--app-line);border-radius:12px;background:var(--app-panel)}
+.schedule-inputs label{margin-top:0}
+.schedule-inputs textarea{min-height:130px;resize:vertical;line-height:1.65}
+.schedule-inputs input[type=date],.schedule-table input[type=date],.schedule-table select{min-width:130px;padding:9px;font-size:11px}
+.schedule-actions{display:flex;flex-direction:column;justify-content:center;gap:10px}
+.schedule-actions .primary,.schedule-actions .secondary{width:100%;margin:0}
+.schedule-error{color:#9c2f24;background:#fbe9e5;padding:9px 11px;border-radius:8px;font-size:11px}
+.schedule-table td a{display:inline-block;max-width:260px;overflow-wrap:anywhere;color:var(--app-terracotta,#B95738)}
+.schedule-table td input,.schedule-table td select{background:#fffdf9;border:1px solid var(--app-line);border-radius:7px;color:var(--app-ink)}
+@media(max-width:800px){.schedule-builder{grid-template-columns:1fr}}
+@media(max-width:650px){.schedule-inputs,.schedule-actions{padding:12px}.schedule-table{min-width:730px}.schedule-table td a{max-width:180px}}
