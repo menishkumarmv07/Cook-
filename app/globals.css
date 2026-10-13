@@ -931,3 +931,23 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .shell[data-theme="dark"] .schedule-actions { background: var(--chat-soft); color: var(--chat-ink); border-color: var(--chat-line); }
 .shell[data-theme="dark"] .logout-trigger,
 .shell[data-theme="dark"] .secondary { background: var(--chat-card); color: var(--chat-ink); border-color: var(--chat-line); }
+
+
+/* Reusable kawaii chef-hat mark: scoped to the logo only; layout remains unchanged. */
+.chef-hat-logo { display:block; width:100%; height:100%; overflow:visible; fill:none; stroke:none; }
+.chef-hat-logo .chef-hat-shadow { fill:#713B2A; opacity:.18; }
+.chef-hat-logo .chef-hat-body { fill:url(#chef-hat-cream); stroke:#B95738; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.chef-hat-logo .chef-hat-highlight { fill:none; stroke:#FFFFFF; stroke-width:2.1; stroke-linecap:round; opacity:.95; }
+.chef-hat-logo .chef-hat-band { fill:url(#chef-hat-band); stroke:#B95738; stroke-width:1.5; stroke-linejoin:round; }
+.chef-hat-logo .chef-hat-band-line { fill:none; stroke:#D7A78B; stroke-width:1.2; stroke-linecap:round; }
+.chef-hat-logo .chef-hat-eye { fill:#493027; stroke:none; }
+.chef-hat-logo .chef-hat-smile { fill:none; stroke:#493027; stroke-width:1.8; stroke-linecap:round; }
+.chef-hat-logo .chef-hat-blush { fill:#EBA18F; opacity:.92; stroke:none; }
+.chef-hat-logo .chef-hat-sparkle { fill:#E8B36D; stroke:#B95738; stroke-width:.7; stroke-linejoin:round; }
+.chat-chef-mark .chef-hat-logo { width:40px; height:40px; }
+.assistant-mark .chef-hat-logo, .brand-icon .chef-hat-logo { width:27px; height:27px; }
+@keyframes chef-hat-float { 0%,100% { transform:translateY(0) rotate(0); } 50% { transform:translateY(-4px) rotate(-1deg); } }
+.chat-chef-mark .chef-hat-logo { animation:chef-hat-float 3.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .chat-chef-mark .chef-hat-logo { animation:none; }
+}
