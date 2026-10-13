@@ -951,3 +951,56 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   .chat-chef-mark .chef-hat-logo { animation:none; }
 }
+
+
+/* Final scoped fix: keep the workspace message composer centered on mobile and desktop. */
+.shell .command-dock {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  transform: none;
+  overflow: visible;
+}
+.shell .command-form {
+  flex: 0 1 720px;
+  width: min(100%, 720px);
+  max-width: 720px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.shell .command-form input {
+  flex: 1 1 0%;
+  min-width: 0;
+  width: 0;
+  max-width: 100%;
+}
+.shell .command-submit {
+  flex: 0 0 40px;
+  margin-left: auto;
+}
+@media (max-width: 650px) {
+  .shell .command-dock {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    padding: 8px 12px max(10px, env(safe-area-inset-bottom));
+    gap: 8px;
+    transform: none;
+  }
+  .shell .command-form {
+    flex: 1 1 auto;
+    width: auto;
+    max-width: 720px;
+    min-width: 0;
+  }
+  .shell .command-submit {
+    flex-basis: 39px;
+    width: 39px;
+  }
+}
