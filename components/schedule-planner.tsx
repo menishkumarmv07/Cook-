@@ -84,7 +84,9 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
-          typeof item.date === "string" && isValidCalendarDate(item.date) &&
+          // Date inputs can be temporarily empty while the creator edits a row.
+          // Keep that draft across refresh; export still requires a valid calendar date.
+          typeof item.date === "string" && (item.date === "" || isValidCalendarDate(item.date)) &&
           (item.time === "09:00" || item.time === "13:00" || item.time === "18:00") &&
           item.status === "Draft — approval needed"
         )) setPlan(saved.plan as ScheduledPost[]);
