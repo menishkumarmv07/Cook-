@@ -356,11 +356,11 @@ export default function Home() {
     const request = rawRequest.toLowerCase();
     if (!rawRequest) return;
 
-    const detectedUrls = Array.from(rawRequest.matchAll(/https?:\\/\\/[^\\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
-    const scheduleIntent = /\\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\\b/i.test(rawRequest);
+    const detectedUrls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
     if (detectedUrls.length > 1 || (scheduleIntent && detectedUrls.length > 0)) {
       const invalidLinks = detectedUrls.filter((link) => !isHttpUrl(link));
-      setSchedulePrefill(detectedUrls.filter(isHttpUrl).join("\\n"));
+      setSchedulePrefill(detectedUrls.filter(isHttpUrl).join("\n"));
       if (invalidLinks.length > 0) {
         openTool("content", rawRequest, `I found ${detectedUrls.length} link(s), but ${invalidLinks.length} do not look like valid HTTP(S) URLs. I placed the valid links into the planner. Correct the invalid link(s) and confirm there are exactly seven before generating a schedule.`);
         return;
@@ -392,7 +392,7 @@ export default function Home() {
     if (/research|source|trend|video link/.test(request)) { openTool("research", rawRequest); return; }
     if (/publish|share|approval|queue/.test(request)) { openTool("publish", rawRequest); return; }
     if (/studio|editor|script|storyboard|content/.test(request)) { openTool("intake", rawRequest); return; }
-    if (/today'?s plan|my plan|daily plan|next step|\\bplan\\b/.test(request)) { openTool("plan", rawRequest); return; }
+    if (/today'?s plan|my plan|daily plan|next step|\bplan\b/.test(request)) { openTool("plan", rawRequest); return; }
     if (/theme|settings|profile/.test(request)) { openTool("profile", rawRequest); setMenuOpen(/theme|settings/.test(request)); return; }
     if (/library|recent drafts/.test(request)) { openTool("library", rawRequest); return; }
 
