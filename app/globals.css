@@ -840,3 +840,6 @@ button:focus-visible,a:focus-visible{outline-color:#B95738}
 .content[data-view]:not([data-view="chat"]) .chat-starters { display: none; }
 .content[data-view]:not([data-view="chat"]) .chat-thread { max-height: 190px; }
 .content[data-view]:not([data-view="chat"]) .chat-back { margin: 0 auto; }
+
+
+.assistant-mark span { font-size: 18px; line-height: 1; }
