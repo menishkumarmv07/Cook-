@@ -140,7 +140,7 @@ test("chat-first home records the selected task and sends seven pasted links to 
 
   await expect(page.locator(".chat-thread")).toContainText("Take these seven Reels");
   await expect(page.locator(".chat-thread")).toContainText("prepared a three-day draft plan");
-  await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\\n"));
+  await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
   await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
   await expect(page.getByLabel("Post 2 time")).toHaveValue("18:00");
