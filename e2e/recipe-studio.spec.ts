@@ -634,13 +634,13 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
   const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
-  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\\n${links.join("\\n")}`;
+  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
   await page.locator("#workspace-command").fill(request);
   await page.getByRole("button", { name: "Run workspace command" }).click();
 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
-  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\\n"));
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
   await expect(page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
   await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
