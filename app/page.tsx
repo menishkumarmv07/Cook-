@@ -77,6 +77,35 @@ const SOCIAL_PLATFORMS = [
   { name: "X", mark: "X", description: "Posts and video clips" },
 ] as const;
 
+
+function ChefHatLogo() {
+  return (
+    <svg className="chef-hat-logo" viewBox="0 0 64 64" role="img" aria-label="Cooking Creator chef hat" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="chef-hat-cream" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFFEF9" />
+          <stop offset="1" stopColor="#F5DDC9" />
+        </linearGradient>
+        <linearGradient id="chef-hat-band" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#F9EBDD" />
+          <stop offset="1" stopColor="#E9C6AE" />
+        </linearGradient>
+      </defs>
+      <path className="chef-hat-shadow" d="M10 34c-3.4-2-5-5.2-4.5-8.8.6-4.2 4.1-7.1 8.2-7.1 1.1-7.1 7.2-11.2 13.7-9.1C31 1.5 42.6 3.1 45.2 12.5c6.2-.4 11 4.4 11 10.1 0 4.7-2.6 8.4-6.3 10.1v15.1H14V34z" />
+      <path className="chef-hat-body" d="M10 32c-3.4-1.8-5-5-4.5-8.6.6-4.2 4.1-7.1 8.2-7.1 1.1-7.1 7.2-11.2 13.7-9.1C31 1.5 42.6 3.1 45.2 12.5c6.2-.4 11 4.4 11 10.1 0 4.7-2.6 8.4-6.3 10.1v15.1H14V32z" />
+      <path className="chef-hat-highlight" d="M12 24c.4-3.3 2.7-5.2 5.6-5.2M21 13.3c2.3-2.5 5.4-3.2 8.3-2.2" />
+      <path className="chef-hat-band" d="M12 39.5h40v8.2c0 2.1-1.7 3.8-3.8 3.8H15.8c-2.1 0-3.8-1.7-3.8-3.8z" />
+      <path className="chef-hat-band-line" d="M14 41h36" />
+      <circle className="chef-hat-eye" cx="25" cy="31" r="1.65" />
+      <circle className="chef-hat-eye" cx="39" cy="31" r="1.65" />
+      <path className="chef-hat-smile" d="M28.5 35.2c2.1 2.5 5.9 2.5 8 0" />
+      <ellipse className="chef-hat-blush" cx="19.5" cy="35.1" rx="3.1" ry="1.7" />
+      <ellipse className="chef-hat-blush" cx="44.5" cy="35.1" rx="3.1" ry="1.7" />
+      <path className="chef-hat-sparkle" d="M51.5 2.5l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" />
+    </svg>
+  );
+}
+
 function migrateProject(value: unknown): RecipeProject | null {
   if (typeof value !== "object" || value === null) return null;
   const old = value as Partial<RecipeProject>;
@@ -971,7 +1000,7 @@ export default function Home() {
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
+          <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
           <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
         </div>
         <p className="nav-label">YOUR WORKFLOW</p>
@@ -1001,13 +1030,13 @@ export default function Home() {
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
-          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => openTool("profile")}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg><i aria-hidden="true" /></button>
+          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => openTool("profile")}><ChefHatLogo /><i aria-hidden="true" /></button>
         </header>
         <div className="content">
           <section className="chat-transcript" aria-label="Cooking Creator chat" role="log" aria-live="polite">
             {chatMessages.length === 0 ? (
               <div className="chat-empty">
-                <span className="chat-chef-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.2c-1.3-.7-2.1-2-2.1-3.5A3.8 3.8 0 0 1 7.2 5a4.9 4.9 0 0 1 9.4 0 3.8 3.8 0 0 1 4.3 3.7c0 1.5-.8 2.8-2.1 3.5v6.1H5z"/><path d="M5 14h14M8 17h8"/></svg></span>
+                <span className="chat-chef-mark" aria-hidden="true"><ChefHatLogo /></span>
                 <h1>What are we cooking today?</h1>
                 <p>Choose a task from the three-line menu, or type your request below.</p>
               </div>
