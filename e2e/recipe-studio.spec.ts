@@ -652,7 +652,7 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
-  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10));
   await expect(page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
   await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
