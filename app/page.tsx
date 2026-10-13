@@ -364,7 +364,7 @@ export default function Home() {
       tool === "home" ? "chat-transcript" :
       tool === "plan" ? "daily-plan" :
       tool === "content" ? "schedule-preview-title" :
-      tool === "research" ? (current ? "research-desk" : "intake") :
+      tool === "research" ? (current ? "research-desk" : "research-trends") :
       tool === "publish" ? (current ? "publish-queue" : "intake") :
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
@@ -1001,7 +1001,7 @@ export default function Home() {
           </div>
 
           <section className="research-hub panel" id="research-trends">
-            <div className="section-head"><div><p className="eyebrow">RESEARCH & TRENDS</p><h2>Build from evidence, not guesses.</h2><p>Record recipe sources, compare the details you actually checked, and flag gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
+            <div className="section-head"><div><p className="eyebrow">RESEARCH STUDIO</p><h2>Build from evidence, not guesses.</h2><p>Compare recipe sources, record ingredients and ordered steps, and flag timing or safety gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
             <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Public HTML recipe pages can be inspected after an explicit action during intake. Extraction is not verification; video frames and audio are not analyzed. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
           </section>
 
