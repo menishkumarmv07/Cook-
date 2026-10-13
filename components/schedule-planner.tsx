@@ -55,8 +55,8 @@ function validHttpUrl(value: string): boolean {
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
-  const [durationDays, setDurationDays] = useState("7");
-  const [timesText, setTimesText] = useState("09:00, 13:00, 18:00");
+  const [durationDays, setDurationDays] = useState("");
+  const [timesText, setTimesText] = useState("");
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Paste as many video or Reel links as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
@@ -72,13 +72,13 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; durationDays?: unknown; timesText?: unknown; plan?: unknown };
         if (typeof saved.linksText === "string") setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
-        if (typeof saved.durationDays === "string" && /^\\d+$/.test(saved.durationDays) && Number(saved.durationDays) > 0) setDurationDays(saved.durationDays);
+        if (typeof saved.durationDays === "string" && /^\d+$/.test(saved.durationDays) && Number(saved.durationDays) > 0) setDurationDays(saved.durationDays);
         if (typeof saved.timesText === "string") setTimesText(saved.timesText);
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
           typeof item.date === "string" && isValidCalendarDate(item.date) &&
-          typeof item.time === "string" && /^([01]\\d|2[0-3]):[0-5]\\d$/.test(item.time) &&
+          typeof item.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(item.time) &&
           item.status === "Draft — approval needed"
         )) setPlan(saved.plan as ScheduledPost[]);
       }
@@ -101,7 +101,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
   const times = useMemo(() => timesText.split(",").map((time) => time.trim()).filter(Boolean), [timesText]);
-  const invalidTimes = useMemo(() => times.filter((time) => !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(time)), [times]);
+  const invalidTimes = useMemo(() => times.filter((time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)), [times]);
 
   function generateSchedule() {
     const days = Number(durationDays);
@@ -147,7 +147,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   }
 
   function exportPlan() {
-    if (plan.some((post) => !isValidCalendarDate(post.date) || !/^([01]\\d|2[0-3]):[0-5]\\d$/.test(post.time))) {
+    if (plan.some((post) => !isValidCalendarDate(post.date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(post.time))) {
       setMessage("Choose a valid date and suggested time for every post before exporting.");
       return;
     }
@@ -195,7 +195,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <label htmlFor="schedule-duration">Schedule length (days)</label>
           <input id="schedule-duration" type="number" min="1" max="3650" step="1" value={durationDays} onChange={(event) => setDurationDays(event.target.value)} />
           <label htmlFor="schedule-times">Your posting times (24-hour format)</label>
-          <input id="schedule-times" type="text" value={timesText} onChange={(event) => setTimesText(event.target.value)} placeholder="09:00, 13:00, 19:30" />
+          <input id="schedule-times" type="text" value={timesText} onChange={(event) => setTimesText(event.target.value)} placeholder="Enter any times, e.g. 09:00, 13:00, 19:30" />
           {invalidTimes.length > 0 && <p className="schedule-error" role="alert">Use valid times like 09:00 or 19:30, separated by commas.</p>}
           <p className="hint">Posts are spread as evenly as possible across your chosen days. Your listed times repeat for multiple posts on a day. You can edit each post’s date and time below.</p>
         </div>
