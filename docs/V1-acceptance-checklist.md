@@ -291,3 +291,7 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - The current PR head has a Vercel preview deployment marked READY and the Vercel commit status is successful. Preview UI is protected by Vercel authentication, so unauthenticated external scraping cannot verify the rendered workspace.
 - Latest GitHub Actions run [#287](https://github.com/menishkumarmv07/Cook-/actions/runs/38381454092) has passed dependency install, unit tests, ESLint, TypeScript, production build, and owner-auth browser smoke; Playwright E2E is still running at the time of this note.
 - This change is not merged to main yet. Keep V1 **IN PROGRESS** until CI completes, changes are reviewed/merged, production deployment is confirmed, and the owner-dependent Android/cooking/security gates are actually completed.
+
+
+- Follow-up hardening: the chat transcript is stored locally with schema checks and bounds of 100 messages / 12,000 characters per message; malformed or unavailable history is ignored so it cannot lock the app. The seven-link Playwright flow now reloads the page and asserts the conversation and saved planner links remain available.
+- Current latest branch commit for these changes: `f58e6ded66cba2b7db94e6301f06e2d0017a91f2`. Workflow [#290](https://github.com/menishkumarmv07/Cook-/actions/runs/38382738146) is running; do not treat it as passed until the E2E job completes.
