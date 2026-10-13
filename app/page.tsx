@@ -903,12 +903,12 @@ export default function Home() {
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>Workspace / {activeWorkspaceView === "chat" ? "AI chat" : activeWorkspaceView === "plan" ? "Today’s Plan" : activeWorkspaceView === "studio" ? "Plan Content" : activeWorkspaceView === "research" ? "Research Studio" : activeWorkspaceView === "publish" ? "Publish" : activeWorkspaceView}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
-          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span>✦</span><i aria-hidden="true" /></button>
+          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => goToSection("profile")}><span aria-hidden="true">👨‍🍳</span><i aria-hidden="true" /></button>
         </header>
         <div className="content" data-view={activeWorkspaceView}>
           <section className="chat-home" aria-label="Cooking Creator chat">
             <div className="chat-welcome">
-              <span className="chat-chef-mark" aria-hidden="true">♨</span>
+              <span className="chat-chef-mark" aria-hidden="true">👨‍🍳</span>
               <p className="eyebrow">COOKING CREATOR · AI COOKING CONTENT APP</p>
               <h1>What are we cooking today?</h1>
               <p>Your workspace starts here. Choose a task or tell me what you want to do.</p>
@@ -1207,10 +1207,10 @@ export default function Home() {
         </form>
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
-        <button type="button" onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
-        <button type="button" onClick={() => goToSection("studio")}><span aria-hidden="true">✎</span><small>Plan Content</small></button>
-        <button type="button" onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research Studio</small></button>
-        <button type="button" onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
+        <button type="button" aria-current={activeWorkspaceView === "plan" ? "page" : undefined} onClick={() => goToSection("plan")}><span aria-hidden="true">▣</span><small>Today&apos;s Plan</small></button>
+        <button type="button" aria-current={activeWorkspaceView === "studio" ? "page" : undefined} onClick={() => goToSection("studio")}><span aria-hidden="true">✎</span><small>Plan Content</small></button>
+        <button type="button" aria-current={activeWorkspaceView === "research" ? "page" : undefined} onClick={() => goToSection("research")}><span aria-hidden="true">⌕</span><small>Research Studio</small></button>
+        <button type="button" aria-current={activeWorkspaceView === "publish" ? "page" : undefined} onClick={() => goToSection("publish")}><span aria-hidden="true">➤</span><small>Publish</small></button>
       </nav>
     </main>
   );
