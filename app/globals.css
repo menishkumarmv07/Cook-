@@ -877,3 +877,57 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (prefers-reduced-motion: reduce) {
   .sidebar { transition-duration: .01ms; }
 }
+
+
+/* Tool-specific chat handoff polish and dark-theme preservation */
+.shell[data-active-tool="research"][data-has-current="false"] .content > .research-hub { display: block !important; }
+.shell[data-active-tool="research"][data-has-current="false"] .content > #intake { display: none !important; }
+.shell[data-active-tool="publish"][data-has-current="false"] .content > #recipe-editor { display: none !important; }
+.shell[data-theme="dark"] {
+  --chat-paper: #211914;
+  --chat-card: #2C211B;
+  --chat-soft: #3B2A21;
+  --chat-terracotta: #C9704F;
+  --chat-terracotta-deep: #F0B18D;
+  --chat-ink: #F6EEE7;
+  --chat-muted: #C4AA99;
+  --chat-line: #514034;
+  background: var(--chat-paper);
+  color: var(--chat-ink);
+}
+.shell[data-theme="dark"] .main,
+.shell[data-theme="dark"] .top,
+.shell[data-theme="dark"] .command-dock { background: var(--chat-paper); color: var(--chat-ink); border-color: var(--chat-line); }
+.shell[data-theme="dark"] .top-context strong,
+.shell[data-theme="dark"] .chat-empty h1,
+.shell[data-theme="dark"] .section-head h2,
+.shell[data-theme="dark"] .profile-panel summary strong { color: var(--chat-terracotta-deep); }
+.shell[data-theme="dark"] .sidebar { background: var(--chat-card); color: var(--chat-ink); border-color: var(--chat-line); }
+.shell[data-theme="dark"] .sidebar .brand b,
+.shell[data-theme="dark"] .sidebar .nav { color: var(--chat-ink); }
+.shell[data-theme="dark"] .sidebar .brand small,
+.shell[data-theme="dark"] .sidebar .nav-label,
+.shell[data-theme="dark"] .chat-empty p,
+.shell[data-theme="dark"] .chat-message.from-assistant p { color: var(--chat-muted); }
+.shell[data-theme="dark"] .sidebar .nav.active,
+.shell[data-theme="dark"] .sidebar .nav:hover { background: var(--chat-soft); color: var(--chat-ink); }
+.shell[data-theme="dark"] .command-form,
+.shell[data-theme="dark"] .panel,
+.shell[data-theme="dark"] .plan-card,
+.shell[data-theme="dark"] .schedule-preview,
+.shell[data-theme="dark"] .profile-panel,
+.shell[data-theme="dark"] .source-research-panel,
+.shell[data-theme="dark"] .trial-panel,
+.shell[data-theme="dark"] .approval-panel,
+.shell[data-theme="dark"] .tutorial-preview { background: var(--chat-card); color: var(--chat-ink); border-color: var(--chat-line); }
+.shell[data-theme="dark"] .command-form input,
+.shell[data-theme="dark"] input,
+.shell[data-theme="dark"] textarea,
+.shell[data-theme="dark"] select { background: #241B16; color: var(--chat-ink); border-color: var(--chat-line); }
+.shell[data-theme="dark"] .chat-message.from-user p { background: #4A3126; color: #FFEEE2; border-color: #6F4735; }
+.shell[data-theme="dark"] .plan-next,
+.shell[data-theme="dark"] .research-hub-row,
+.shell[data-theme="dark"] .schedule-inputs,
+.shell[data-theme="dark"] .schedule-actions { background: var(--chat-soft); color: var(--chat-ink); border-color: var(--chat-line); }
+.shell[data-theme="dark"] .logout-trigger,
+.shell[data-theme="dark"] .secondary { background: var(--chat-card); color: var(--chat-ink); border-color: var(--chat-line); }
