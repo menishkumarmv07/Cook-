@@ -214,6 +214,8 @@ export default function Home() {
   const [command, setCommand] = useState("");
   const [activeWorkspaceView, setActiveWorkspaceView] = useState<"chat" | "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections">("chat");
   const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [scheduleLinksText, setScheduleLinksText] = useState("");
+  const [scheduleRequestMode, setScheduleRequestMode] = useState<"three-day" | "seven-day" | null>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
@@ -314,6 +316,24 @@ export default function Home() {
     const request = rawRequest.toLowerCase();
     if (!request) {
       setMessage("Try a workspace command such as “new recipe”, “research”, “content studio”, or paste a recipe/video link.");
+      return;
+    }
+
+    // Multiple links and natural-language scheduling requests flow from chat into the local planner.
+    const pastedUrls = (rawRequest.match(/https?:\\/\\/[^\\s]+/gi) ?? []).map((item) => item.replace(/[),.;]+$/, ""));
+    const scheduleIntent = /\\b(schedule|scheduling|posting plan|post (?:these|each|one|them)|reels?|videos?|\\b(?:3|three)[ -]?days?\\b|\\b(?:7|seven)[ -]?days?\\b|\\b(?:one|1) per day\\b|\\bweek\\b|\\bmorning\\b|\\bafternoon\\b|\\bevening\\b)/i.test(rawRequest);
+    if (pastedUrls.length > 1 || (pastedUrls.length === 1 && scheduleIntent)) {
+      const invalid = pastedUrls.filter((item) => !isHttpUrl(item));
+      if (invalid.length > 0) {
+        setChatMessages((previous) => [...previous, { role: "user" as const, text: rawRequest }, { role: "assistant" as const, text: "Some pasted links are not valid HTTP(S) URLs. Please correct them before creating a schedule." }].slice(-12));
+        return;
+      }
+      const mode = /\\b(week|weekly|7 days|seven days|one per day|1 per day|daily|each day)\\b/i.test(rawRequest) ? "seven-day" : "three-day";
+      setScheduleLinksText(pastedUrls.join("\\n"));
+      setScheduleRequestMode(pastedUrls.length === 7 && scheduleIntent ? mode : null);
+      setActiveWorkspaceView("plan");
+      setChatMessages((previous) => [...previous, { role: "user" as const, text: rawRequest }, { role: "assistant" as const, text: pastedUrls.length === 7 ? (scheduleIntent ? `I’ve added all seven links and prepared a ${mode === "seven-day" ? "seven-day" : "three-day"} draft plan below. Review the suggested times and edit anything you need. This is a local draft, not a live social-media schedule.` : "I’ve added all seven links to Today’s Plan. Choose the three-day or seven-day option to generate your draft schedule.") : `I’ve added ${pastedUrls.length} link(s) to Today’s Plan. The planner needs exactly seven valid links to generate the sample three-day or seven-day plan.` }].slice(-12));
+      setCommand("");
       return;
     }
 
@@ -919,7 +939,7 @@ export default function Home() {
             </div>
           </section>
 
-          <SchedulePlanner />
+          <SchedulePlanner incomingLinksText={scheduleLinksText} requestedMode={scheduleRequestMode} />
 
           <div className="stats">
             <div><small>Recipe projects</small><strong>{projects.length}</strong><em>Saved in this browser</em></div>
