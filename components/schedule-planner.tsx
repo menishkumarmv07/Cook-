@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ScheduledPost = {
   id: string;
@@ -63,12 +63,13 @@ function validHttpUrl(value: string): boolean {
   }
 }
 
-export default function SchedulePlanner() {
+export default function SchedulePlanner({ incomingLinksText = "", requestedMode = null }: { incomingLinksText?: string; requestedMode?: "three-day" | "seven-day" | null }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Add up to seven public Reel or video URLs, one per line.");
   const [hydrated, setHydrated] = useState(false);
+  const lastAutoRequestRef = useRef("");
 
   useEffect(() => {
     try {
@@ -129,6 +130,21 @@ export default function SchedulePlanner() {
       ? "Created a local three-day draft: 2 posts on Day 1, 2 on Day 2 and 3 on Day 3."
       : "Created a local seven-day draft with one post per day.");
   }
+
+  useEffect(() => {
+    if (incomingLinksText.trim()) {
+      setLinksText(incomingLinksText);
+      setMessage("Links from chat added here. Review the dates and suggested posting times before exporting.");
+    }
+  }, [incomingLinksText]);
+
+  useEffect(() => {
+    if (!requestedMode || !incomingLinksText.trim() || links.length !== 7 || invalidLinks.length > 0) return;
+    const signature = `${requestedMode}\\n${incomingLinksText}`;
+    if (lastAutoRequestRef.current === signature) return;
+    lastAutoRequestRef.current = signature;
+    generateSchedule(requestedMode);
+  }, [incomingLinksText, requestedMode, links.length, invalidLinks.length, startDate]);
 
   function updatePost(id: string, field: "date" | "time", value: string) {
     setPlan((current) => current.map((post) => post.id === id ? { ...post, [field]: value } : post));
