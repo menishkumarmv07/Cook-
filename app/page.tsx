@@ -417,6 +417,14 @@ export default function Home() {
               const migrated: ChatThread = { id: createChatId(), title: getChatTitle(messages), createdAt: now, updatedAt: now, messages };
               threads = [migrated];
               activeId = migrated.id;
+              // Persist the migrated thread before removing the old flat-list key.
+              try {
+                window.localStorage.setItem(CHAT_THREADS_STORAGE_KEY, JSON.stringify(threads));
+                window.localStorage.setItem(ACTIVE_CHAT_ID_STORAGE_KEY, migrated.id);
+                window.localStorage.removeItem(CHAT_HISTORY_STORAGE_KEY);
+              } catch {
+                // Keep the legacy key if the browser cannot complete the migration write.
+              }
             }
           }
         }
