@@ -316,3 +316,12 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - **Remaining release gates:** actual Android Chrome acceptance while logged in; one real recipe trial with the app's trial record; security review including hosting-level rate limiting and access-control configuration; confirm the intended access policy before saving anything sensitive. Browser-local recipe/profile data is not encrypted.
 - **V1 capability boundary remains unchanged:** the workspace is a task-routing/chat-style interface, not a connected conversational AI assistant. Source comparisons and nutrition values require creator-entered evidence; video/audio analysis, character animation/voice/video rendering, social account OAuth, direct scheduling/publishing, platform analytics, and monetization integrations are not implemented.
 - Status: **IN PROGRESS — code merged, automated checks passed, latest production deployment READY; owner/device acceptance and security gates remain open.**
+
+
+## Hosting access-control review — 13 October 2026, 10:51 UTC
+
+- Read-only Vercel project inspection confirms project `cook` is connected to `menishkumarmv07/Cook-` and uses Next.js.
+- Vercel project metadata reports SSO protection enabled for deployments except custom domains, Vercel password protection disabled, and trusted-IP restriction disabled. The verified custom production domain is `cook-silk.vercel.app`; therefore do **not** assume Vercel SSO protects that custom-domain entry point. The application must rely on its own server-verified owner session there.
+- The app source has a best-effort in-memory login throttle only. A read of the active Vercel firewall configuration returned “Seawall Config not found,” so I could not verify an active hosting-level firewall/rate-limiting policy. This is an unresolved configuration check, not proof that no other platform protections exist.
+- No Vercel security settings were changed. Enabling a new protection mode could lock the owner out or require account-plan changes, so it should not be altered without a verified owner access path and explicit approval.
+- **Required before sensitive use:** confirm owner sign-in works on the custom domain, verify protected workspace routes and the source-inspection API reject unauthenticated requests, and arrange a supported hosting-level login rate limit or equivalent before treating the app as security-release-ready.
