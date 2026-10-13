@@ -294,20 +294,13 @@ export default function Home() {
       connections: "Social connections is selected. Official account connections are not configured yet; no account is connected."
     } as const;
     setChatMessages((previous) => [...previous, { role: "user" as const, text: labels[section] }, { role: "assistant" as const, text: replies[section] }].slice(-12));
-    const targetId =
-      section === "plan" ? "daily-plan" :
-      section === "research" ? (current ? "research-desk" : "research-trends") :
-      section === "connections" ? "social-connections" :
-      section === "studio" ? "recipe-editor" :
-      section === "publish" ? (current ? "publish-queue" : "recipe-editor") :
-      section === "intake" ? "intake" :
-      section === "profile" ? "creator-profile" : "recent-projects";
     if (section === "publish" && !current) {
       setMessage("Create or open a recipe draft first. V1 supports owner-approved text export, not direct social publishing.");
     } else if (section === "research" && !current) {
       setMessage("Research notes are saved inside a recipe draft. Create or open a draft to add source references.");
     }
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Keep the chat confirmation at the top after switching tools; the selected work area follows it.
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   }
 
   function submitWorkspaceCommand(event: FormEvent<HTMLFormElement>) {
