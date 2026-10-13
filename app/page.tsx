@@ -586,7 +586,7 @@ export default function Home() {
     lastChatStatusRef.current = message;
     setChatMessages((previous) => [...previous, {
       id: Date.now().toString(36) + "-status-" + previous.length,
-      role: "assistant",
+      role: "assistant" as const,
       text: message,
       timestamp: new Date().toISOString(),
     }].slice(-MAX_CHAT_HISTORY_MESSAGES));
@@ -622,8 +622,8 @@ export default function Home() {
       const base = Date.now().toString(36) + "-" + previous.length;
       return [
         ...previous,
-        { id: base + "-user", role: "user", text: shownText, timestamp: new Date().toISOString() },
-        { id: base + "-assistant", role: "assistant", text: customResponse ?? responseForTool(tool), timestamp: new Date().toISOString() },
+        { id: base + "-user", role: "user" as const, text: shownText, timestamp: new Date().toISOString() },
+        { id: base + "-assistant", role: "assistant" as const, text: customResponse ?? responseForTool(tool), timestamp: new Date().toISOString() },
       ].slice(-MAX_CHAT_HISTORY_MESSAGES);
     });
     const targetId =
@@ -714,8 +714,8 @@ export default function Home() {
     ensureActiveChat();
     setChatMessages((previous) => [
       ...previous,
-      { id: time + "-user-" + previous.length, role: "user", text: rawRequest, timestamp: new Date().toISOString() },
-      { id: time + "-assistant-" + (previous.length + 1), role: "assistant", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue.", timestamp: new Date().toISOString() },
+      { id: time + "-user-" + previous.length, role: "user" as const, text: rawRequest, timestamp: new Date().toISOString() },
+      { id: time + "-assistant-" + (previous.length + 1), role: "assistant" as const, text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue.", timestamp: new Date().toISOString() },
     ].slice(-MAX_CHAT_HISTORY_MESSAGES));
     setCommand("");
   }
