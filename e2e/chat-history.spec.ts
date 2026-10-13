@@ -30,7 +30,9 @@ async function sendChatMessage(page: import("@playwright/test").Page, message: s
   await expect(page.locator(".chat-message.from-user").filter({ hasText: message })).toBeVisible();
 }
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page }, testInfo) => {
+  // The migration case must seed legacy localStorage before the first workspace load.
+  if (testInfo.title.startsWith("LEGACY:")) return;
   await signInOwner(page);
 });
 
@@ -61,7 +63,7 @@ test("chat history creates separate conversations and restores a conversation af
   await expect(page.locator(".chat-history-row")).toHaveCount(2);
 });
 
-test("legacy flat chat history migrates into a saved conversation", async ({ page }) => {
+test("LEGACY: flat chat history migrates into a saved conversation", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("cooking-creator-chat-history-v1", JSON.stringify([
       { id: "legacy-user", role: "user", text: "My old recipe conversation", timestamp: "2026-10-10T10:00:00.000Z" },
