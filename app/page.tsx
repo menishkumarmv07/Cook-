@@ -29,6 +29,9 @@ const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
+const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1";
+const MAX_CHAT_HISTORY_MESSAGES = 100;
+const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
@@ -225,6 +228,7 @@ export default function Home() {
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
   const [activeToolReady, setActiveToolReady] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatHistoryReady, setChatHistoryReady] = useState(false);
   const [schedulePrefill, setSchedulePrefill] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -287,6 +291,47 @@ export default function Home() {
       // Navigation still works for this session even if it cannot persist.
     }
   }, [activeTool, activeToolReady]);
+
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(CHAT_HISTORY_STORAGE_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((item): item is ChatMessage =>
+            Boolean(item) &&
+            typeof item === "object" &&
+            typeof (item as ChatMessage).id === "string" &&
+            ((item as ChatMessage).role === "user" || (item as ChatMessage).role === "assistant") &&
+            typeof (item as ChatMessage).text === "string"
+          ).slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
+            ...item,
+            text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
+          }));
+          setChatMessages(valid);
+        }
+      }
+    } catch {
+      // Invalid or blocked history must never prevent opening the workspace.
+    } finally {
+      setChatHistoryReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!chatHistoryReady) return;
+    try {
+      window.localStorage.setItem(
+        CHAT_HISTORY_STORAGE_KEY,
+        JSON.stringify(chatMessages.slice(-MAX_CHAT_HISTORY_MESSAGES).map((item) => ({
+          ...item,
+          text: item.text.slice(0, MAX_CHAT_MESSAGE_CHARACTERS),
+        })))
+      );
+    } catch {
+      // Chat remains usable for this session when browser storage is unavailable.
+    }
+  }, [chatMessages, chatHistoryReady]);
 
   useEffect(() => {
     try {
