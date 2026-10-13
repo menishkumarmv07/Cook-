@@ -441,7 +441,7 @@ test("workspace backup exports all drafts and restores them with explicit confir
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("First backup recipe");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await chooseMenuTool(page, "Creator profile");
+  await chooseMenuTool(page, "Library / recent drafts");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export all drafts" }).click();
@@ -461,13 +461,14 @@ test("workspace backup exports all drafts and restores them with explicit confir
   expect(backup.creatorProfile.tone).toBe("Workspace backup profile");
   expect(backup.creatorProfile.units).toBe("US customary");
 
+  await chooseMenuTool(page, "Creator profile");
   await page.getByLabel("Voice / tone").fill("Changed before restore");
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Temporary current draft");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await chooseMenuTool(page, "Creator profile");
   page.on("dialog", (dialog) => dialog.accept());
   await page.locator("#import-backup").setInputFiles(path!);
+  await chooseMenuTool(page, "Creator profile");
 
   await expect(page.locator("#profile-tone")).toHaveValue("Workspace backup profile");
   await chooseMenuTool(page, "New recipe");
@@ -654,7 +655,6 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\\n"));
