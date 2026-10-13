@@ -20,6 +20,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Explicit approval gate before sharing, with recipe edits resetting Tested and approval status.
 - Short-form text content pack with five hook options, a caption draft, hashtags, CTA, narration/shot guidance, and manual source/review notes.
 - Prepare-and-share workflow using the browser/Android share sheet when available, with a text download fallback. Sharing is manual; no direct platform API publishing is implemented.
+- Local seven-post schedule planner: validates seven HTTP(S) URLs, builds a three-day 2/2/3 plan or a seven-day one-post-per-day plan, lets the creator edit dates and suggested US Eastern Time slots, persists the draft in browser localStorage, and exports JSON. Times are illustrative recommendations, not analytics-backed. The planner does not schedule or publish through social platforms.
 - Deterministic Markdown tutorial draft preview and Markdown/JSON exports.
 - Browser-local autosave/restore with basic validation of saved data and migration of the original V1 drafts, including safe defaults for newly added source-reference records. The service worker only caches static resources and an offline notice, never the authenticated workspace HTML.
 - Single-recipe JSON import with schema and HTTP(S)-URL validation, including recovery of older V1 exports.
