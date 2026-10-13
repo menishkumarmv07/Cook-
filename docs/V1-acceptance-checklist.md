@@ -252,3 +252,12 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - Next owner-dependent action: run the real Android Chrome checklist and complete a real recipe trial. Do not mark these as passed based on code review or CI.
 
 **Session outcome:** automated CI reconfirmed; no code fix was justified by the available failure evidence. V1 status remains **IN PROGRESS**.
+
+## Acceptance continuation — 13 October 2026, 08:45 UTC
+
+- **Live production deployment is now verified at the public entry point.** Vercel reports deployment `dpl_FpUzUB81JpEPaktTX3C2KzzKqXsX` as `READY` for commit `cd2d9fce98f1eb456ae0bdaffe2fb89b1eaafdc7`. Production aliases include [cook-silk.vercel.app](https://cook-silk.vercel.app) and [cook-git-main-menishkumarmv07.vercel.app](https://cook-git-main-menishkumarmv07.vercel.app).
+- A live fetch of `https://cook-silk.vercel.app` returned HTTP 200 and redirected to the owner login page. The public entry point identifies the app as **Cooking Creator** and states access is restricted to one owner with no public sign-ups or third-party login.
+- The authenticated workspace still cannot be tested through this fetch because it correctly requires owner authentication. Do not share passwords or secrets in chat. Deployment readiness and the login gate are verified; authenticated owner UI acceptance is still open.
+- GitHub Actions run #258 on application commit `b59d71746658cb67bdef4317564b58f0abeb9606` passed install, unit tests, ESLint, TypeScript, production build, Chromium setup, owner-auth smoke, and Playwright E2E. The workflow-run connector only returns PR-triggered runs for a commit, so it returned no run record for the documentation-only commit `cd2d9fce98f1eb456ae0bdaffe2fb89b1eaafdc7`; do not misstate that as a failed CI run.
+- Remaining release gates: real Android Chrome authenticated acceptance; a documented actual recipe/cooking trial; confirm production host-level rate limiting/access controls; address unencrypted browser-local storage before storing sensitive information.
+- **Status remains IN PROGRESS.** The app is deployed and the public login page responds, but V1 is not fully accepted. Video/audio analysis, chef animation/voice/rendering, automatic nutrition lookup, authorized social publishing/scheduling, analytics, and monetization integrations remain future work.
