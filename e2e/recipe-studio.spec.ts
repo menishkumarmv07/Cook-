@@ -103,8 +103,8 @@ test("mobile workspace shows the screenshot-inspired home and no horizontal over
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Good cooking deserves a story." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Today's Plan" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Research & Trends" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Content Studio" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Research Studio" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Plan Content" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
   await expect(page.locator("#name")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
