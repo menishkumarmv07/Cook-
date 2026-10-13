@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ScheduledPost = {
   id: string;
@@ -104,7 +104,7 @@ export default function SchedulePlanner({ incomingLinksText = "", requestedMode 
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
-  function generateSchedule(mode: "three-day" | "seven-day") {
+  const generateSchedule = useCallback((mode: "three-day" | "seven-day") => {
     if (!isValidCalendarDate(startDate)) {
       setMessage("Choose a valid start date before generating the plan.");
       return;
@@ -129,7 +129,7 @@ export default function SchedulePlanner({ incomingLinksText = "", requestedMode 
     setMessage(mode === "three-day"
       ? "Created a local three-day draft: 2 posts on Day 1, 2 on Day 2 and 3 on Day 3."
       : "Created a local seven-day draft with one post per day.");
-  }
+  }, [startDate, links, invalidLinks]);
 
   useEffect(() => {
     if (incomingLinksText.trim()) {
@@ -144,7 +144,7 @@ export default function SchedulePlanner({ incomingLinksText = "", requestedMode 
     if (lastAutoRequestRef.current === signature) return;
     lastAutoRequestRef.current = signature;
     generateSchedule(requestedMode);
-  }, [incomingLinksText, requestedMode, links.length, invalidLinks.length, startDate]);
+  }, [incomingLinksText, requestedMode, links.length, invalidLinks.length, startDate, generateSchedule]);
 
   function updatePost(id: string, field: "date" | "time", value: string) {
     setPlan((current) => current.map((post) => post.id === id ? { ...post, [field]: value } : post));
