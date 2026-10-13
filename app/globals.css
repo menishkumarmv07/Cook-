@@ -729,3 +729,15 @@ button:focus-visible,a:focus-visible{outline-color:#B95738}
  .quick-dock small{font-size:9px}
  .content{padding-bottom:250px}
 }
+
+
+/* Seven-link scheduling preview */
+.schedule-preview{margin:18px 0;padding:20px;background:var(--app-panel);border:1px solid var(--app-line);border-radius:16px;box-shadow:var(--app-shadow)}
+.schedule-table-wrap{width:100%;overflow-x:auto;border:1px solid var(--app-line);border-radius:12px;background:#FFFEFC}
+.schedule-table{width:100%;border-collapse:collapse;min-width:510px;text-align:left;font-size:12px}
+.schedule-table th{background:#F7EDE4;color:#713B2A;font-size:10px;letter-spacing:.5px;text-transform:uppercase}
+.schedule-table th,.schedule-table td{padding:12px;border-bottom:1px solid var(--app-line);vertical-align:middle}
+.schedule-table tr:last-child td{border-bottom:0}
+.schedule-table td:first-child{font-weight:700;color:var(--app-ink)}
+.schedule-preview .hint{line-height:1.7;margin-top:12px}
+@media(max-width:650px){.schedule-preview{padding:15px}.schedule-table{font-size:11px}.schedule-table th,.schedule-table td{padding:10px}}
