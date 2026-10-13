@@ -22,7 +22,7 @@ async function signInOwner(page: import("@playwright/test").Page) {
     throw new Error(`Test owner sign-in failed with HTTP ${loginResponse.status()}: ${JSON.stringify(responseBody)}`);
   }
   try {
-    await expect(page.getByRole("heading", { name: /Good cooking deserves a story/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
   } catch {
     const cookies = await page.context().cookies();
     const hasSessionCookie = cookies.some((cookie) => cookie.name === "cooking_creator_session");
