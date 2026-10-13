@@ -283,7 +283,7 @@ test("malformed saved source-reference records are skipped with a visible warnin
     }]));
   });
   await page.goto("/");
-  await expect(page.getByRole("status")).toContainText("Some saved data was invalid and was skipped");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Some saved data was invalid and was skipped");
   await expect(page.getByRole("heading", { name: "Corrupt saved draft" })).toHaveCount(0);
 });
 
@@ -623,6 +623,29 @@ test("pasting a supported recipe or video URL into the chat dock prefills intake
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("added your source URL to recipe intake");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Video/Reel audio and frames are not analyzed");
   await expect(page.locator("#name")).toBeVisible();
+});
+
+test("chat menu selections are shown in the transcript and seven pasted links prefill Plan Content", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+
+  await chooseMenuTool(page, "Today’s Plan");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
+
+  const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\\n${links.join("\\n")}`;
+  await page.locator("#workspace-command").fill(request);
+  await page.getByRole("button", { name: "Run workspace command" }).click();
+
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\\n"));
+  await expect(page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" })).toBeVisible();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
+  await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
