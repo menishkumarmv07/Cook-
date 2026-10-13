@@ -84,6 +84,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
 test("JSON backup import restores a legacy draft and rejects unsafe source URLs", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
+  await chooseMenuTool(page, "New recipe");
   const legacyDraft = {
     id: 17,
     name: "Imported legacy recipe",
@@ -589,6 +590,7 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   });
 
   await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
   await page.locator("#url").fill(sourceUrl);
   await page.getByRole("button", { name: "Inspect public recipe page" }).click();
