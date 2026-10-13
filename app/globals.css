@@ -680,3 +680,52 @@ button:focus-visible, a:focus-visible { outline-color: var(--terracotta); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+
+/* Cooking Creator warm cream + terracotta theme refinement */
+:root{
+ --app-bg:#FDFBF7;--app-panel:#FFFDF9;--app-ink:#35251F;--app-muted:#806F66;
+ --app-line:#EADFD5;--app-soft:#F7EDE4;--app-shadow:0 8px 24px rgba(83,45,28,.07);
+ --app-accent:#B95738;--terracotta:#B95738;--terracotta-deep:#713B2A;
+ --cream:#FDFBF7;--forest:#713B2A;--ink:#35251F;--muted:#806F66;--line:#EADFD5;--lime:#F1D7C5;
+}
+html,body,.shell,.main{background:var(--app-bg);color:var(--app-ink)}
+.top{background:rgba(253,251,247,.94);border-color:var(--app-line);color:var(--app-ink)}
+.top-context strong{color:var(--terracotta-deep)}
+.menu-trigger{background:#F3E4D8;color:var(--terracotta-deep)}
+.assistant-mark,.brand-icon{background:var(--terracotta);color:#fff}
+.brand small{color:#EAD4C6}
+.hero{background:#F7EDE4;border:1px solid #F0E1D4;border-radius:16px;padding:28px}
+.hero h1,.section-head h2,.panel h3,.chef h3{color:var(--terracotta-deep)}
+.hero .eyebrow,.eyebrow{color:#A05A3D}
+.dish{background:#F0D6C4;color:var(--terracotta-deep);box-shadow:0 0 0 7px #F8E9DD}
+.stats>div,.panel,.plan-card,.research-hub,.empty,.recent-item,.source-reference,.recipe-step,.validation-panel,.tutorial-preview,.trial-panel,.approval-panel,.profile-panel{background:var(--app-panel);border-color:var(--app-line);box-shadow:var(--app-shadow);border-radius:15px}
+.plan-next,.research-hub-row,.message,.notes,.empty-inline,.validation-panel,.tutorial-preview{background:var(--app-soft);border-color:#EAD8C9;color:var(--app-ink)}
+.plan-check,.research-icon,.number,.row-number,.recent-item>span{background:#F0D6C4;color:var(--terracotta-deep)}
+input,textarea,select,.trial-panel select,.trial-panel textarea{background:#FFFEFC;color:var(--app-ink);border-color:#E5D4C6;border-radius:12px}
+input:focus,textarea:focus,select:focus{border-color:var(--terracotta);box-shadow:0 0 0 3px #B9573820}
+.primary,.command-submit{background:var(--terracotta);color:#fff;border-radius:12px}
+.primary:hover,.command-submit:hover{background:#98452D}
+.secondary,.danger,.icon-button{background:#FFF9F3;color:var(--terracotta-deep);border-color:#E5D4C6;border-radius:12px}
+.status,.draft,.step,.private{background:#F2E2D6;color:#7D422D;border-radius:999px}
+.status-warning{background:#F8E9D6;color:#86571F}.status-error{background:#F8E1D8;color:#8A3828}
+.chef{background:var(--terracotta-deep);border-radius:16px}
+.chef .eyebrow{color:#F0CDB8}.chef p:not(.eyebrow),.chef small{color:#F9EDE4}
+.profile-panel summary strong{color:var(--terracotta-deep)}
+.profile-chevron{background:#F0D6C4;color:var(--terracotta-deep)}
+.quick-dock{background:var(--terracotta-deep);border:1px solid #8C4A32;box-shadow:0 10px 30px rgba(65,34,22,.22);border-radius:22px}
+.quick-dock button{color:#F9EDE4}
+.quick-dock button:hover,.quick-dock button:focus-visible{background:#8D4A32;color:#fff;border-radius:14px}
+.quick-dock button[aria-current="page"]{background:#A95536;color:#fff;border-radius:14px}
+.command-dock{background:rgba(253,251,247,.96);border-color:#EADFD5}
+.command-form{background:#FFFEFC;border:1px solid #E5D4C6;border-radius:999px;box-shadow:0 5px 18px rgba(83,45,28,.08)}
+.command-form input{background:transparent;border:0;box-shadow:none;border-radius:999px}
+.command-add{background:#F0D6C4;color:var(--terracotta-deep);border-radius:50%}
+footer{border-color:var(--app-line);color:#9A8679}
+button:focus-visible,a:focus-visible{outline-color:#B95738}
+@media(max-width:650px){
+ .hero{padding:20px 16px}
+ .quick-dock{border-radius:18px}
+ .quick-dock small{font-size:9px}
+ .content{padding-bottom:250px}
+}
