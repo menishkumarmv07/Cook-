@@ -291,7 +291,7 @@ export default function Home() {
       library: "Recent drafts is selected. Open an existing draft or create a new one.",
       connections: "Social connections is selected. Official account connections are not configured yet; no account is connected."
     } as const;
-    setChatMessages((previous) => [...previous, { role: "user", text: labels[section] }, { role: "assistant", text: replies[section] }].slice(-12));
+    setChatMessages((previous) => [...previous, { role: "user" as const, text: labels[section] }, { role: "assistant" as const, text: replies[section] }].slice(-12));
     const targetId =
       section === "plan" ? "daily-plan" :
       section === "research" ? (current ? "research-desk" : "research-trends") :
