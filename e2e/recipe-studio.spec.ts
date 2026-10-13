@@ -137,6 +137,14 @@ test("schedule planner builds, edits, saves, and exports seven-post drafts", asy
   await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-10-20");
   await expect(page.getByLabel("Post 7 time")).toHaveValue("18:00");
 
+  // Calendar-day planning must stay correct across the US daylight-saving transition.
+  await page.locator("#schedule-start-date").fill("2026-10-31");
+  await page.getByRole("button", { name: "Build 7-day plan (1 per day)" }).click();
+  await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-31");
+  await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-11-01");
+  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-02");
+  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-11-06");
+
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export schedule JSON" }).click();
   const download = await downloadPromise;
