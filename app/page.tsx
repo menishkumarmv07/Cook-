@@ -1069,13 +1069,9 @@ export default function Home() {
   }
 
   function exportWorkspaceBackup() {
-    if (projects.length === 0) {
-      setMessage("There are no recipe drafts to back up yet.");
-      return;
-    }
     const backup = createCreatorWorkspaceBackupJSON(projects, profile);
     downloadFile("cooking-creator-workspace-backup.json", backup, "application/json;charset=utf-8");
-    setMessage(`Exported ${projects.length} recipe draft(s) and the creator profile as a local workspace backup. Nothing was uploaded.`);
+    setMessage(`Downloaded a local workspace backup containing ${projects.length} recipe draft(s) and the creator profile. Nothing was uploaded.`);
   }
 
   async function copyTutorial() {
@@ -1549,6 +1545,7 @@ export default function Home() {
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
           <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator… paste links or ask for a plan" />
+          <button type="button" className="command-download" aria-label="Download workspace backup" title="Download a backup of local recipe drafts and creator profile" onClick={exportWorkspaceBackup}><span aria-hidden="true">↓</span><small>Download</small></button>
           <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
         </form>
       </div>
