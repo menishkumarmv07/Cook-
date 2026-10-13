@@ -662,7 +662,7 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await page.reload();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
-  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\\n"));
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
