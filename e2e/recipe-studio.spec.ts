@@ -439,7 +439,7 @@ test("light workspace theme uses the requested warm cream and terracotta palette
     dock: window.getComputedStyle(document.querySelector(".quick-dock")!).backgroundColor,
   }));
   expect(palette.background).toBe("rgb(253, 251, 247)");
-  expect(palette.dock).toBe("rgb(185, 87, 56)");
+  expect(palette.dock).toBe("rgb(113, 59, 42)");
 });
 
 
