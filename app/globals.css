@@ -1331,7 +1331,7 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 }
 
 /* Anchor the quick-task popup directly to the plus button instead of floating above the entire dock. */
-.shell .task-popover { bottom: calc(100% - 6px); left: 12px; }
+.shell .task-popover { bottom: calc(100% - 2px); left: 12px; }
 @media (max-width: 650px) { .shell .task-popover { left: 10px; } }
 @media (max-width: 370px) { .shell .task-popover { left: 8px; } }
 
