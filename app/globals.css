@@ -1240,3 +1240,74 @@ html, body { width:100%; max-width:100%; overflow-x:clip; }
 .shell[data-theme="dark"] .settings-appearance-row { background:#382820; border-color:#624536; }
 .shell[data-theme="dark"] .settings-appearance-row strong, .shell[data-theme="dark"] .settings-appearance-row small { color:#F2DED2; }
 .shell[data-theme="dark"] .settings-appearance-row .theme-toggle { background:#26201D; color:#F2DED2; border-color:#624536; }
+
+
+/* Final colour calibration sampled from the owner's two reference screenshots. */
+:root {
+  --chat-paper: #F1EEDD;
+  --chat-card: #F0EDDA;
+  --chat-soft: #EFDEC0;
+  --chat-terracotta: #BF6D24;
+  --chat-terracotta-deep: #3D251B;
+  --chat-ink: #3D281E;
+  --chat-muted: #7C6551;
+  --chat-line: #D7C19E;
+}
+html, body { background: var(--chat-paper); color: var(--chat-ink); }
+.shell, .shell .main, .shell .content { background: var(--chat-paper); }
+.shell .top { background: #3D251B; border-bottom-color: #3D251B; color: #F4E3C5; }
+.shell .top-context strong { color: #F4E3C5; }
+.shell .top-context small { color: #D7BE9C; }
+.shell .menu-trigger { color: #F4E3C5; }
+.shell .logout-trigger { background: #9E7859; color: #F8EBD5; }
+.shell .assistant-mark { background: radial-gradient(circle at 35% 25%, #BD762E 0%, #743812 72%, #54280E 100%); }
+.shell .assistant-mark:hover { background: radial-gradient(circle at 35% 25%, #CC843C 0%, #82451A 72%, #54280E 100%); }
+.shell .chat-empty h1 { color: #3D251B; }
+.shell .chat-empty p { color: #78634E; }
+.shell .chat-chef-mark { background: radial-gradient(circle at 32% 25%, #F4D1A0 0%, #EAB16B 48%, #D88A35 100%); }
+.shell .sidebar { background: #F0EDDA; border-right-color: #D7C9AC; color: #35261D; }
+.shell .sidebar .brand b { color: #3D281E; }
+.shell .sidebar .brand small { color: #83715E; }
+.shell .sidebar .brand-icon { background: radial-gradient(circle at 32% 25%, #F1C287, #BD6C27 80%); }
+.shell .drawer-main-nav .nav { color: #30231D; }
+.shell .drawer-main-nav .nav:hover, .shell .drawer-main-nav .nav:focus-visible { background: #E9E0C9; }
+.shell .drawer-main-nav .nav-icon { color: #3F3027; }
+.shell .drawer-divider { background: #BDB19B; }
+.shell .chat-history-section > .nav-label { color: #82715E; }
+.shell .chat-history-open { color: #3D281E; }
+.shell .chat-history-open strong { color: #3D281E; }
+.shell .chat-history-row.is-active .chat-history-open, .shell .chat-history-open:hover { border-color: #D5C5A7; background: #EAE3CE; }
+.shell .chat-history-empty, .shell .chat-history-storage-note { color: #7D6B59; }
+.shell .drawer-bottom { border-top-color: #D8CAB0; }
+.shell .drawer-chat-button { background: #E7A686; color: #41271E; }
+.shell .drawer-settings-button { background: #4E5859; color: #F7F0DF; }
+.shell .drawer-settings-button:hover { background: #434D4E; }
+.shell .command-dock { background: rgba(241,238,221,.98); border-top-color: #D8C4A5; }
+.shell .command-add { background: #EFDEC0; border-color: #DCC29B; color: #4A2A1D; }
+.shell .command-add:hover, .shell .command-add[aria-expanded="true"] { background: #E6D0AA; }
+.shell .command-form { background: #D8C3A6; border-color: #A86A35; }
+.shell .command-form input { color: #4A2A1D; }
+.shell .command-form input::placeholder { color: #876A4E; }
+.shell .command-form .command-submit { background: #BF6D24; color: #FFF7E8; }
+.shell .command-form .command-submit:hover { background: #A95719; }
+.shell .task-popover { background: #EFDEC0; border-color: #DCC29B; border-top-color: #B8783E; }
+.shell .task-popover button { color: #3D281E; }
+.shell .task-icon { background: #C6A680; color: #4D3527; }
+.shell .logo-popover { background: #F0EDDA; border-color: #D2BF9A; color: #3D281E; }
+.shell .logo-popover button { color: #3D281E; }
+.shell .logo-popover button:hover { background: #E7DEC6; }
+.shell .message-action-popover { background: #F0EDDA; border-color: #D2BF9A; }
+.shell .message-action-popover button { color: #3D281E; }
+.shell .message-action-popover button:hover { background: #E7DEC6; }
+.shell .message-edit-box { background: #F0EDDA; border-color: #D7C19E; }
+.shell .message-edit-box textarea { background: #F8F4E6; color: #3D281E; border-color: #D7C19E; }
+.shell .message-edit-send { background: #BF6D24; color: #FFF7E8; border-color: #BF6D24; }
+.shell .copied-toast { background: #3D251B; color: #F4E3C5; }
+.shell .settings-appearance-row { background: #EFDEC0; border-color: #D7C19E; }
+.shell .settings-appearance-row strong { color: #3D281E; }
+.shell .settings-appearance-row small { color: #7C6551; }
+.shell .settings-appearance-row .theme-toggle { background: #F8F4E6; border-color: #D7C19E; color: #3D281E; }
+@media (max-width: 650px) {
+  .shell .content { padding-bottom: 100px; }
+  .shell .command-dock { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
