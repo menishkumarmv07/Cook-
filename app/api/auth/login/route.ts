@@ -11,6 +11,7 @@ export const runtime = "nodejs";
 
 const MAX_FAILED_ATTEMPTS = 5;
 const ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_BODY_BYTES = 4_096;
 // Best-effort per-process throttling only; it is not a distributed/host-level rate limiter.
 const failedAttempts = new Map<string, { count: number; resetAt: number }>();
 
@@ -43,6 +44,46 @@ function recordFailure(key: string, now: number): void {
   }
 }
 
+async function readLoginBody(request: NextRequest): Promise<{ body?: unknown; error?: string; status?: number }> {
+  const length = Number(request.headers.get("content-length") ?? "0");
+  if (Number.isFinite(length) && length > MAX_LOGIN_BODY_BYTES) {
+    return { error: "The sign-in request is too large.", status: 413 };
+  }
+  if (!request.body) return { error: "Invalid sign-in request.", status: 400 };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes += value.byteLength;
+      if (bytes > MAX_LOGIN_BODY_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        return { error: "The sign-in request is too large.", status: 413 };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return { error: "Invalid sign-in request.", status: 400 };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const merged = new Uint8Array(bytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { body: JSON.parse(new TextDecoder().decode(merged)) as unknown };
+  } catch {
+    return { error: "Invalid sign-in request.", status: 400 };
+  }
+}
+
 export async function POST(request: NextRequest) {
   if (!request.headers.get("content-type")?.toLowerCase().includes("application/json")) {
     return NextResponse.json({ error: "Send the sign-in request as JSON." }, { status: 415, headers: { "Cache-Control": "no-store" } });
@@ -63,13 +104,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Too many failed sign-in attempts. Wait 15 minutes before trying again." }, { status: 429, headers: { "Cache-Control": "no-store", "Retry-After": "900" } });
   }
 
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid sign-in request." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  const parsed = await readLoginBody(request);
+  if (parsed.error) {
+    return NextResponse.json({ error: parsed.error }, { status: parsed.status ?? 400, headers: { "Cache-Control": "no-store" } });
   }
 
+  const body = parsed.body;
   const suppliedPassword = typeof body === "object" && body !== null && "password" in body
     ? (body as { password?: unknown }).password
     : undefined;
