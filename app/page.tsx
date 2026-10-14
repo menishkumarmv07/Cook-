@@ -646,11 +646,18 @@ export default function Home() {
 
   function showMessageActionMenu(item: ChatMessage, x: number, y: number) {
     const width = item.role === "user" ? 132 : 94;
-    const height = item.role === "user" ? 96 : 50;
-    const left = Math.max(10, Math.min(x + 8, window.innerWidth - width - 10));
+    const height = item.role === "user" ? 102 : 58;
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const visibleBottom = Math.min(viewportTop + (viewport?.height ?? window.innerHeight), window.innerHeight);
+    const dockTop = document.querySelector(".command-dock")?.getBoundingClientRect().top;
+    const bottomLimit = dockTop !== undefined && dockTop > viewportTop
+      ? Math.min(visibleBottom - 8, dockTop - 8)
+      : visibleBottom - 8;
+    const left = Math.max(8, Math.min(x + 8, window.innerWidth - width - 8));
     let top = y + 8;
-    if (top + height > window.innerHeight - 12) top = y - height - 8;
-    top = Math.max(10, Math.min(top, window.innerHeight - height - 10));
+    if (top + height > bottomLimit) top = y - height - 8;
+    top = Math.max(viewportTop + 8, Math.min(top, bottomLimit - height));
     openOverlay("message", { id: item.id, role: item.role, x: left, y: top });
   }
 
