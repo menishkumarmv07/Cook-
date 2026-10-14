@@ -130,7 +130,7 @@ export default function LoginPage() {
   return (
     <main className="login-shell">
       {accountMenuOpen && <button className="login-popup-dismiss" type="button" aria-label="Close account menu" onClick={closeAccountMenu} />}
-      <header className="login-topbar">
+      <header className="login-topbar" onPointerDown={(event) => { if (accountMenuOpen && !(event.target as HTMLElement).closest(".login-logo-anchor")) closeAccountMenu(); }}>
         <span className="login-brand">
           <strong>Cooking Creator</strong>
           <small>AI COOKING CONTENT APP</small>
