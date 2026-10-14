@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { readFile } from "node:fs/promises";
 
-test("composer Download exports a valid workspace backup even before the first recipe", async ({ page }) => {
+test("Full Download task exports a valid workspace backup even before the first recipe", async ({ page }) => {
   const ownerPassword = process.env.OWNER_PASSWORD;
   if (!ownerPassword) throw new Error("OWNER_PASSWORD must be set to a test-only value for the Playwright server.");
 
@@ -15,8 +15,10 @@ test("composer Download exports a valid workspace backup even before the first r
   expect(loginResponse.ok()).toBeTruthy();
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 
+  await page.getByRole("button", { name: "Choose a task" }).click();
+  await expect(page.getByRole("button", { name: "Full Download" })).toBeVisible();
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download workspace backup" }).click();
+  await page.getByRole("button", { name: "Full Download" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("cooking-creator-workspace-backup.json");
   const path = await download.path();
