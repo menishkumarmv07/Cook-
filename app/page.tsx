@@ -4,7 +4,7 @@ import SchedulePlanner from "@/components/schedule-planner";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
-import type { FormEvent } from "react";
+import type { FormEvent, TouchEvent as ReactTouchEvent } from "react";
 import {
   buildNarrationScript,
   buildTutorialDraft,
@@ -764,11 +764,11 @@ export default function Home() {
     window.requestAnimationFrame(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
   }
 
-  function handleDrawerTouchStart(event: { changedTouches: TouchList }) {
+  function handleDrawerTouchStart(event: ReactTouchEvent<HTMLElement>) {
     drawerTouchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
   }
 
-  function handleDrawerTouchEnd(event: { changedTouches: TouchList }) {
+  function handleDrawerTouchEnd(event: ReactTouchEvent<HTMLElement>) {
     const start = drawerTouchStartXRef.current;
     const end = event.changedTouches[0]?.clientX;
     drawerTouchStartXRef.current = null;
