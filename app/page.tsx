@@ -72,6 +72,9 @@ type ChatConversation = {
   messages: ChatMessage[];
 };
 
+type OverlayKind = "drawer" | "tasks" | "logo" | "message";
+type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y: number };
+
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
@@ -112,6 +115,31 @@ function ChefHatLogo() {
       <ellipse className="chef-hat-blush" cx="19.5" cy="35.1" rx="3.1" ry="1.7" />
       <ellipse className="chef-hat-blush" cx="44.5" cy="35.1" rx="3.1" ry="1.7" />
       <path className="chef-hat-sparkle" d="M51.5 2.5l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" />
+    </svg>
+  );
+}
+
+type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close";
+
+function InterfaceIcon({ name }: { name: InterfaceIconName }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg className="interface-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...common}>
+      {name === "calendar" && <><rect x="3.5" y="5" width="17" height="16" rx="2.2" /><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9.5h17M7.5 13h.1M12 13h.1M16.5 13h.1M7.5 17h.1M12 17h.1" /></>}
+      {name === "edit" && <><path d="M12 20H4a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 4 4h9" /><path d="m15.8 3.8 4.4 4.4M9 15l-1 4 4-1L21 9a2.1 2.1 0 0 0-4-4z" /></>}
+      {name === "link" && <><path d="M9.5 14.5 7.7 16.3a3.4 3.4 0 0 1-4.8-4.8l4-4a3.4 3.4 0 0 1 4.8 0" /><path d="m14.5 9.5 1.8-1.8a3.4 3.4 0 0 1 4.8 4.8l-4 4a3.4 3.4 0 0 1-4.8 0M8.5 15.5l7-7" /></>}
+      {name === "upload" && <><path d="M4 16.5v3h16v-3" /><path d="M12 16V4m-4 4 4-4 4 4" /><path d="M4 13.5a4.5 4.5 0 0 1 .6-9A7 7 0 0 1 18 6a4 4 0 0 1 2 7.5" /></>}
+      {name === "download" && <><path d="M3 7.5h7l2 2h9v10H3z" /><path d="M12 4v10m-4-4 4 4 4-4" /></>}
+      {name === "images" && <><rect x="3" y="4" width="13" height="13" rx="2" /><path d="m3.5 14 4-4 3 3 2-2 3.5 3.5" /><rect x="8" y="8" width="13" height="13" rx="2" /><circle cx="8.5" cy="8.5" r=".7" /></>}
+      {name === "library" && <><path d="M4 4.5h4v15H4zM10 4.5h4v15h-4zM16 4.5h4v15h-4z" /></>}
+      {name === "folder" && <><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 9h18" /></>}
+      {name === "remote" && <><rect x="3" y="3.5" width="18" height="13" rx="2" /><path d="M8 20.5h8M12 16.5v4M5 13.5h14" /></>}
+      {name === "clock" && <><circle cx="12" cy="12" r="9" /><path d="M12 6.5v5.8l3.7 2.2" /></>}
+      {name === "explore" && <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>}
+      {name === "settings" && <><circle cx="12" cy="12" r="3.2" /><path d="m19.2 13.7 1.1 1.9-2 3.4-2.2-.5a7.8 7.8 0 0 1-1.8 1l-.8 2h-3.9l-.8-2a7.8 7.8 0 0 1-1.8-1l-2.2.5-2-3.4 1.1-1.9a7.8 7.8 0 0 1 0-2.1L3 9.7l2-3.4 2.2.5a7.8 7.8 0 0 1 1.8-1l.8-2h3.9l.8 2a7.8 7.8 0 0 1 1.8 1l2.2-.5 2 3.4-1.1 1.9a7.8 7.8 0 0 1 0 2.1z" /></>}
+      {name === "chat" && <><path d="M4 4h16v13H9l-5 3z" /><path d="M8 9h8M8 12.5h5" /></>}
+      {name === "copy" && <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" /></>}
+      {name === "close" && <><path d="m5 5 14 14M19 5 5 19" /></>}
     </svg>
   );
 }
@@ -330,6 +358,12 @@ export default function Home() {
   const [showNarration, setShowNarration] = useState(false);
   const [showContentPack, setShowContentPack] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
+  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+  const [messageActionMenu, setMessageActionMenu] = useState<MessageActionMenu | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [copiedToast, setCopiedToast] = useState(false);
   const [command, setCommand] = useState("");
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
   const [activeToolReady, setActiveToolReady] = useState(false);
@@ -342,6 +376,12 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+  const overlayHistoryPushedRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const copiedToastTimerRef = useRef<number | null>(null);
+  const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -358,16 +398,28 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!menuOpen) return;
-    function handleDrawerKeydown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        menuButtonRef.current?.focus();
-      }
+    function handleOverlayKeydown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (!menuOpen && !taskMenuOpen && !logoMenuOpen && !messageActionMenu) return;
+      event.preventDefault();
+      closeOverlays();
+      menuButtonRef.current?.focus();
     }
-    window.addEventListener("keydown", handleDrawerKeydown);
-    return () => window.removeEventListener("keydown", handleDrawerKeydown);
-  }, [menuOpen]);
+    function handleBrowserBack() {
+      if (!overlayHistoryPushedRef.current) return;
+      overlayHistoryPushedRef.current = false;
+      setMenuOpen(false);
+      setTaskMenuOpen(false);
+      setLogoMenuOpen(false);
+      setMessageActionMenu(null);
+    }
+    window.addEventListener("keydown", handleOverlayKeydown);
+    window.addEventListener("popstate", handleBrowserBack);
+    return () => {
+      window.removeEventListener("keydown", handleOverlayKeydown);
+      window.removeEventListener("popstate", handleBrowserBack);
+    };
+  }, [menuOpen, taskMenuOpen, logoMenuOpen, messageActionMenu]);
 
   useEffect(() => {
     try {
@@ -500,10 +552,219 @@ export default function Home() {
     }
   }, [theme]);
 
+  function closeOverlays() {
+    setMenuOpen(false);
+    setTaskMenuOpen(false);
+    setLogoMenuOpen(false);
+    setMessageActionMenu(null);
+    if (overlayHistoryPushedRef.current) {
+      overlayHistoryPushedRef.current = false;
+      window.history.back();
+    }
+  }
+
+  function openOverlay(kind: OverlayKind, messageMenu?: MessageActionMenu) {
+    const alreadyOpen = menuOpen || taskMenuOpen || logoMenuOpen || Boolean(messageActionMenu);
+    if (!alreadyOpen && !overlayHistoryPushedRef.current) {
+      try {
+        window.history.pushState({ cookingCreatorOverlay: true }, "", window.location.href);
+        overlayHistoryPushedRef.current = true;
+      } catch {
+        // Popups still work when the browser disallows a history state change.
+      }
+    }
+    setMenuOpen(kind === "drawer");
+    setTaskMenuOpen(kind === "tasks");
+    setLogoMenuOpen(kind === "logo");
+    setMessageActionMenu(kind === "message" ? (messageMenu ?? null) : null);
+  }
+
   function openWorkspaceMenu() {
-    setMenuOpen(true);
-    // Wait for the drawer to become visible before moving keyboard focus.
+    openOverlay("drawer");
     window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+  }
+
+  function toggleTaskMenu() {
+    if (taskMenuOpen) { closeOverlays(); return; }
+    openOverlay("tasks");
+  }
+
+  function toggleLogoMenu() {
+    if (logoMenuOpen) { closeOverlays(); return; }
+    openOverlay("logo");
+  }
+
+  function openSettingsView() {
+    closeOverlays();
+    setActiveTool("profile");
+    window.requestAnimationFrame(() => {
+      const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+      if (details) details.open = true;
+      document.getElementById("creator-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore") {
+    closeOverlays();
+    const tool: WorkspaceTool =
+      item === "images" ? "intake" :
+      item === "library" || item === "projects" ? "library" :
+      item === "remote" ? "connections" :
+      item === "scheduled" ? "content" : "research";
+    setActiveTool(tool);
+    const targetId =
+      item === "images" ? (current ? "recipe-editor" : "intake") :
+      item === "library" || item === "projects" ? "recent-projects" :
+      item === "remote" ? "social-connections" :
+      item === "scheduled" ? "schedule-preview-title" :
+      (current ? "recipe-editor" : "research-trends");
+    if (item === "images") {
+      setMessage("Image generation is not connected in V1. Existing cooking-trial photo uploads are available inside a recipe draft.");
+      if (!current) setActiveTool("intake");
+    }
+    window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function runQuickTask(task: "plan" | "content" | "links" | "publish" | "download") {
+    closeOverlays();
+    if (task === "plan") openTool("plan");
+    else if (task === "content") openTool("content");
+    else if (task === "links") {
+      openTool("content", "Links upload", "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts.");
+      window.requestAnimationFrame(() => document.getElementById("workspace-command")?.focus());
+    } else if (task === "publish") openTool("publish");
+    else exportWorkspaceBackup();
+  }
+
+  function clearLongPressTimer() {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function showMessageActionMenu(item: ChatMessage, x: number, y: number) {
+    const width = item.role === "user" ? 132 : 94;
+    const height = item.role === "user" ? 96 : 50;
+    const left = Math.max(10, Math.min(x + 8, window.innerWidth - width - 10));
+    let top = y + 8;
+    if (top + height > window.innerHeight - 12) top = y - height - 8;
+    top = Math.max(10, Math.min(top, window.innerHeight - height - 10));
+    openOverlay("message", { id: item.id, role: item.role, x: left, y: top });
+  }
+
+  function beginMessageHold(item: ChatMessage, x: number, y: number) {
+    if (editingMessageId === item.id) return;
+    clearLongPressTimer();
+    longPressOriginRef.current = { x, y };
+    longPressTimerRef.current = window.setTimeout(() => {
+      showMessageActionMenu(item, x, y);
+      longPressTimerRef.current = null;
+    }, 500);
+  }
+
+  function moveMessageHold(x: number, y: number) {
+    const start = longPressOriginRef.current;
+    if (!start) return;
+    if (Math.abs(x - start.x) > 9 || Math.abs(y - start.y) > 9) {
+      clearLongPressTimer();
+      longPressOriginRef.current = null;
+    }
+  }
+
+  async function copyChatMessage(messageId: string) {
+    const item = chatMessages.find((entry) => entry.id === messageId);
+    if (!item) return;
+    try {
+      await navigator.clipboard.writeText(item.text);
+    } catch {
+      const helper = document.createElement("textarea");
+      helper.value = item.text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      document.body.appendChild(helper);
+      helper.select();
+      try { document.execCommand("copy"); } catch { /* Clipboard fallback may be blocked by the browser. */ }
+      helper.remove();
+    }
+    closeOverlays();
+    setCopiedToast(true);
+    if (copiedToastTimerRef.current !== null) window.clearTimeout(copiedToastTimerRef.current);
+    copiedToastTimerRef.current = window.setTimeout(() => setCopiedToast(false), 1500);
+  }
+
+  function beginEditingMessage(messageId: string) {
+    const item = chatMessages.find((entry) => entry.id === messageId);
+    if (!item || item.role !== "user") return;
+    closeOverlays();
+    setEditingMessageId(messageId);
+    setEditDraft(item.text);
+    window.setTimeout(() => {
+      const input = editInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 120);
+  }
+
+  function replyForEditedRequest(rawRequest: string): { tool: WorkspaceTool; text: string } {
+    const request = rawRequest.toLowerCase();
+    const urls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
+    if (urls.length > 1 || (scheduleIntent && urls.length > 0)) {
+      const valid = urls.filter(isHttpUrl);
+      setSchedulePrefill(valid.join("\n"));
+      return { tool: "content", text: valid.length === 7
+        ? "I found seven valid HTTP(S) links and placed them in Plan Content. Choose a 3-day or 7-day draft option below. These are local drafts only."
+        : `I found ${valid.length} valid link(s) and placed them in Plan Content. The planner needs exactly seven links to build a schedule. Nothing is scheduled or published.` };
+    }
+    if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
+      if (isHttpUrl(rawRequest)) {
+        setUrl(rawRequest);
+        return { tool: "intake", text: "I added the edited source URL to recipe intake. Enter the recipe name, then review any extracted public-page details yourself. Video/Reel audio and frames are not analyzed." };
+      }
+      return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
+    }
+    if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) return { tool: "content", text: responseForTool("content") };
+    if (/connect|accounts?|integration|social|remote/.test(request)) return { tool: "connections", text: responseForTool("connections") };
+    if (/new recipe|create recipe|start recipe|add recipe|images/.test(request)) return { tool: "intake", text: responseForTool("intake") };
+    if (/research|source|trend|video link|explore/.test(request)) return { tool: "research", text: responseForTool("research") };
+    if (/publish|share|approval|queue/.test(request)) return { tool: "publish", text: responseForTool("publish") };
+    if (/studio|editor|script|storyboard|content/.test(request)) return { tool: "intake", text: responseForTool("intake") };
+    if (/today'?s plan|my plan|daily plan|next step|\bplan\b|scheduled/.test(request)) return { tool: "plan", text: responseForTool("plan") };
+    if (/theme|settings|profile/.test(request)) return { tool: "profile", text: responseForTool("profile") };
+    if (/library|recent drafts|projects/.test(request)) return { tool: "library", text: responseForTool("library") };
+    return { tool: "home", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue." };
+  }
+
+  function sendEditedMessage() {
+    const raw = editDraft.trim();
+    const index = chatMessages.findIndex((item) => item.id === editingMessageId);
+    if (!raw || index < 0) return;
+    const item = chatMessages[index];
+    if (item.role !== "user") return;
+    const prefix = chatMessages.slice(0, index);
+    const editedUser: ChatMessage = { ...item, text: raw, timestamp: new Date().toISOString() };
+    const result = replyForEditedRequest(raw);
+    const answer: ChatMessage = { id: makeId(), role: "assistant", text: result.text, timestamp: new Date().toISOString() };
+    setChatMessages([...prefix, editedUser, answer].slice(-MAX_CHAT_HISTORY_MESSAGES));
+    setActiveTool(result.tool);
+    setEditingMessageId(null);
+    setEditDraft("");
+    setCommand("");
+    window.requestAnimationFrame(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+  }
+
+  function handleDrawerTouchStart(event: { changedTouches: TouchList }) {
+    drawerTouchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
+  }
+
+  function handleDrawerTouchEnd(event: { changedTouches: TouchList }) {
+    const start = drawerTouchStartXRef.current;
+    const end = event.changedTouches[0]?.clientX;
+    drawerTouchStartXRef.current = null;
+    if (start !== null && end !== undefined && start - end > 70) closeOverlays();
   }
 
   function ensureActiveChat(): string {
@@ -536,7 +797,7 @@ export default function Home() {
     setCommand("");
     setSchedulePrefill("");
     setActiveTool("home");
-    setMenuOpen(false);
+    closeOverlays();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -545,7 +806,7 @@ export default function Home() {
     setChatMessages(conversation.messages);
     setCommand("");
     setActiveTool("home");
-    setMenuOpen(false);
+    closeOverlays();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -616,7 +877,7 @@ export default function Home() {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
     ensureActiveChat();
     setActiveTool(tool);
-    setMenuOpen(false);
+    closeOverlays();
     setCommand("");
     setChatMessages((previous) => {
       const base = Date.now().toString(36) + "-" + previous.length;
@@ -641,7 +902,7 @@ export default function Home() {
   }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
-    setMenuOpen(false);
+    closeOverlays();
     setActiveTool(
       section === "plan" ? "plan" : section === "research" ? "research" :
       section === "connections" ? "connections" : section === "publish" ? "publish" :
