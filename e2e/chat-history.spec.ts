@@ -26,7 +26,7 @@ async function openHistory(page: import("@playwright/test").Page) {
 
 async function sendChatMessage(page: import("@playwright/test").Page, message: string) {
   await page.locator("#workspace-command").fill(message);
-  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.locator(".chat-message.from-user").filter({ hasText: message })).toBeVisible();
 }
 
@@ -38,7 +38,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 test("chat history creates separate conversations and restores a conversation after refresh", async ({ page }) => {
   await openHistory(page);
-  await page.getByRole("button", { name: /New Chat/ }).click();
+  await page.getByRole("button", { name: /^Chat$/ }).click();
   await expect(page.locator(".chat-empty")).toBeVisible();
 
   await sendChatMessage(page, "Tell me about garlic");
@@ -48,7 +48,7 @@ test("chat history creates separate conversations and restores a conversation af
   await expect(page.locator(".chat-history-row")).toHaveCount(1);
   await expect(page.locator(".chat-history-row")).toContainText("Tell me about garlic");
 
-  await page.getByRole("button", { name: /New Chat/ }).click();
+  await page.getByRole("button", { name: /^Chat$/ }).click();
   await expect(page.locator(".chat-empty")).toBeVisible();
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(2);
@@ -92,7 +92,7 @@ test("LEGACY: flat chat history migrates into a saved conversation", async ({ pa
 
 test("deleting a conversation removes it from local chat history", async ({ page }) => {
   await openHistory(page);
-  await page.getByRole("button", { name: /New Chat/ }).click();
+  await page.getByRole("button", { name: /^Chat$/ }).click();
   await sendChatMessage(page, "Delete this temporary chat");
   await openHistory(page);
   await expect(page.locator(".chat-history-row")).toHaveCount(1);
