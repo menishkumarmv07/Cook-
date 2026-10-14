@@ -119,7 +119,7 @@ function ChefHatLogo() {
   );
 }
 
-type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close";
+type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu";
 
 function InterfaceIcon({ name }: { name: InterfaceIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -140,6 +140,7 @@ function InterfaceIcon({ name }: { name: InterfaceIconName }) {
       {name === "chat" && <><path d="M4 4h16v13H9l-5 3z" /><path d="M8 9h8M8 12.5h5" /></>}
       {name === "copy" && <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" /></>}
       {name === "close" && <><path d="m5 5 14 14M19 5 5 19" /></>}
+      {name === "menu" && <><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></>}
     </svg>
   );
 }
@@ -1495,8 +1496,8 @@ export default function Home() {
       </aside>
 
       <section className="main" id="dashboard">
-        <header className={logoMenuOpen ? "top has-logo-menu" : "top"}>
-          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
+        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger")) closeOverlays(); }}>
+          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
           <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <div className="assistant-menu-anchor">
@@ -1811,7 +1812,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="command-dock" role="region" aria-label="Workspace command">
+      <div className="command-dock" role="region" aria-label="Workspace command" onPointerDown={(event) => { const target = event.target as HTMLElement; if (taskMenuOpen && !target.closest(".task-popover, .command-add")) closeOverlays(); else if ((logoMenuOpen || messageActionMenu) && !target.closest(".task-popover, .command-add, .logo-popover, .assistant-menu-anchor, .message-action-popover")) closeOverlays(); }}>
         <div className={taskMenuOpen ? "task-popover is-open" : "task-popover"} aria-hidden={!taskMenuOpen}>
           <button type="button" onClick={() => runQuickTask("plan")}><span className="task-icon"><InterfaceIcon name="calendar" /></span><span>Today&apos;s plan</span></button>
           <button type="button" onClick={() => runQuickTask("content")}><span className="task-icon"><InterfaceIcon name="edit" /></span><span>Plan content</span></button>
