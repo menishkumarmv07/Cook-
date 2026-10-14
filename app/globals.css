@@ -1061,3 +1061,304 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .shell .command-download { gap: 0; width: 34px; padding: 0; }
   .shell .command-download small { display: none; }
 }
+
+
+/* Screenshot-matched mobile chat shell — additive overrides preserve the existing V1 workspace. */
+:root {
+  --chat-paper: #FDF8E9;
+  --chat-card: #FFFDF4;
+  --chat-soft: #F5E3C2;
+  --chat-terracotta: #B96322;
+  --chat-terracotta-deep: #4A2A1D;
+  --chat-ink: #432A20;
+  --chat-muted: #826A56;
+  --chat-line: #E1C59E;
+}
+html, body { width:100%; max-width:100%; overflow-x:clip; }
+.shell { width:100%; max-width:100%; min-width:0; height:100dvh; min-height:0; overflow:hidden; background:var(--chat-paper); }
+.shell .main { height:100dvh; min-height:0; min-width:0; overflow:hidden; background:var(--chat-paper); }
+.shell .top {
+  z-index:30; flex:0 0 72px; height:72px; gap:13px;
+  padding:0 clamp(14px,3vw,28px); background:#4A2B1F;
+  border-bottom:1px solid #4A2B1F; color:#FFF4DF;
+}
+.shell .top-context { gap:5px; }
+.shell .top-context strong { color:#FFF0D8; font-size:17px; letter-spacing:-.2px; }
+.shell .top-context small { color:#D9BFA0; font-size:10px; letter-spacing:.4px; }
+.shell .menu-trigger { background:transparent; color:#F8E9D4; border:0; border-radius:10px; font-size:27px; width:44px; height:44px; flex:0 0 44px; }
+.shell .menu-trigger:hover { background:rgba(255,245,224,.1); }
+.shell .logout-trigger { border:0; border-radius:14px; padding:10px 14px; background:#A98767; color:#FFF5E5; font-size:12px; font-weight:600; white-space:nowrap; }
+.shell .logout-trigger:hover { background:#B99776; }
+.shell .assistant-menu-anchor { position:relative; flex:0 0 auto; z-index:1; }
+.shell .top.has-logo-menu { z-index:130; }
+.shell .assistant-mark { display:grid; place-items:center; width:48px; height:48px; border-radius:50%; border:1px solid rgba(255,240,220,.15); background:radial-gradient(circle at 35% 25%,#D88A3E 0,#AD551C 72%,#854018 100%); color:#FFF7E7; box-shadow:inset 0 1px 2px rgba(255,255,255,.22),0 2px 6px rgba(0,0,0,.15); }
+.shell .assistant-mark .chef-hat-logo { width:30px; height:30px; }
+.shell .assistant-mark i { display:none; }
+.shell .assistant-mark:hover { background:radial-gradient(circle at 35% 25%,#E09A51 0,#B96322 72%,#854018 100%); }
+.shell .content { min-width:0; min-height:0; overflow-x:clip; overflow-y:auto; padding:16px clamp(12px,4vw,40px) 110px; background:var(--chat-paper); overscroll-behavior:contain; }
+.shell .content > :not(.chat-transcript) { display:none !important; }
+.shell .chat-transcript { width:min(100%,820px); max-width:100%; padding:0 0 10px; margin:0 auto; }
+.shell .chat-empty { min-height:min(70vh,640px); padding:20px 10px 26px; justify-content:center; }
+.shell .chat-chef-mark { width:88px; height:88px; margin:0 0 26px; border:0; border-radius:50%; background:radial-gradient(circle at 32% 25%,#F1BD76 0,#D98531 56%,#B55A18 100%); box-shadow:0 4px 12px rgba(118,65,25,.11),inset 0 1px 2px rgba(255,255,255,.28); }
+.shell .chat-chef-mark .chef-hat-logo { width:52px; height:52px; animation:none; }
+/* The chef-hat SVG itself is unchanged so the existing logo remains recognizable. */
+.shell .chat-empty h1 { margin:0 0 12px; color:#43271B; font-size:clamp(25px,6.2vw,34px); font-weight:800; letter-spacing:-.75px; line-height:1.16; }
+.shell .chat-empty p { max-width:370px; color:#79634F; font-size:14px; line-height:1.55; }
+.shell .chat-message { position:relative; touch-action:pan-y; -webkit-user-select:none; user-select:none; }
+.shell .chat-message p { overflow-wrap:anywhere; word-break:break-word; }
+.shell .chat-message.from-user p { background:#F3E1C3; border:1px solid #E6C69B; color:#4A2A1D; border-radius:18px 18px 5px 18px; }
+.shell .chat-message.is-highlighted p { background:#F7DDB0; box-shadow:0 0 0 2px rgba(185,99,34,.16); }
+.shell .chat-message.from-assistant.is-highlighted p { padding:8px 10px; border-radius:10px; background:#F5E7CC; }
+.shell .interface-icon { display:block; width:22px; height:22px; flex:0 0 auto; }
+.shell .drawer-backdrop { z-index:90; background:rgba(36,25,17,.38); }
+.shell .popup-dismiss-layer { position:fixed; z-index:60; inset:0; width:100%; height:100%; margin:0; padding:0; border:0; border-radius:0; background:transparent; cursor:default; }
+.shell .sidebar {
+  z-index:100; display:flex; flex-direction:column;
+  width:min(80vw,390px); max-width:390px; height:100dvh; min-height:0;
+  padding:max(20px,env(safe-area-inset-top)) 18px max(12px,env(safe-area-inset-bottom));
+  overflow:hidden; visibility:hidden; transform:translateX(-101%);
+  transition:transform .22s ease,visibility 0s linear .22s;
+  background:#FCF8E9; color:#42291E; border-right:1px solid #E5D3B0;
+  box-shadow:18px 0 48px rgba(46,27,18,.18);
+}
+.shell .sidebar.is-open { visibility:visible; transform:translateX(0); transition-delay:0s; }
+.shell .drawer-head { display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:10px; margin:0 0 14px; padding-bottom:0; }
+.shell .sidebar .brand { display:flex; min-width:0; align-items:center; gap:12px; padding:0; text-decoration:none; }
+.shell .sidebar .brand-icon { display:grid; flex:0 0 48px; place-items:center; width:48px; height:48px; border-radius:50%; background:radial-gradient(circle at 32% 25%,#F1C287,#BD6C27 80%); }
+.shell .sidebar .brand-icon .chef-hat-logo { width:30px; height:30px; }
+.shell .sidebar .brand b { color:#432A20; font-size:17px; line-height:1.2; }
+.shell .sidebar .brand small { display:block; margin-top:3px; color:#84715D; font-size:10px; letter-spacing:.45px; }
+.shell .drawer-close { display:grid; flex:0 0 44px; place-items:center; width:44px; height:44px; padding:0; border:0; border-radius:50%; background:transparent; color:#4A2A1D; }
+.shell .drawer-close:hover { background:#F0E2C7; }
+.shell .drawer-close .interface-icon { width:26px; height:26px; }
+.shell .drawer-main-nav { flex:0 0 auto; display:flex; flex-direction:column; gap:1px; padding:0 0 3px; }
+.shell .drawer-main-nav .nav { display:flex; align-items:center; gap:13px; width:100%; min-height:43px; margin:0; padding:8px 10px; border:0; border-radius:11px; background:transparent; color:#30231D; text-align:left; font-size:16px; font-weight:500; }
+.shell .drawer-main-nav .nav:hover, .shell .drawer-main-nav .nav:focus-visible { background:#F3E7D0; }
+.shell .drawer-main-nav .nav-icon { display:inline-grid; width:28px; flex:0 0 28px; place-items:center; color:#3F3027; }
+.shell .drawer-main-nav .interface-icon { width:23px; height:23px; }
+.shell .drawer-divider { flex:0 0 1px; height:1px; margin:13px 3px; background:#C7B9A4; }
+.shell .chat-history-section { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; margin:0; overflow:hidden; }
+.shell .chat-history-section > .nav-label { flex:0 0 auto; margin:0 5px 8px; color:#897560; font-size:10px; letter-spacing:.7px; }
+.shell .chat-history-list { display:flex; flex:1 1 auto; flex-direction:column; min-height:0; gap:2px; margin:0; overflow-x:hidden; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.shell .chat-history-row { flex:0 0 auto; gap:2px; align-items:center; }
+.shell .chat-history-open { display:block; min-width:0; min-height:40px; padding:9px 9px; border:1px solid transparent; border-radius:9px; background:transparent; color:#36261E; }
+.shell .chat-history-open strong { display:block; width:100%; overflow:hidden; color:#38271F; font-size:14px; font-weight:500; line-height:1.3; text-overflow:ellipsis; white-space:nowrap; }
+.shell .chat-history-delete { flex:0 0 30px; width:30px; min-height:30px; font-size:17px; color:#9A7F68; }
+.shell .chat-history-row.is-active .chat-history-open, .shell .chat-history-open:hover { border-color:#E3D4B8; background:#F6ECD8; }
+.shell .chat-history-empty { margin:6px; color:#7D6B5A; font-size:12px; line-height:1.5; }
+.shell .chat-history-storage-note { flex:0 0 auto; margin:8px 6px 0; color:#8A7663; font-size:10px; }
+.shell .drawer-bottom { display:grid; flex:0 0 auto; grid-template-columns:1fr 54px; align-items:center; gap:12px; margin-top:10px; padding-top:10px; border-top:1px solid #E6D7BE; }
+.shell .drawer-chat-button { display:flex; min-width:0; min-height:56px; align-items:center; justify-content:center; gap:10px; padding:10px 14px; border:0; border-radius:28px; background:#E7A084; color:#41271E; font-size:16px; font-weight:600; }
+.shell .drawer-chat-button .interface-icon { width:22px; height:22px; }
+.shell .drawer-settings-button { display:grid; width:54px; height:54px; place-items:center; border:0; border-radius:50%; background:#475A5F; color:#FFF4DE; }
+.shell .drawer-settings-button:hover { background:#36484C; }
+.shell .drawer-settings-button .interface-icon { width:32px; height:32px; }
+.shell .assistant-menu-anchor { position:relative; }
+.shell .logo-popover { position:absolute; z-index:145; top:calc(100% + 8px); right:0; display:flex; flex-direction:column; gap:3px; width:178px; padding:7px; border:1px solid #E2CCAA; border-radius:15px; background:#FFFCF1; color:#432A20; box-shadow:0 12px 38px rgba(59,34,20,.2); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(-5px) scale(.96); transform-origin:top right; transition:opacity .18s ease,transform .18s ease,visibility .18s; }
+.shell .logo-popover.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); }
+.shell .logo-popover button { display:flex; width:100%; min-height:44px; align-items:center; gap:11px; padding:10px 11px; border:0; border-radius:10px; background:transparent; color:#432A20; font-size:14px; text-align:left; }
+.shell .logo-popover button:hover { background:#F5E7CC; }
+.shell .logo-popover .interface-icon { width:20px; height:20px; }
+.shell .account-action-dot { width:9px; height:9px; border-radius:50%; background:#B96322; }
+.shell .command-dock { z-index:70; left:0; right:0; bottom:0; width:100%; max-width:100%; min-width:0; gap:10px; padding:10px 12px max(12px,env(safe-area-inset-bottom)); border-top:1px solid #E4D0AD; background:rgba(253,248,233,.97); box-sizing:border-box; }
+.shell .command-add { display:grid; place-items:center; width:54px; height:54px; flex:0 0 54px; border:1px solid #E5CFAD; border-radius:50%; background:#F0DAB8; color:#4A2A1D; font-size:32px; font-weight:300; box-shadow:0 2px 9px rgba(83,45,28,.1); }
+.shell .command-add:hover, .shell .command-add[aria-expanded="true"] { background:#EAD0A4; }
+.shell .command-form { display:flex; flex:1 1 auto; width:auto; max-width:720px; min-width:0; align-items:center; gap:8px; padding:5px 6px 5px 16px; border:2px solid #B5783E; border-radius:999px; background:#F5E5C9; box-shadow:0 4px 12px rgba(83,45,28,.08); }
+.shell .command-form input { flex:1 1 0%; min-width:0; width:0; max-width:100%; padding:11px 3px; border:0; border-radius:999px; background:transparent; color:#4A2A1D; font-size:14px; }
+.shell .command-form input::placeholder { color:#8D735E; opacity:1; }
+.shell .command-form .command-submit { display:grid; flex:0 0 54px; width:54px; height:48px; place-items:center; margin-left:auto; padding:0; border:0; border-radius:50%; background:#BC651F; color:#FFF7E8; cursor:pointer; }
+.shell .command-submit .interface-icon { width:24px; height:24px; }
+.shell .command-submit:hover { background:#A65319; }
+.shell .task-popover { position:absolute; z-index:72; left:12px; bottom:calc(100% + 8px); display:flex; flex-direction:column; gap:3px; width:min(286px,calc(100vw - 24px)); padding:7px; border:1px solid #E1C59E; border-top:5px solid #B96322; border-radius:24px; background:#F7E5C5; color:#432A20; box-shadow:0 12px 30px rgba(79,44,23,.18); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(7px) scale(.88); transform-origin:bottom left; transition:opacity .2s ease,transform .2s ease,visibility .2s; }
+.shell .task-popover.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); }
+.shell .task-popover button { display:flex; width:100%; min-height:51px; align-items:center; gap:12px; padding:6px 9px; border:0; border-radius:14px; background:transparent; color:#432A20; text-align:left; font-size:15px; font-weight:650; }
+.shell .task-popover button:hover, .shell .task-popover button:focus-visible { background:rgba(255,252,241,.62); }
+.shell .task-icon { display:grid; flex:0 0 44px; width:44px; height:44px; place-items:center; border-radius:50%; background:#DEC49F; color:#553729; }
+.shell .task-icon .interface-icon { width:24px; height:24px; }
+.shell .task-popover button:last-child { font-weight:750; }
+.shell .message-action-popover { position:fixed; z-index:160; display:flex; flex-direction:column; gap:2px; width:132px; padding:6px; border:1px solid #E0C9A8; border-radius:13px; background:#FFFCF1; color:#432A20; box-shadow:0 10px 30px rgba(56,34,22,.2); }
+.shell .message-action-popover button { display:flex; min-height:42px; align-items:center; gap:9px; width:100%; padding:8px 9px; border:0; border-radius:8px; background:transparent; color:#432A20; text-align:left; font-size:13px; }
+.shell .message-action-popover button:hover { background:#F5E7CC; }
+.shell .message-action-popover .interface-icon { width:18px; height:18px; }
+.shell .message-edit-box { display:flex; flex-direction:column; gap:9px; width:min(100%,560px); min-width:0; padding:10px; border:1px solid #DDBD95; border-radius:15px; background:#FFFCF1; box-shadow:0 4px 14px rgba(83,45,28,.08); }
+.shell .message-edit-box textarea { width:100%; min-width:0; max-width:100%; min-height:68px; resize:vertical; padding:10px; border:1px solid #DFC9A9; border-radius:10px; background:#FFFDF4; color:#432A20; font-size:15px; line-height:1.5; -webkit-user-select:text; user-select:text; }
+.shell .message-edit-actions { display:flex; justify-content:flex-end; gap:8px; }
+.shell .message-edit-actions button { min-width:72px; min-height:44px; border:1px solid #DCC3A0; border-radius:11px; padding:9px 13px; font-size:13px; font-weight:650; }
+.shell .message-edit-cancel { background:#FFFDF4; color:#54382A; }
+.shell .message-edit-send { background:#B96322; color:#FFFBF0; }
+.shell .message-edit-send:disabled { opacity:.45; cursor:not-allowed; }
+.shell .copied-toast { position:fixed; z-index:170; left:50%; bottom:calc(82px + env(safe-area-inset-bottom)); transform:translateX(-50%); padding:10px 18px; border-radius:999px; background:#4A2B1F; color:#FFF4DF; box-shadow:0 7px 20px rgba(48,29,20,.22); font-size:13px; font-weight:650; }
+.shell .command-download { display:none !important; }
+.shell .top.has-logo-menu .assistant-menu-anchor { z-index:150; }
+.shell .sidebar .side-foot, .shell .sidebar .drawer-theme, .shell .sidebar .drawer-projects { display:none !important; }
+@media (max-width:650px) {
+  .shell .top { flex-basis:62px; height:62px; padding:0 12px; gap:8px; }
+  .shell .top-context strong { font-size:14px; }
+  .shell .top-context small { font-size:9px; letter-spacing:.1px; }
+  .shell .logout-trigger { padding:8px 9px; font-size:10px; }
+  .shell .assistant-mark { width:40px; height:40px; }
+  .shell .content { padding:14px 12px 100px; }
+  .shell .chat-empty { min-height:min(70vh,570px); padding:18px 4px 24px; }
+  .shell .chat-chef-mark { width:76px; height:76px; margin-bottom:23px; }
+  .shell .chat-chef-mark .chef-hat-logo { width:47px; height:47px; }
+  .shell .chat-empty h1 { font-size:clamp(24px,7vw,30px); }
+  .shell .chat-empty p { font-size:13px; max-width:340px; }
+  .shell .command-dock { gap:8px; padding:8px 10px max(10px,env(safe-area-inset-bottom)); }
+  .shell .command-add { width:48px; height:48px; flex-basis:48px; font-size:30px; }
+  .shell .command-form { gap:5px; padding:4px 5px 4px 12px; border-width:1.5px; }
+  .shell .command-form input { font-size:13px; padding:10px 2px; }
+  .shell .command-form .command-submit { flex-basis:42px; width:42px; height:42px; }
+  .shell .command-submit .interface-icon { width:21px; height:21px; }
+  .shell .drawer-main-nav .nav { min-height:42px; font-size:15px; }
+  .shell .sidebar { padding-left:14px; padding-right:14px; }
+  .shell .drawer-bottom { grid-template-columns:1fr 50px; gap:10px; }
+  .shell .drawer-chat-button { min-height:52px; }
+  .shell .drawer-settings-button { width:50px; height:50px; }
+}
+@media (max-width:370px) {
+  .shell .top { gap:5px; padding-inline:8px; }
+  .shell .top-context strong { font-size:13px; }
+  .shell .top-context small { font-size:8px; }
+  .shell .logout-trigger { padding:7px 7px; font-size:9px; }
+  .shell .assistant-mark { width:36px; height:36px; }
+  .shell .command-dock { gap:6px; padding-left:8px; padding-right:8px; }
+  .shell .command-add { width:44px; height:44px; flex-basis:44px; }
+  .shell .command-form .command-submit { flex-basis:39px; width:39px; height:39px; }
+  .shell .task-popover { left:8px; width:min(280px,calc(100vw - 16px)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .sidebar, .shell .task-popover, .shell .logo-popover { transition-duration:.01ms; }
+}
+
+
+/* Settings now owns the Appearance control so the drawer can keep its reference layout. */
+.shell .settings-appearance-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0; padding:14px 12px; border:1px solid #E5D4B8; border-radius:13px; background:#F8EBD4; }
+.shell .settings-appearance-row > span { display:grid; min-width:0; gap:4px; }
+.shell .settings-appearance-row strong { color:#4A2A1D; font-size:13px; }
+.shell .settings-appearance-row small { color:#806B56; font-size:11px; line-height:1.4; }
+.shell .settings-appearance-row .theme-toggle { flex:0 0 auto; min-height:44px; border:1px solid #DCC3A0; border-radius:22px; background:#FFF9EF; color:#4A2A1D; padding:9px 13px; font-size:12px; }
+.shell[data-theme="dark"] .settings-appearance-row { background:#382820; border-color:#624536; }
+.shell[data-theme="dark"] .settings-appearance-row strong, .shell[data-theme="dark"] .settings-appearance-row small { color:#F2DED2; }
+.shell[data-theme="dark"] .settings-appearance-row .theme-toggle { background:#26201D; color:#F2DED2; border-color:#624536; }
+
+
+/* Final colour calibration sampled from the owner's two reference screenshots. */
+:root {
+  --chat-paper: #F1EEDD;
+  --chat-card: #F0EDDA;
+  --chat-soft: #EFDEC0;
+  --chat-terracotta: #BF6D24;
+  --chat-terracotta-deep: #3D251B;
+  --chat-ink: #3D281E;
+  --chat-muted: #7C6551;
+  --chat-line: #D7C19E;
+}
+html, body { background: var(--chat-paper); color: var(--chat-ink); }
+.shell, .shell .main, .shell .content { background: var(--chat-paper); }
+.shell .top { background: #3D251B; border-bottom-color: #3D251B; color: #F4E3C5; }
+.shell .top-context strong { color: #F4E3C5; }
+.shell .top-context small { color: #D7BE9C; }
+.shell .menu-trigger { color: #F4E3C5; }
+.shell .logout-trigger { background: #9E7859; color: #F8EBD5; }
+.shell .assistant-mark { background: radial-gradient(circle at 35% 25%, #BD762E 0%, #743812 72%, #54280E 100%); }
+.shell .assistant-mark:hover { background: radial-gradient(circle at 35% 25%, #CC843C 0%, #82451A 72%, #54280E 100%); }
+.shell .chat-empty h1 { color: #3D251B; }
+.shell .chat-empty p { color: #78634E; }
+.shell .chat-chef-mark { background: radial-gradient(circle at 32% 25%, #F4D1A0 0%, #EAB16B 48%, #D88A35 100%); }
+.shell .sidebar { background: #F0EDDA; border-right-color: #D7C9AC; color: #35261D; }
+.shell .sidebar .brand b { color: #3D281E; }
+.shell .sidebar .brand small { color: #83715E; }
+.shell .sidebar .brand-icon { background: radial-gradient(circle at 32% 25%, #F1C287, #BD6C27 80%); }
+.shell .drawer-main-nav .nav { color: #30231D; }
+.shell .drawer-main-nav .nav:hover, .shell .drawer-main-nav .nav:focus-visible { background: #E9E0C9; }
+.shell .drawer-main-nav .nav-icon { color: #3F3027; }
+.shell .drawer-divider { background: #BDB19B; }
+.shell .chat-history-section > .nav-label { color: #82715E; }
+.shell .chat-history-open { color: #3D281E; }
+.shell .chat-history-open strong { color: #3D281E; }
+.shell .chat-history-row.is-active .chat-history-open, .shell .chat-history-open:hover { border-color: #D5C5A7; background: #EAE3CE; }
+.shell .chat-history-empty, .shell .chat-history-storage-note { color: #7D6B59; }
+.shell .drawer-bottom { border-top-color: #D8CAB0; }
+.shell .drawer-chat-button { background: #E7A686; color: #41271E; }
+.shell .drawer-settings-button { background: #4E5859; color: #F7F0DF; }
+.shell .drawer-settings-button:hover { background: #434D4E; }
+.shell .command-dock { background: rgba(241,238,221,.98); border-top-color: #D8C4A5; }
+.shell .command-add { background: #EFDEC0; border-color: #DCC29B; color: #4A2A1D; }
+.shell .command-add:hover, .shell .command-add[aria-expanded="true"] { background: #E6D0AA; }
+.shell .command-form { background: #D8C3A6; border-color: #A86A35; }
+.shell .command-form input { color: #4A2A1D; }
+.shell .command-form input::placeholder { color: #876A4E; }
+.shell .command-form .command-submit { background: #BF6D24; color: #FFF7E8; }
+.shell .command-form .command-submit:hover { background: #A95719; }
+.shell .task-popover { background: #EFDEC0; border-color: #DCC29B; border-top-color: #B8783E; }
+.shell .task-popover button { color: #3D281E; }
+.shell .task-icon { background: #C6A680; color: #4D3527; }
+.shell .logo-popover { background: #F0EDDA; border-color: #D2BF9A; color: #3D281E; }
+.shell .logo-popover button { color: #3D281E; }
+.shell .logo-popover button:hover { background: #E7DEC6; }
+.shell .message-action-popover { background: #F0EDDA; border-color: #D2BF9A; }
+.shell .message-action-popover button { color: #3D281E; }
+.shell .message-action-popover button:hover { background: #E7DEC6; }
+.shell .message-edit-box { background: #F0EDDA; border-color: #D7C19E; }
+.shell .message-edit-box textarea { background: #F8F4E6; color: #3D281E; border-color: #D7C19E; }
+.shell .message-edit-send { background: #BF6D24; color: #FFF7E8; border-color: #BF6D24; }
+.shell .copied-toast { background: #3D251B; color: #F4E3C5; }
+.shell .settings-appearance-row { background: #EFDEC0; border-color: #D7C19E; }
+.shell .settings-appearance-row strong { color: #3D281E; }
+.shell .settings-appearance-row small { color: #7C6551; }
+.shell .settings-appearance-row .theme-toggle { background: #F8F4E6; border-color: #D7C19E; color: #3D281E; }
+@media (max-width: 650px) {
+  .shell .content { padding-bottom: 100px; }
+  .shell .command-dock { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+}
+
+
+/* Android Chrome keyboard handling: use the visual viewport when the IME is open. */
+.shell .command-dock {
+  bottom: var(--keyboard-inset, 0px);
+}
+.shell .task-popover {
+  max-height: calc(var(--visible-viewport-height, 100dvh) - 160px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.shell .message-action-popover {
+  max-height: calc(var(--visible-viewport-height, 100dvh) - 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Anchor the quick-task popup directly to the plus button instead of floating above the entire dock. */
+.shell .task-popover { bottom: calc(100% - 6px); left: 12px; }
+@media (max-width: 650px) { .shell .task-popover { left: 10px; } }
+@media (max-width: 370px) { .shell .task-popover { left: 8px; } }
+
+
+/* Preserve the pre-existing dark appearance for the newly added popup controls. */
+.shell[data-theme="dark"] .task-popover {
+  background: #2C211B;
+  border-color: #514034;
+  border-top-color: #C9704F;
+  color: #F6EEE7;
+}
+.shell[data-theme="dark"] .task-popover button { color: #F6EEE7; }
+.shell[data-theme="dark"] .task-popover button:hover,
+.shell[data-theme="dark"] .task-popover button:focus-visible { background: #382820; }
+.shell[data-theme="dark"] .task-icon { background: #4A3126; color: #F2DED2; }
+.shell[data-theme="dark"] .logo-popover,
+.shell[data-theme="dark"] .message-action-popover {
+  background: #2C211B;
+  border-color: #514034;
+  color: #F6EEE7;
+}
+.shell[data-theme="dark"] .logo-popover button,
+.shell[data-theme="dark"] .message-action-popover button { color: #F6EEE7; }
+.shell[data-theme="dark"] .logo-popover button:hover,
+.shell[data-theme="dark"] .message-action-popover button:hover { background: #382820; }
+.shell[data-theme="dark"] .account-action-dot { background: #C9704F; }
+.shell[data-theme="dark"] .message-edit-box { background: #2C211B; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-box textarea { background: #211914; color: #F6EEE7; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-cancel { background: #2C211B; color: #F6EEE7; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-send { background: #C9704F; color: #211914; border-color: #C9704F; }

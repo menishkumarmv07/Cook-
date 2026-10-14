@@ -4,7 +4,7 @@ import SchedulePlanner from "@/components/schedule-planner";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
-import type { FormEvent } from "react";
+import type { FormEvent, TouchEvent as ReactTouchEvent } from "react";
 import {
   buildNarrationScript,
   buildTutorialDraft,
@@ -32,7 +32,6 @@ const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
 const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1"; // Legacy flat history key; used only for migration.
 const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
-const MAX_CHAT_HISTORY_CONVERSATIONS = 25;
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
@@ -71,6 +70,9 @@ type ChatConversation = {
   updatedAt: string;
   messages: ChatMessage[];
 };
+
+type OverlayKind = "drawer" | "tasks" | "logo" | "message";
+type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y: number };
 
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
@@ -112,6 +114,32 @@ function ChefHatLogo() {
       <ellipse className="chef-hat-blush" cx="19.5" cy="35.1" rx="3.1" ry="1.7" />
       <ellipse className="chef-hat-blush" cx="44.5" cy="35.1" rx="3.1" ry="1.7" />
       <path className="chef-hat-sparkle" d="M51.5 2.5l1.5 4 4 1.5-4 1.5-1.5 4-1.5-4-4-1.5 4-1.5z" />
+    </svg>
+  );
+}
+
+type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu";
+
+function InterfaceIcon({ name }: { name: InterfaceIconName }) {
+  const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <svg className="interface-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...common}>
+      {name === "calendar" && <><rect x="3.5" y="5" width="17" height="16" rx="2.2" /><path d="M7.5 3.5v3M16.5 3.5v3M3.5 9.5h17M7.5 13h.1M12 13h.1M16.5 13h.1M7.5 17h.1M12 17h.1" /></>}
+      {name === "edit" && <><path d="M12 20H4a1.5 1.5 0 0 1-1.5-1.5v-13A1.5 1.5 0 0 1 4 4h9" /><path d="m15.8 3.8 4.4 4.4M9 15l-1 4 4-1L21 9a2.1 2.1 0 0 0-4-4z" /></>}
+      {name === "link" && <><path d="M9.5 14.5 7.7 16.3a3.4 3.4 0 0 1-4.8-4.8l4-4a3.4 3.4 0 0 1 4.8 0" /><path d="m14.5 9.5 1.8-1.8a3.4 3.4 0 0 1 4.8 4.8l-4 4a3.4 3.4 0 0 1-4.8 0M8.5 15.5l7-7" /></>}
+      {name === "upload" && <><path d="M4 16.5v3h16v-3" /><path d="M12 16V4m-4 4 4-4 4 4" /><path d="M4 13.5a4.5 4.5 0 0 1 .6-9A7 7 0 0 1 18 6a4 4 0 0 1 2 7.5" /></>}
+      {name === "download" && <><path d="M3 7.5h7l2 2h9v10H3z" /><path d="M12 4v10m-4-4 4 4 4-4" /></>}
+      {name === "images" && <><rect x="3" y="4" width="13" height="13" rx="2" /><path d="m3.5 14 4-4 3 3 2-2 3.5 3.5" /><rect x="8" y="8" width="13" height="13" rx="2" /><circle cx="8.5" cy="8.5" r=".7" /></>}
+      {name === "library" && <><path d="M4 4.5h4v15H4zM10 4.5h4v15h-4zM16 4.5h4v15h-4z" /></>}
+      {name === "folder" && <><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 9h18" /></>}
+      {name === "remote" && <><rect x="3" y="3.5" width="18" height="13" rx="2" /><path d="M8 20.5h8M12 16.5v4M5 13.5h14" /></>}
+      {name === "clock" && <><circle cx="12" cy="12" r="9" /><path d="M12 6.5v5.8l3.7 2.2" /></>}
+      {name === "explore" && <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>}
+      {name === "settings" && <><circle cx="12" cy="12" r="3.2" /><path d="m19.2 13.7 1.1 1.9-2 3.4-2.2-.5a7.8 7.8 0 0 1-1.8 1l-.8 2h-3.9l-.8-2a7.8 7.8 0 0 1-1.8-1l-2.2.5-2-3.4 1.1-1.9a7.8 7.8 0 0 1 0-2.1L3 9.7l2-3.4 2.2.5a7.8 7.8 0 0 1 1.8-1l.8-2h3.9l.8 2a7.8 7.8 0 0 1 1.8 1l2.2-.5 2 3.4-1.1 1.9a7.8 7.8 0 0 1 0 2.1z" /></>}
+      {name === "chat" && <><path d="M4 4h16v13H9l-5 3z" /><path d="M8 9h8M8 12.5h5" /></>}
+      {name === "copy" && <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" /></>}
+      {name === "close" && <><path d="m5 5 14 14M19 5 5 19" /></>}
+      {name === "menu" && <><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></>}
     </svg>
   );
 }
@@ -231,18 +259,9 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
   }
   return normalized
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+    ;
 }
 
-function formatChatHistoryTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  }
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
 
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
@@ -330,6 +349,12 @@ export default function Home() {
   const [showNarration, setShowNarration] = useState(false);
   const [showContentPack, setShowContentPack] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
+  const [logoMenuOpen, setLogoMenuOpen] = useState(false);
+  const [messageActionMenu, setMessageActionMenu] = useState<MessageActionMenu | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
+  const [copiedToast, setCopiedToast] = useState(false);
   const [command, setCommand] = useState("");
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
   const [activeToolReady, setActiveToolReady] = useState(false);
@@ -342,6 +367,12 @@ export default function Home() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+  const overlayHistoryPushedRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const copiedToastTimerRef = useRef<number | null>(null);
+  const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -358,16 +389,54 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (!menuOpen) return;
-    function handleDrawerKeydown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        menuButtonRef.current?.focus();
-      }
+    function handleOverlayKeydown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (!menuOpen && !taskMenuOpen && !logoMenuOpen && !messageActionMenu) return;
+      event.preventDefault();
+      closeOverlays();
+      menuButtonRef.current?.focus();
     }
-    window.addEventListener("keydown", handleDrawerKeydown);
-    return () => window.removeEventListener("keydown", handleDrawerKeydown);
-  }, [menuOpen]);
+    function handleBrowserBack() {
+      if (!overlayHistoryPushedRef.current) return;
+      overlayHistoryPushedRef.current = false;
+      setMenuOpen(false);
+      setTaskMenuOpen(false);
+      setLogoMenuOpen(false);
+      setMessageActionMenu(null);
+    }
+    window.addEventListener("keydown", handleOverlayKeydown);
+    window.addEventListener("popstate", handleBrowserBack);
+    return () => {
+      window.removeEventListener("keydown", handleOverlayKeydown);
+      window.removeEventListener("popstate", handleBrowserBack);
+    };
+  }, [menuOpen, taskMenuOpen, logoMenuOpen, messageActionMenu]);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const root = document.documentElement;
+    const updateViewportInsets = () => {
+      const visibleHeight = Math.max(1, Math.round(viewport.height));
+      const occludedBottom = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+      root.style.setProperty("--visible-viewport-height", `${visibleHeight}px`);
+      // Ignore ordinary browser chrome changes; the keyboard creates a substantially larger inset.
+      root.style.setProperty("--keyboard-inset", `${occludedBottom > 100 ? occludedBottom : 0}px`);
+    };
+
+    updateViewportInsets();
+    viewport.addEventListener("resize", updateViewportInsets);
+    viewport.addEventListener("scroll", updateViewportInsets);
+    window.addEventListener("resize", updateViewportInsets);
+    return () => {
+      viewport.removeEventListener("resize", updateViewportInsets);
+      viewport.removeEventListener("scroll", updateViewportInsets);
+      window.removeEventListener("resize", updateViewportInsets);
+      root.style.removeProperty("--visible-viewport-height");
+      root.style.removeProperty("--keyboard-inset");
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -476,7 +545,7 @@ export default function Home() {
           createdAt: now,
           updatedAt: now,
           messages,
-        }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+        }, ...previous];
       }
       const current = previous[index];
       const generatedTitle = getConversationTitle(messages);
@@ -488,7 +557,7 @@ export default function Home() {
       };
       return [nextConversation, ...previous.filter((conversation) => conversation.id !== activeConversationId)]
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-        .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+        ;
     });
   }, [chatMessages, activeConversationId, chatHistoryReady]);
 
@@ -500,10 +569,227 @@ export default function Home() {
     }
   }, [theme]);
 
+  function closeOverlays() {
+    setMenuOpen(false);
+    setTaskMenuOpen(false);
+    setLogoMenuOpen(false);
+    setMessageActionMenu(null);
+    if (overlayHistoryPushedRef.current) {
+      overlayHistoryPushedRef.current = false;
+      window.history.back();
+    }
+  }
+
+  function openOverlay(kind: OverlayKind, messageMenu?: MessageActionMenu) {
+    const alreadyOpen = menuOpen || taskMenuOpen || logoMenuOpen || Boolean(messageActionMenu);
+    if (!alreadyOpen && !overlayHistoryPushedRef.current) {
+      try {
+        window.history.pushState({ cookingCreatorOverlay: true }, "", window.location.href);
+        overlayHistoryPushedRef.current = true;
+      } catch {
+        // Popups still work when the browser disallows a history state change.
+      }
+    }
+    setMenuOpen(kind === "drawer");
+    setTaskMenuOpen(kind === "tasks");
+    setLogoMenuOpen(kind === "logo");
+    setMessageActionMenu(kind === "message" ? (messageMenu ?? null) : null);
+  }
+
   function openWorkspaceMenu() {
-    setMenuOpen(true);
-    // Wait for the drawer to become visible before moving keyboard focus.
+    openOverlay("drawer");
     window.requestAnimationFrame(() => drawerCloseRef.current?.focus());
+  }
+
+  function toggleTaskMenu() {
+    if (taskMenuOpen) { closeOverlays(); return; }
+    openOverlay("tasks");
+  }
+
+  function toggleLogoMenu() {
+    if (logoMenuOpen) { closeOverlays(); return; }
+    openOverlay("logo");
+  }
+
+  function openSettingsView() {
+    closeOverlays();
+    setActiveTool("profile");
+    window.requestAnimationFrame(() => {
+      const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+      if (details) details.open = true;
+      document.getElementById("creator-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore") {
+    closeOverlays();
+    const tool: WorkspaceTool =
+      item === "images" ? "intake" :
+      item === "library" || item === "projects" ? "library" :
+      item === "remote" ? "connections" :
+      item === "scheduled" ? "content" : "research";
+    setActiveTool(tool);
+    const targetId =
+      item === "images" ? (current ? "recipe-editor" : "intake") :
+      item === "library" || item === "projects" ? "recent-projects" :
+      item === "remote" ? "social-connections" :
+      item === "scheduled" ? "schedule-preview-title" :
+      (current ? "recipe-editor" : "research-trends");
+    if (item === "images") {
+      setMessage("Image generation is not connected in V1. Existing cooking-trial photo uploads are available inside a recipe draft.");
+      if (!current) setActiveTool("intake");
+    }
+    window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+
+  function runQuickTask(task: "plan" | "content" | "links" | "publish" | "download") {
+    closeOverlays();
+    if (task === "plan") openTool("plan");
+    else if (task === "content") openTool("content");
+    else if (task === "links") {
+      openTool("content", "Links upload", "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts.");
+      window.requestAnimationFrame(() => document.getElementById("workspace-command")?.focus());
+    } else if (task === "publish") openTool("publish");
+    else exportWorkspaceBackup();
+  }
+
+  function clearLongPressTimer() {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function showMessageActionMenu(item: ChatMessage, x: number, y: number) {
+    const width = 132;
+    const height = item.role === "user" ? 102 : 58;
+    const viewport = window.visualViewport;
+    const viewportTop = viewport?.offsetTop ?? 0;
+    const visibleBottom = Math.min(viewportTop + (viewport?.height ?? window.innerHeight), window.innerHeight);
+    const dockTop = document.querySelector(".command-dock")?.getBoundingClientRect().top;
+    const bottomLimit = dockTop !== undefined && dockTop > viewportTop
+      ? Math.min(visibleBottom - 8, dockTop - 8)
+      : visibleBottom - 8;
+    const left = Math.max(8, Math.min(x + 8, window.innerWidth - width - 8));
+    let top = y + 8;
+    if (top + height > bottomLimit) top = y - height - 8;
+    top = Math.max(viewportTop + 8, Math.min(top, bottomLimit - height));
+    openOverlay("message", { id: item.id, role: item.role, x: left, y: top });
+  }
+
+  function beginMessageHold(item: ChatMessage, x: number, y: number) {
+    if (editingMessageId === item.id) return;
+    clearLongPressTimer();
+    longPressOriginRef.current = { x, y };
+    longPressTimerRef.current = window.setTimeout(() => {
+      showMessageActionMenu(item, x, y);
+      longPressTimerRef.current = null;
+    }, 500);
+  }
+
+  function moveMessageHold(x: number, y: number) {
+    const start = longPressOriginRef.current;
+    if (!start) return;
+    if (Math.abs(x - start.x) > 9 || Math.abs(y - start.y) > 9) {
+      clearLongPressTimer();
+      longPressOriginRef.current = null;
+    }
+  }
+
+  async function copyChatMessage(messageId: string) {
+    const item = chatMessages.find((entry) => entry.id === messageId);
+    if (!item) return;
+    try {
+      await navigator.clipboard.writeText(item.text);
+    } catch {
+      const helper = document.createElement("textarea");
+      helper.value = item.text;
+      helper.setAttribute("readonly", "");
+      helper.style.position = "fixed";
+      helper.style.opacity = "0";
+      document.body.appendChild(helper);
+      helper.select();
+      try { document.execCommand("copy"); } catch { /* Clipboard fallback may be blocked by the browser. */ }
+      helper.remove();
+    }
+    closeOverlays();
+    setCopiedToast(true);
+    if (copiedToastTimerRef.current !== null) window.clearTimeout(copiedToastTimerRef.current);
+    copiedToastTimerRef.current = window.setTimeout(() => setCopiedToast(false), 1500);
+  }
+
+  function beginEditingMessage(messageId: string) {
+    const item = chatMessages.find((entry) => entry.id === messageId);
+    if (!item || item.role !== "user") return;
+    closeOverlays();
+    setEditingMessageId(messageId);
+    setEditDraft(item.text);
+    window.setTimeout(() => {
+      const input = editInputRef.current;
+      if (!input) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 120);
+  }
+
+  function replyForEditedRequest(rawRequest: string): { tool: WorkspaceTool; text: string } {
+    const request = rawRequest.toLowerCase();
+    const urls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
+    if (urls.length > 1 || (scheduleIntent && urls.length > 0)) {
+      const valid = urls.filter(isHttpUrl);
+      setSchedulePrefill(valid.join("\n"));
+      return { tool: "content", text: valid.length === 7
+        ? "I found seven valid HTTP(S) links and placed them in Plan Content. Choose a 3-day or 7-day draft option below. These are local drafts only."
+        : `I found ${valid.length} valid link(s) and placed them in Plan Content. The planner needs exactly seven links to build a schedule. Nothing is scheduled or published.` };
+    }
+    if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
+      if (isHttpUrl(rawRequest)) {
+        setUrl(rawRequest);
+        return { tool: "intake", text: "I added the edited source URL to recipe intake. Enter the recipe name, then review any extracted public-page details yourself. Video/Reel audio and frames are not analyzed." };
+      }
+      return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
+    }
+    if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts." };
+    if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) return { tool: "content", text: responseForTool("content") };
+    if (/connect|accounts?|integration|social|remote/.test(request)) return { tool: "connections", text: responseForTool("connections") };
+    if (/new recipe|create recipe|start recipe|add recipe|images/.test(request)) return { tool: "intake", text: responseForTool("intake") };
+    if (/research|source|trend|video link|explore/.test(request)) return { tool: "research", text: responseForTool("research") };
+    if (/publish|share|approval|queue/.test(request)) return { tool: "publish", text: responseForTool("publish") };
+    if (/studio|editor|script|storyboard|content/.test(request)) return { tool: "intake", text: responseForTool("intake") };
+    if (/today'?s plan|my plan|daily plan|next step|\bplan\b|scheduled/.test(request)) return { tool: "plan", text: responseForTool("plan") };
+    if (/theme|settings|profile/.test(request)) return { tool: "profile", text: responseForTool("profile") };
+    if (/library|recent drafts|projects/.test(request)) return { tool: "library", text: responseForTool("library") };
+    return { tool: "home", text: "I can open the existing V1 tools and prepare local drafts, but this chat is not connected to an AI model yet. Try Today’s Plan, Plan Content, Research Studio, Publish, or paste source links to continue." };
+  }
+
+  function sendEditedMessage() {
+    const raw = editDraft.trim();
+    const index = chatMessages.findIndex((item) => item.id === editingMessageId);
+    if (!raw || index < 0) return;
+    const item = chatMessages[index];
+    if (item.role !== "user") return;
+    const prefix = chatMessages.slice(0, index);
+    const editedUser: ChatMessage = { ...item, text: raw, timestamp: new Date().toISOString() };
+    const result = replyForEditedRequest(raw);
+    const answer: ChatMessage = { id: makeId(), role: "assistant", text: result.text, timestamp: new Date().toISOString() };
+    setChatMessages([...prefix, editedUser, answer].slice(-MAX_CHAT_HISTORY_MESSAGES));
+    setActiveTool(result.tool);
+    setEditingMessageId(null);
+    setEditDraft("");
+    setCommand("");
+    window.requestAnimationFrame(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }));
+  }
+
+  function handleDrawerTouchStart(event: ReactTouchEvent<HTMLElement>) {
+    drawerTouchStartXRef.current = event.changedTouches[0]?.clientX ?? null;
+  }
+
+  function handleDrawerTouchEnd(event: ReactTouchEvent<HTMLElement>) {
+    const start = drawerTouchStartXRef.current;
+    const end = event.changedTouches[0]?.clientX;
+    drawerTouchStartXRef.current = null;
+    if (start !== null && end !== undefined && start - end > 70) closeOverlays();
   }
 
   function ensureActiveChat(): string {
@@ -517,7 +803,7 @@ export default function Home() {
       createdAt: now,
       updatedAt: now,
       messages: [],
-    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    }, ...previous]);
     return id;
   }
 
@@ -530,13 +816,13 @@ export default function Home() {
       createdAt: now,
       updatedAt: now,
       messages: [],
-    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    }, ...previous]);
     setActiveConversationId(id);
     setChatMessages([]);
     setCommand("");
     setSchedulePrefill("");
     setActiveTool("home");
-    setMenuOpen(false);
+    closeOverlays();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -545,7 +831,7 @@ export default function Home() {
     setChatMessages(conversation.messages);
     setCommand("");
     setActiveTool("home");
-    setMenuOpen(false);
+    closeOverlays();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -616,7 +902,7 @@ export default function Home() {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
     ensureActiveChat();
     setActiveTool(tool);
-    setMenuOpen(false);
+    closeOverlays();
     setCommand("");
     setChatMessages((previous) => {
       const base = Date.now().toString(36) + "-" + previous.length;
@@ -641,7 +927,7 @@ export default function Home() {
   }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
-    setMenuOpen(false);
+    closeOverlays();
     setActiveTool(
       section === "plan" ? "plan" : section === "research" ? "research" :
       section === "connections" ? "connections" : section === "publish" ? "publish" :
@@ -707,7 +993,14 @@ export default function Home() {
     if (/publish|share|approval|queue/.test(request)) { openTool("publish", rawRequest); return; }
     if (/studio|editor|script|storyboard|content/.test(request)) { openTool("intake", rawRequest); return; }
     if (/today'?s plan|my plan|daily plan|next step|\bplan\b/.test(request)) { openTool("plan", rawRequest); return; }
-    if (/theme|settings|profile/.test(request)) { openTool("profile", rawRequest); setMenuOpen(/theme|settings/.test(request)); return; }
+    if (/theme|settings|profile/.test(request)) {
+      openTool("profile", rawRequest);
+      window.requestAnimationFrame(() => {
+        const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+        if (details) details.open = true;
+      });
+      return;
+    }
     if (/library|recent drafts/.test(request)) { openTool("library", rawRequest); return; }
 
     const time = Date.now().toString(36);
@@ -1186,69 +1479,65 @@ export default function Home() {
 
   return (
     <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
-      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
-      <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
+      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
+      {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={closeOverlays} />}
+      {messageActionMenu && <div className="message-action-popover" style={{ left: messageActionMenu.x, top: messageActionMenu.y }} role="menu" aria-label="Message actions">
+        {messageActionMenu.role === "user" && <button type="button" role="menuitem" onClick={() => beginEditingMessage(messageActionMenu.id)}><InterfaceIcon name="edit" />Edit</button>}
+        <button type="button" role="menuitem" onClick={() => void copyChatMessage(messageActionMenu.id)}><InterfaceIcon name="copy" />Copy</button>
+      </div>}
+      {copiedToast && <div className="copied-toast" role="status" aria-live="polite">Copied</div>}
+      <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}
+        onTouchStart={handleDrawerTouchStart} onTouchEnd={handleDrawerTouchEnd}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
-          <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
+          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); closeOverlays(); setActiveTool("home"); }}>
+            <span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span>
+            <span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span>
+          </a>
+          <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { closeOverlays(); menuButtonRef.current?.focus(); }}><InterfaceIcon name="close" /></button>
         </div>
+        <nav className="drawer-main-nav" aria-label="Main navigation">
+          <button className="nav" type="button" onClick={() => openDrawerItem("images")}><span className="nav-icon"><InterfaceIcon name="images" /></span>Images</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("library")}><span className="nav-icon"><InterfaceIcon name="library" /></span>Library</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("projects")}><span className="nav-icon"><InterfaceIcon name="folder" /></span>Projects</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("remote")}><span className="nav-icon"><InterfaceIcon name="remote" /></span>Remote</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("scheduled")}><span className="nav-icon"><InterfaceIcon name="clock" /></span>Scheduled</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
+        </nav>
+        <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
-          <div className="chat-history-header">
-            <p className="nav-label">CHAT HISTORY</p>
-            <button className="new-chat-button" type="button" onClick={startNewChat}><span aria-hidden="true">＋</span> New Chat</button>
-          </div>
+          <p className="nav-label">CHAT HISTORY</p>
           <div className="chat-history-list">
             {chatConversations.length === 0 ? (
-              <p className="chat-history-empty">Your conversations will appear here. Start a new chat to keep each topic separate.</p>
-            ) : chatConversations
-              .slice()
-              .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-              .map((conversation) => {
-                const lastMessage = conversation.messages[conversation.messages.length - 1];
-                const preview = lastMessage?.text.trim() || "Blank conversation";
-                return (
-                  <div className={conversation.id === activeConversationId ? "chat-history-row is-active" : "chat-history-row"} key={conversation.id}>
-                    <button className="chat-history-open" type="button" onClick={() => openConversation(conversation)} aria-current={conversation.id === activeConversationId ? "page" : undefined}>
-                      <strong>{conversation.title || "New chat"}</strong>
-                      <small>{preview.length > 68 ? `${preview.slice(0, 65)}…` : preview}</small>
-                      <time dateTime={conversation.updatedAt}>{formatChatHistoryTime(conversation.updatedAt)}</time>
-                    </button>
-                    <button className="chat-history-delete" type="button" aria-label={`Delete chat: ${conversation.title || "New chat"}`} title="Delete conversation" onClick={() => deleteConversation(conversation.id)}>×</button>
-                  </div>
-                );
-              })}
+              <p className="chat-history-empty">Your conversations will appear here.</p>
+            ) : chatConversations.slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).map((conversation) => (
+              <div className={conversation.id === activeConversationId ? "chat-history-row is-active" : "chat-history-row"} key={conversation.id}>
+                <button className="chat-history-open" type="button" onClick={() => openConversation(conversation)} aria-current={conversation.id === activeConversationId ? "page" : undefined}>
+                  <strong>{conversation.title || "New chat"}</strong>
+                </button>
+                <button className="chat-history-delete" type="button" aria-label={`Delete chat: ${conversation.title || "New chat"}`} title="Delete conversation" onClick={() => deleteConversation(conversation.id)}>×</button>
+              </div>
+            ))}
           </div>
           <p className="chat-history-storage-note">Saved in this browser on this device.</p>
         </section>
-        <div className="drawer-divider" />
-        <p className="nav-label">YOUR WORKFLOW</p>
-        <button className={activeTool === "plan" ? "nav active" : "nav"} type="button" onClick={() => openTool("plan")}><span aria-hidden="true">▣</span> Today&apos;s Plan</button>
-        <button className={activeTool === "content" ? "nav active" : "nav"} type="button" onClick={() => openTool("content")}><span aria-hidden="true">▤</span> Plan Content</button>
-        <button className={activeTool === "research" ? "nav active" : "nav"} type="button" onClick={() => openTool("research")}><span aria-hidden="true">⌕</span> Research Studio</button>
-        <button className={activeTool === "publish" ? "nav active" : "nav"} type="button" onClick={() => openTool("publish")}><span aria-hidden="true">➤</span> Publish</button>
-        <div className="drawer-divider" />
-        <p className="nav-label">MORE</p>
-        <button className={activeTool === "intake" ? "nav active" : "nav"} type="button" onClick={() => openTool("intake")}><span aria-hidden="true">＋</span> New recipe</button>
-        <button className={activeTool === "profile" ? "nav active" : "nav"} type="button" onClick={() => openTool("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
-        <button className={activeTool === "library" ? "nav active" : "nav"} type="button" onClick={() => openTool("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
-        <button className={activeTool === "connections" ? "nav active" : "nav"} type="button" onClick={() => openTool("connections")}><span aria-hidden="true">◎</span> Connect social accounts</button>
-        <div className="drawer-theme">
-          <span><strong>Appearance</strong><small>Saved on this device</small></span>
-          <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((value) => value === "light" ? "dark" : "light")}>{theme === "light" ? "☾ Dark" : "☀ Light"}</button>
+        <div className="drawer-bottom">
+          <button className="drawer-chat-button" type="button" onClick={startNewChat}><InterfaceIcon name="chat" />Chat</button>
+          <button className="drawer-settings-button" type="button" aria-label="Settings" title="Settings" onClick={openSettingsView}><InterfaceIcon name="settings" /></button>
         </div>
-        <div className="drawer-projects">
-          <p className="nav-label">RECENT PROJECTS</p>
-          {projects.length === 0 ? <p className="drawer-empty">Your recipe drafts will appear here.</p> : projects.slice(0, 5).map((project) => <button key={project.id} className={project.id === active ? "nav nav-project selected" : "nav nav-project"} type="button" onClick={() => { setActive(project.id); setShowTutorial(false); setShowNarration(false); setShowContentPack(false); goToSection("studio"); }}>◦　{project.name}</button>)}
-        </div>
-        <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small></div>
       </aside>
 
       <section className="main" id="dashboard">
-        <header className="top">
-          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
+        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if ((taskMenuOpen || messageActionMenu) || (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger"))) closeOverlays(); }}>
+          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
           <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
-          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => openTool("profile")}><ChefHatLogo /><i aria-hidden="true" /></button>
+          <div className="assistant-menu-anchor">
+            <button className="assistant-mark" type="button" aria-label="Open settings and account menu" aria-expanded={logoMenuOpen} onClick={toggleLogoMenu}><ChefHatLogo /><i aria-hidden="true" /></button>
+            <div className={logoMenuOpen ? "logo-popover is-open" : "logo-popover"} aria-hidden={!logoMenuOpen}>
+              <button type="button" onClick={openSettingsView}><InterfaceIcon name="settings" />Settings</button>
+              <button type="button" onClick={() => { closeOverlays(); void logOut(); }}><span className="account-action-dot" aria-hidden="true" />Log out</button>
+            </div>
+          </div>
         </header>
         <div className="content">
           <section className="chat-transcript" aria-label="Cooking Creator chat" role="log" aria-live="polite">
@@ -1256,14 +1545,28 @@ export default function Home() {
               <div className="chat-empty">
                 <span className="chat-chef-mark" aria-hidden="true"><ChefHatLogo /></span>
                 <h1>What are we cooking today?</h1>
-                <p>Choose a task from the three-line menu, or type your request below.</p>
+                <p>Tap + to choose a task, or type your request below.</p>
               </div>
             ) : (
               <div className="chat-messages">
                 {chatMessages.map((item) => (
-                  <div key={item.id} className={item.role === "user" ? "chat-message from-user" : "chat-message from-assistant"}>
+                  <div key={item.id}
+                    className={`chat-message ${item.role === "user" ? "from-user" : "from-assistant"}${messageActionMenu?.id === item.id ? " is-highlighted" : ""}${editingMessageId === item.id ? " is-editing" : ""}`}
+                    onPointerDown={(event) => beginMessageHold(item, event.clientX, event.clientY)}
+                    onPointerMove={(event) => moveMessageHold(event.clientX, event.clientY)}
+                    onPointerUp={() => { clearLongPressTimer(); longPressOriginRef.current = null; }}
+                    onPointerCancel={() => { clearLongPressTimer(); longPressOriginRef.current = null; }}
+                    onContextMenu={(event) => { event.preventDefault(); clearLongPressTimer(); showMessageActionMenu(item, event.clientX, event.clientY); }}>
                     {item.role === "assistant" && <span className="chat-avatar" aria-hidden="true">♨</span>}
-                    <p>{item.text}</p>
+                    {editingMessageId === item.id && item.role === "user" ? (
+                      <div className="message-edit-box">
+                        <textarea ref={editInputRef} rows={Math.min(7, Math.max(2, Math.ceil(editDraft.length / 48)))} aria-label="Edit your message" value={editDraft} onChange={(event) => setEditDraft(event.target.value)} maxLength={MAX_CHAT_MESSAGE_CHARACTERS} />
+                        <div className="message-edit-actions">
+                          <button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditDraft(""); }}>Cancel</button>
+                          <button type="button" className="message-edit-send" onClick={sendEditedMessage} disabled={!editDraft.trim()}>Send</button>
+                        </div>
+                      </div>
+                    ) : <p>{item.text}</p>}
                   </div>
                 ))}
               </div>
@@ -1326,6 +1629,10 @@ export default function Home() {
             <details className="profile-panel">
               <summary><span><strong>Kitchen & creator profile</strong><small>Saved on this device · reused in every content pack</small></span><span className="profile-chevron">＋</span></summary>
               <p className="muted">Set your voice and cooking constraints once. This V1 uses these details as content-pack guidance; it does not call an AI model or automatically translate captions.</p>
+              <div className="settings-appearance-row">
+                <span><strong>Appearance</strong><small>Choose the look that is comfortable to use.</small></span>
+                <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((value) => value === "light" ? "dark" : "light")}>{theme === "light" ? "☾ Dark" : "☀ Light"}</button>
+              </div>
               <div className="editor-grid profile-grid">
                 <div><label htmlFor="profile-tone">Voice / tone</label><input id="profile-tone" value={profile.tone} onChange={(event) => patchProfile({ tone: event.target.value })} maxLength={240} placeholder="Warm, confident, funny…" /></div>
                 <div><label htmlFor="profile-catchphrases">Catchphrases</label><input id="profile-catchphrases" value={profile.catchphrases} onChange={(event) => patchProfile({ catchphrases: event.target.value })} maxLength={300} placeholder="Your recurring words or sign-off" /></div>
@@ -1540,13 +1847,19 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="command-dock" role="region" aria-label="Workspace command">
-        <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => openTool("intake")}>＋</button>
+      <div className="command-dock" role="region" aria-label="Workspace command" onPointerDown={(event) => { const target = event.target as HTMLElement; if (taskMenuOpen && !target.closest(".task-popover, .command-add")) closeOverlays(); else if ((logoMenuOpen || messageActionMenu) && !target.closest(".task-popover, .command-add, .logo-popover, .assistant-menu-anchor, .message-action-popover")) closeOverlays(); }}>
+        <div className={taskMenuOpen ? "task-popover is-open" : "task-popover"} aria-hidden={!taskMenuOpen}>
+          <button type="button" onClick={() => runQuickTask("plan")}><span className="task-icon"><InterfaceIcon name="calendar" /></span><span>Today&apos;s plan</span></button>
+          <button type="button" onClick={() => runQuickTask("content")}><span className="task-icon"><InterfaceIcon name="edit" /></span><span>Plan content</span></button>
+          <button type="button" onClick={() => runQuickTask("links")}><span className="task-icon"><InterfaceIcon name="link" /></span><span>Links upload</span></button>
+          <button type="button" onClick={() => runQuickTask("publish")}><span className="task-icon"><InterfaceIcon name="upload" /></span><span>Publish</span></button>
+          <button type="button" onClick={() => runQuickTask("download")}><span className="task-icon"><InterfaceIcon name="download" /></span><span>Full Download</span></button>
+        </div>
+        <button className="command-add" type="button" aria-label="Choose a task" aria-expanded={taskMenuOpen} onClick={toggleTaskMenu}>＋</button>
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
-          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator… paste links or ask for a plan" />
-          <button type="button" className="command-download" aria-label="Download workspace backup" title="Download a backup of local recipe drafts and creator profile" onClick={exportWorkspaceBackup}><span aria-hidden="true">↓</span><small>Download</small></button>
-          <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="ask me" autoComplete="off" />
+          <button type="submit" className="command-submit" aria-label="Send message"><InterfaceIcon name="edit" /></button>
         </form>
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
