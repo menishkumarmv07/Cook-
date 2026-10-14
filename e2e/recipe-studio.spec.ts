@@ -31,9 +31,29 @@ async function signInOwner(page: import("@playwright/test").Page) {
 }
 
 async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  if (label === "Today's Plan" || label === "Plan Content") {
+    await page.getByRole("button", { name: "Choose a task" }).click();
+    const taskLabel = label === "Today's Plan" ? "Today's plan" : "Plan content";
+    await page.getByRole("button", { name: taskLabel, exact: true }).click();
+    return;
+  }
+
   const drawer = page.locator("#workspace-drawer");
   if (await drawer.getAttribute("aria-hidden") === "true") {
     await page.getByRole("button", { name: "Open navigation menu" }).click();
+  }
+
+  if (label === "New recipe") {
+    await page.getByRole("button", { name: "Images", exact: true }).click();
+    return;
+  }
+  if (label === "Creator profile") {
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+    return;
+  }
+  if (label === "Library / recent drafts") {
+    await page.getByRole("button", { name: "Library", exact: true }).click();
+    return;
   }
   await page.getByRole("button", { name: label, exact: true }).click();
 }
@@ -110,18 +130,33 @@ test("JSON backup import restores a legacy draft and rejects unsafe source URLs"
   await expect(page.getByRole("heading", { name: "Unsafe URL draft" })).toHaveCount(0);
 });
 
-test("mobile workspace shows the screenshot-inspired home and no horizontal overflow", async ({ page }) => {
+test("mobile workspace matches the two reference screens and has no horizontal overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
+  await expect(page.getByText("Tap + to choose a task, or type your request below.")).toBeVisible();
   await expect(page.locator("#name")).not.toBeVisible();
+  await expect(page.locator(".task-popover")).toHaveAttribute("aria-hidden", "true");
+
+  await page.getByRole("button", { name: "Choose a task" }).click();
+  for (const task of ["Today's plan", "Plan content", "Links upload", "Publish", "Full Download"]) {
+    await expect(page.getByRole("button", { name: task, exact: true })).toBeVisible();
+  }
+  await page.getByRole("button", { name: "Choose a task" }).click();
+  await expect(page.locator(".task-popover")).toHaveAttribute("aria-hidden", "true");
+
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await expect(page.getByRole("button", { name: "Today's Plan" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Research Studio" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Plan Content" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish", exact: true })).toBeVisible();
+  for (const item of ["Images", "Library", "Projects", "Remote", "Scheduled", "Explore"]) {
+    await expect(page.getByRole("button", { name: item, exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close menu" }).click();
-  await chooseMenuTool(page, "New recipe");
-  await expect(page.locator("#name")).toBeVisible();
+
+  await page.getByRole("button", { name: "Open settings and account menu" }).click();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Log out", exact: true }).last()).toBeVisible();
+  await page.getByRole("button", { name: "Open settings and account menu" }).click();
+
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(overflow).toBe(false);
 });
@@ -178,22 +213,24 @@ test("schedule planner builds, edits, saves, and exports seven-post drafts", asy
   expect(download.suggestedFilename()).toBe("cooking-creator-schedule-draft.json");
 });
 
-test("navigation drawer, workspace command, and theme toggle work and persist", async ({ page }) => {
+test("navigation drawer, Settings appearance, and workspace command work and persist", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await expect(page.getByRole("button", { name: "New recipe", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Close menu" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.locator("#workspace-drawer")).toHaveAttribute("aria-hidden", "true");
   await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeFocused();
-  await page.getByRole("button", { name: "Open navigation menu" }).click();
+
+  await chooseMenuTool(page, "Creator profile");
+  await expect(page.getByRole("button", { name: "Switch to dark theme" })).toBeVisible();
   await page.getByRole("button", { name: "Switch to dark theme" }).click();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
   await page.reload();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
+  await chooseMenuTool(page, "New recipe");
   await page.locator("#workspace-command").fill("new recipe");
-  await page.getByRole("button", { name: "Run workspace command" }).click();
-  await expect(page.getByRole("heading", { name: "Start a recipe project" })).toBeVisible();
+  await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.locator("#name")).toBeVisible();
   await expect(page.locator("#workspace-command")).toHaveValue("");
 });
 
@@ -201,7 +238,7 @@ test("navigation drawer, workspace command, and theme toggle work and persist", 
 test("social connection center shows honest OAuth readiness without collecting social passwords", async ({ page }) => {
   await page.goto("/");
   await page.locator("#workspace-command").fill("connect my social accounts");
-  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
 
   const center = page.locator("#social-connections");
   await expect(center.getByRole("heading", { name: "Connect your social accounts" })).toBeVisible();
@@ -216,7 +253,7 @@ test("social connection center shows honest OAuth readiness without collecting s
   await expect(center.getByText(/never asks for social passwords/i)).toBeVisible();
 
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await expect(page.getByRole("button", { name: "Connect social accounts" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remote", exact: true })).toBeVisible();
 });
 
 test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
@@ -628,7 +665,7 @@ test("pasting a supported recipe or video URL into the chat dock prefills intake
   await page.goto("/");
   const sourceUrl = "https://www.youtube.com/watch?v=123456789ab";
   await page.locator("#workspace-command").fill(sourceUrl);
-  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.locator("#url")).toHaveValue(sourceUrl);
   await expect(page.locator("#intake")).toBeVisible();
@@ -648,7 +685,7 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
   const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
   await page.locator("#workspace-command").fill(request);
-  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
@@ -668,7 +705,7 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
   await page.goto("/");
   await page.locator("#workspace-command").fill("ftp://example.com/recipe");
-  await page.getByRole("button", { name: "Run workspace command" }).click();
+  await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.locator("#url")).toHaveValue("");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Only a valid HTTP(S) URL can be added");
