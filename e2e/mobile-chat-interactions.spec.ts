@@ -45,7 +45,16 @@ test("long-press message menu copies assistant replies and edits user messages f
   const editBox = page.getByRole("textbox", { name: "Edit your message" });
   await expect(editBox).toBeVisible();
   await expect(editBox).toHaveValue("A small message to edit");
-  await editBox.fill("Today's Plan");
+  await editBox.fill("This must be cancelled");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("A small message to edit");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("not connected to an AI model yet");
+
+  await holdMessage(page, ".chat-message.from-user");
+  await page.getByRole("menu", { name: "Message actions" }).getByRole("menuitem", { name: "Edit" }).click();
+  const secondEditBox = page.getByRole("textbox", { name: "Edit your message" });
+  await expect(secondEditBox).toHaveValue("A small message to edit");
+  await secondEditBox.fill("Today's Plan");
   await page.getByRole("button", { name: "Send", exact: true }).click();
 
   await expect(page.locator(".chat-message.from-user")).toHaveCount(1);
@@ -53,6 +62,11 @@ test("long-press message menu copies assistant replies and edits user messages f
   await expect(page.locator(".chat-message.from-assistant")).toHaveCount(1);
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
   await expect(page.getByRole("textbox", { name: "Edit your message" })).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Today's Plan");
+  await expect(page.locator(".chat-message.from-user")).not.toContainText("A small message to edit");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
   await holdMessage(page, ".chat-message.from-assistant");
   await expect(menu).toBeVisible();
