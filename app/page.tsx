@@ -32,7 +32,6 @@ const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
 const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1"; // Legacy flat history key; used only for migration.
 const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
-const MAX_CHAT_HISTORY_CONVERSATIONS = 25;
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
@@ -260,7 +259,7 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
   }
   return normalized
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-    .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+    ;
 }
 
 function formatChatHistoryTime(value: string): string {
@@ -529,7 +528,7 @@ export default function Home() {
           createdAt: now,
           updatedAt: now,
           messages,
-        }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+        }, ...previous];
       }
       const current = previous[index];
       const generatedTitle = getConversationTitle(messages);
@@ -541,7 +540,7 @@ export default function Home() {
       };
       return [nextConversation, ...previous.filter((conversation) => conversation.id !== activeConversationId)]
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-        .slice(0, MAX_CHAT_HISTORY_CONVERSATIONS);
+        ;
     });
   }, [chatMessages, activeConversationId, chatHistoryReady]);
 
@@ -786,7 +785,7 @@ export default function Home() {
       createdAt: now,
       updatedAt: now,
       messages: [],
-    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    }, ...previous]);
     return id;
   }
 
@@ -799,7 +798,7 @@ export default function Home() {
       createdAt: now,
       updatedAt: now,
       messages: [],
-    }, ...previous].slice(0, MAX_CHAT_HISTORY_CONVERSATIONS));
+    }, ...previous]);
     setActiveConversationId(id);
     setChatMessages([]);
     setCommand("");
@@ -1503,7 +1502,7 @@ export default function Home() {
       </aside>
 
       <section className="main" id="dashboard">
-        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger")) closeOverlays(); }}>
+        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if ((taskMenuOpen || messageActionMenu) || (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger"))) closeOverlays(); }}>
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
           <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
