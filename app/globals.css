@@ -1334,3 +1334,31 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell .task-popover { bottom: calc(100% - 6px); left: 12px; }
 @media (max-width: 650px) { .shell .task-popover { left: 10px; } }
 @media (max-width: 370px) { .shell .task-popover { left: 8px; } }
+
+
+/* Preserve the pre-existing dark appearance for the newly added popup controls. */
+.shell[data-theme="dark"] .task-popover {
+  background: #2C211B;
+  border-color: #514034;
+  border-top-color: #C9704F;
+  color: #F6EEE7;
+}
+.shell[data-theme="dark"] .task-popover button { color: #F6EEE7; }
+.shell[data-theme="dark"] .task-popover button:hover,
+.shell[data-theme="dark"] .task-popover button:focus-visible { background: #382820; }
+.shell[data-theme="dark"] .task-icon { background: #4A3126; color: #F2DED2; }
+.shell[data-theme="dark"] .logo-popover,
+.shell[data-theme="dark"] .message-action-popover {
+  background: #2C211B;
+  border-color: #514034;
+  color: #F6EEE7;
+}
+.shell[data-theme="dark"] .logo-popover button,
+.shell[data-theme="dark"] .message-action-popover button { color: #F6EEE7; }
+.shell[data-theme="dark"] .logo-popover button:hover,
+.shell[data-theme="dark"] .message-action-popover button:hover { background: #382820; }
+.shell[data-theme="dark"] .account-action-dot { background: #C9704F; }
+.shell[data-theme="dark"] .message-edit-box { background: #2C211B; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-box textarea { background: #211914; color: #F6EEE7; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-cancel { background: #2C211B; color: #F6EEE7; border-color: #514034; }
+.shell[data-theme="dark"] .message-edit-send { background: #C9704F; color: #211914; border-color: #C9704F; }
