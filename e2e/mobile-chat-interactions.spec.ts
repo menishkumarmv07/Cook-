@@ -92,3 +92,33 @@ test("task and logo popups dismiss outside and browser Back closes the drawer fi
   await page.goBack();
   await expect(page.locator("#workspace-drawer")).toHaveAttribute("aria-hidden", "true");
 });
+
+
+test("composer and plus popup stay inside the visible viewport when the keyboard reduces space", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const viewport = await page.evaluate(() => {
+    const visibleHeight = window.innerHeight - 260;
+    document.documentElement.style.setProperty("--keyboard-inset", "260px");
+    document.documentElement.style.setProperty("--visible-viewport-height", `${visibleHeight}px`);
+    return { windowHeight: window.innerHeight, visibleHeight };
+  });
+
+  const dock = page.locator(".command-dock");
+  let dockBox = await dock.boundingBox();
+  expect(dockBox).toBeTruthy();
+  expect(Math.abs(dockBox!.bottom - (viewport.windowHeight - 260))).toBeLessThan(2);
+
+  await page.getByRole("button", { name: "Choose a task" }).click();
+  const popup = page.locator(".task-popover");
+  await expect(popup).toHaveAttribute("aria-hidden", "false");
+  const popupBox = await popup.boundingBox();
+  dockBox = await dock.boundingBox();
+  expect(popupBox).toBeTruthy();
+  expect(dockBox).toBeTruthy();
+  expect(popupBox!.x).toBeGreaterThanOrEqual(0);
+  expect(popupBox!.y).toBeGreaterThanOrEqual(0);
+  expect(popupBox!.right).toBeLessThanOrEqual(390);
+  expect(popupBox!.bottom).toBeLessThan(dockBox!.top);
+  expect(popupBox!.height).toBeLessThan(viewport.visibleHeight);
+});
