@@ -1311,3 +1311,21 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
   .shell .content { padding-bottom: 100px; }
   .shell .command-dock { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
 }
+
+
+/* Android Chrome keyboard handling: use the visual viewport when the IME is open. */
+.shell .command-dock {
+  bottom: var(--keyboard-inset, 0px);
+}
+.shell .task-popover {
+  max-height: calc(var(--visible-viewport-height, 100dvh) - 160px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.shell .message-action-popover {
+  max-height: calc(var(--visible-viewport-height, 100dvh) - 20px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
