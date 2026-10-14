@@ -107,7 +107,7 @@ test("composer and plus popup stay inside the visible viewport when the keyboard
   const dock = page.locator(".command-dock");
   let dockBox = await dock.boundingBox();
   expect(dockBox).toBeTruthy();
-  expect(Math.abs(dockBox!.bottom - (viewport.windowHeight - 260))).toBeLessThan(2);
+  expect(Math.abs((dockBox!.y + dockBox!.height) - (viewport.windowHeight - 260))).toBeLessThan(2);
 
   await page.getByRole("button", { name: "Choose a task" }).click();
   const popup = page.locator(".task-popover");
@@ -118,7 +118,7 @@ test("composer and plus popup stay inside the visible viewport when the keyboard
   expect(dockBox).toBeTruthy();
   expect(popupBox!.x).toBeGreaterThanOrEqual(0);
   expect(popupBox!.y).toBeGreaterThanOrEqual(0);
-  expect(popupBox!.right).toBeLessThanOrEqual(390);
-  expect(popupBox!.bottom).toBeLessThan(dockBox!.top);
+  expect((popupBox!.x + popupBox!.width)).toBeLessThanOrEqual(390);
+  expect((popupBox!.y + popupBox!.height)).toBeLessThan(dockBox!.y);
   expect(popupBox!.height).toBeLessThan(viewport.visibleHeight);
 });
