@@ -102,3 +102,13 @@ test("deleting a conversation removes it from local chat history", async ({ page
   await expect(page.locator(".chat-history-row")).toHaveCount(0);
   await expect(page.locator(".chat-history-empty")).toBeVisible();
 });
+
+test("AUTH: rejects oversized sign-in request bodies before parsing", async ({ request }) => {
+  const response = await request.post("/api/auth/login", {
+    data: { password: "x".repeat(5_000) },
+  });
+  expect(response.status()).toBe(413);
+  await expect(response.json()).resolves.toMatchObject({
+    error: "The sign-in request is too large.",
+  });
+});
