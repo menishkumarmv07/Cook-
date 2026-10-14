@@ -635,7 +635,7 @@ export default function Home() {
   }
 
   function showMessageActionMenu(item: ChatMessage, x: number, y: number) {
-    const width = item.role === "user" ? 132 : 94;
+    const width = 132;
     const height = item.role === "user" ? 102 : 58;
     const viewport = window.visualViewport;
     const viewportTop = viewport?.offsetTop ?? 0;
