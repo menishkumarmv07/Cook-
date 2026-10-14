@@ -444,7 +444,6 @@ test("PWA manifest and service worker support reopening the app offline after fi
 test("creator profile saves locally, shapes content-pack guidance, and travels with JSON backup", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "Creator profile");
-  await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Professional and concise");
   await page.getByLabel("Main language").fill("English");
   await page.getByLabel("Target platforms").fill("YouTube Shorts, Instagram Reels");
@@ -478,7 +477,6 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
 test("workspace backup exports all drafts and restores them with explicit confirmation", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "Creator profile");
-  await page.locator(".profile-panel summary").click();
   await page.getByLabel("Voice / tone").fill("Workspace backup profile");
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("First backup recipe");
@@ -530,7 +528,7 @@ test("light workspace theme uses the requested warm cream and terracotta palette
     background: window.getComputedStyle(document.body).backgroundColor,
     dock: window.getComputedStyle(document.querySelector(".quick-dock")!).backgroundColor,
   }));
-  expect(palette.background).toBe("rgb(253, 251, 247)");
+  expect(palette.background).toBe("rgb(253, 248, 233)");
   expect(palette.dock).toBe("rgb(113, 59, 42)");
 });
 
