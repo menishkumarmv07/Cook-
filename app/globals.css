@@ -1229,3 +1229,14 @@ html, body { width:100%; max-width:100%; overflow-x:clip; }
 @media (prefers-reduced-motion: reduce) {
   .shell .sidebar, .shell .task-popover, .shell .logo-popover { transition-duration:.01ms; }
 }
+
+
+/* Settings now owns the Appearance control so the drawer can keep its reference layout. */
+.shell .settings-appearance-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:16px 0; padding:14px 12px; border:1px solid #E5D4B8; border-radius:13px; background:#F8EBD4; }
+.shell .settings-appearance-row > span { display:grid; min-width:0; gap:4px; }
+.shell .settings-appearance-row strong { color:#4A2A1D; font-size:13px; }
+.shell .settings-appearance-row small { color:#806B56; font-size:11px; line-height:1.4; }
+.shell .settings-appearance-row .theme-toggle { flex:0 0 auto; min-height:44px; border:1px solid #DCC3A0; border-radius:22px; background:#FFF9EF; color:#4A2A1D; padding:9px 13px; font-size:12px; }
+.shell[data-theme="dark"] .settings-appearance-row { background:#382820; border-color:#624536; }
+.shell[data-theme="dark"] .settings-appearance-row strong, .shell[data-theme="dark"] .settings-appearance-row small { color:#F2DED2; }
+.shell[data-theme="dark"] .settings-appearance-row .theme-toggle { background:#26201D; color:#F2DED2; border-color:#624536; }
