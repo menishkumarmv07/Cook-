@@ -262,15 +262,6 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
     ;
 }
 
-function formatChatHistoryTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = new Date();
-  if (date.toDateString() === now.toDateString()) {
-    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  }
-  return date.toLocaleDateString([], { month: "short", day: "numeric" });
-}
 
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
@@ -975,7 +966,14 @@ export default function Home() {
     if (/publish|share|approval|queue/.test(request)) { openTool("publish", rawRequest); return; }
     if (/studio|editor|script|storyboard|content/.test(request)) { openTool("intake", rawRequest); return; }
     if (/today'?s plan|my plan|daily plan|next step|\bplan\b/.test(request)) { openTool("plan", rawRequest); return; }
-    if (/theme|settings|profile/.test(request)) { openTool("profile", rawRequest); setMenuOpen(/theme|settings/.test(request)); return; }
+    if (/theme|settings|profile/.test(request)) {
+      openTool("profile", rawRequest);
+      window.requestAnimationFrame(() => {
+        const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+        if (details) details.open = true;
+      });
+      return;
+    }
     if (/library|recent drafts/.test(request)) { openTool("library", rawRequest); return; }
 
     const time = Date.now().toString(36);
