@@ -1447,69 +1447,65 @@ export default function Home() {
 
   return (
     <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
-      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => setMenuOpen(false)} />}
-      <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}>
+      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
+      {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={closeOverlays} />}
+      {messageActionMenu && <div className="message-action-popover" style={{ left: messageActionMenu.x, top: messageActionMenu.y }} role="menu" aria-label="Message actions">
+        {messageActionMenu.role === "user" && <button type="button" role="menuitem" onClick={() => beginEditingMessage(messageActionMenu.id)}><InterfaceIcon name="edit" />Edit</button>}
+        <button type="button" role="menuitem" onClick={() => void copyChatMessage(messageActionMenu.id)}><InterfaceIcon name="copy" />Copy</button>
+      </div>}
+      {copiedToast && <div className="copied-toast" role="status" aria-live="polite">Copied</div>}
+      <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}
+        onTouchStart={handleDrawerTouchStart} onTouchEnd={handleDrawerTouchEnd}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={() => openTool("home")}><span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span><span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span></a>
-          <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}>×</button>
+          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); closeOverlays(); setActiveTool("home"); }}>
+            <span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span>
+            <span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span>
+          </a>
+          <button ref={drawerCloseRef} className="drawer-close" type="button" aria-label="Close menu" onClick={() => { closeOverlays(); menuButtonRef.current?.focus(); }}><InterfaceIcon name="close" /></button>
         </div>
+        <nav className="drawer-main-nav" aria-label="Main navigation">
+          <button className="nav" type="button" onClick={() => openDrawerItem("images")}><span className="nav-icon"><InterfaceIcon name="images" /></span>Images</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("library")}><span className="nav-icon"><InterfaceIcon name="library" /></span>Library</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("projects")}><span className="nav-icon"><InterfaceIcon name="folder" /></span>Projects</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("remote")}><span className="nav-icon"><InterfaceIcon name="remote" /></span>Remote</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("scheduled")}><span className="nav-icon"><InterfaceIcon name="clock" /></span>Scheduled</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
+        </nav>
+        <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
-          <div className="chat-history-header">
-            <p className="nav-label">CHAT HISTORY</p>
-            <button className="new-chat-button" type="button" onClick={startNewChat}><span aria-hidden="true">＋</span> New Chat</button>
-          </div>
+          <p className="nav-label">CHAT HISTORY</p>
           <div className="chat-history-list">
             {chatConversations.length === 0 ? (
-              <p className="chat-history-empty">Your conversations will appear here. Start a new chat to keep each topic separate.</p>
-            ) : chatConversations
-              .slice()
-              .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
-              .map((conversation) => {
-                const lastMessage = conversation.messages[conversation.messages.length - 1];
-                const preview = lastMessage?.text.trim() || "Blank conversation";
-                return (
-                  <div className={conversation.id === activeConversationId ? "chat-history-row is-active" : "chat-history-row"} key={conversation.id}>
-                    <button className="chat-history-open" type="button" onClick={() => openConversation(conversation)} aria-current={conversation.id === activeConversationId ? "page" : undefined}>
-                      <strong>{conversation.title || "New chat"}</strong>
-                      <small>{preview.length > 68 ? `${preview.slice(0, 65)}…` : preview}</small>
-                      <time dateTime={conversation.updatedAt}>{formatChatHistoryTime(conversation.updatedAt)}</time>
-                    </button>
-                    <button className="chat-history-delete" type="button" aria-label={`Delete chat: ${conversation.title || "New chat"}`} title="Delete conversation" onClick={() => deleteConversation(conversation.id)}>×</button>
-                  </div>
-                );
-              })}
+              <p className="chat-history-empty">Your conversations will appear here.</p>
+            ) : chatConversations.slice().sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).map((conversation) => (
+              <div className={conversation.id === activeConversationId ? "chat-history-row is-active" : "chat-history-row"} key={conversation.id}>
+                <button className="chat-history-open" type="button" onClick={() => openConversation(conversation)} aria-current={conversation.id === activeConversationId ? "page" : undefined}>
+                  <strong>{conversation.title || "New chat"}</strong>
+                </button>
+                <button className="chat-history-delete" type="button" aria-label={`Delete chat: ${conversation.title || "New chat"}`} title="Delete conversation" onClick={() => deleteConversation(conversation.id)}>×</button>
+              </div>
+            ))}
           </div>
           <p className="chat-history-storage-note">Saved in this browser on this device.</p>
         </section>
-        <div className="drawer-divider" />
-        <p className="nav-label">YOUR WORKFLOW</p>
-        <button className={activeTool === "plan" ? "nav active" : "nav"} type="button" onClick={() => openTool("plan")}><span aria-hidden="true">▣</span> Today&apos;s Plan</button>
-        <button className={activeTool === "content" ? "nav active" : "nav"} type="button" onClick={() => openTool("content")}><span aria-hidden="true">▤</span> Plan Content</button>
-        <button className={activeTool === "research" ? "nav active" : "nav"} type="button" onClick={() => openTool("research")}><span aria-hidden="true">⌕</span> Research Studio</button>
-        <button className={activeTool === "publish" ? "nav active" : "nav"} type="button" onClick={() => openTool("publish")}><span aria-hidden="true">➤</span> Publish</button>
-        <div className="drawer-divider" />
-        <p className="nav-label">MORE</p>
-        <button className={activeTool === "intake" ? "nav active" : "nav"} type="button" onClick={() => openTool("intake")}><span aria-hidden="true">＋</span> New recipe</button>
-        <button className={activeTool === "profile" ? "nav active" : "nav"} type="button" onClick={() => openTool("profile")}><span aria-hidden="true">⚙</span> Creator profile</button>
-        <button className={activeTool === "library" ? "nav active" : "nav"} type="button" onClick={() => openTool("library")}><span aria-hidden="true">▤</span> Library / recent drafts</button>
-        <button className={activeTool === "connections" ? "nav active" : "nav"} type="button" onClick={() => openTool("connections")}><span aria-hidden="true">◎</span> Connect social accounts</button>
-        <div className="drawer-theme">
-          <span><strong>Appearance</strong><small>Saved on this device</small></span>
-          <button className="theme-toggle" type="button" aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"} onClick={() => setTheme((value) => value === "light" ? "dark" : "light")}>{theme === "light" ? "☾ Dark" : "☀ Light"}</button>
+        <div className="drawer-bottom">
+          <button className="drawer-chat-button" type="button" onClick={startNewChat}><InterfaceIcon name="chat" />Chat</button>
+          <button className="drawer-settings-button" type="button" aria-label="Settings" title="Settings" onClick={openSettingsView}><InterfaceIcon name="settings" /></button>
         </div>
-        <div className="drawer-projects">
-          <p className="nav-label">RECENT PROJECTS</p>
-          {projects.length === 0 ? <p className="drawer-empty">Your recipe drafts will appear here.</p> : projects.slice(0, 5).map((project) => <button key={project.id} className={project.id === active ? "nav nav-project selected" : "nav nav-project"} type="button" onClick={() => { setActive(project.id); setShowTutorial(false); setShowNarration(false); setShowContentPack(false); goToSection("studio"); }}>◦　{project.name}</button>)}
-        </div>
-        <div className="side-foot"><span className="dot" /> V1 foundation<br /><small>Local drafts · this browser</small></div>
       </aside>
 
       <section className="main" id="dashboard">
-        <header className="top">
+        <header className={logoMenuOpen ? "top has-logo-menu" : "top"}>
           <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}>☰</button>
           <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
-          <button className="assistant-mark" type="button" aria-label="Open creator profile" onClick={() => openTool("profile")}><ChefHatLogo /><i aria-hidden="true" /></button>
+          <div className="assistant-menu-anchor">
+            <button className="assistant-mark" type="button" aria-label="Open settings and account menu" aria-expanded={logoMenuOpen} onClick={toggleLogoMenu}><ChefHatLogo /><i aria-hidden="true" /></button>
+            <div className={logoMenuOpen ? "logo-popover is-open" : "logo-popover"} aria-hidden={!logoMenuOpen}>
+              <button type="button" onClick={openSettingsView}><InterfaceIcon name="settings" />Settings</button>
+              <button type="button" onClick={() => { closeOverlays(); void logOut(); }}><span className="account-action-dot" aria-hidden="true" />Log out</button>
+            </div>
+          </div>
         </header>
         <div className="content">
           <section className="chat-transcript" aria-label="Cooking Creator chat" role="log" aria-live="polite">
@@ -1517,14 +1513,28 @@ export default function Home() {
               <div className="chat-empty">
                 <span className="chat-chef-mark" aria-hidden="true"><ChefHatLogo /></span>
                 <h1>What are we cooking today?</h1>
-                <p>Choose a task from the three-line menu, or type your request below.</p>
+                <p>Tap + to choose a task, or type your request below.</p>
               </div>
             ) : (
               <div className="chat-messages">
                 {chatMessages.map((item) => (
-                  <div key={item.id} className={item.role === "user" ? "chat-message from-user" : "chat-message from-assistant"}>
+                  <div key={item.id}
+                    className={`chat-message ${item.role === "user" ? "from-user" : "from-assistant"}${messageActionMenu?.id === item.id ? " is-highlighted" : ""}${editingMessageId === item.id ? " is-editing" : ""}`}
+                    onPointerDown={(event) => beginMessageHold(item, event.clientX, event.clientY)}
+                    onPointerMove={(event) => moveMessageHold(event.clientX, event.clientY)}
+                    onPointerUp={() => { clearLongPressTimer(); longPressOriginRef.current = null; }}
+                    onPointerCancel={() => { clearLongPressTimer(); longPressOriginRef.current = null; }}
+                    onContextMenu={(event) => { event.preventDefault(); clearLongPressTimer(); showMessageActionMenu(item, event.clientX, event.clientY); }}>
                     {item.role === "assistant" && <span className="chat-avatar" aria-hidden="true">♨</span>}
-                    <p>{item.text}</p>
+                    {editingMessageId === item.id && item.role === "user" ? (
+                      <div className="message-edit-box">
+                        <textarea ref={editInputRef} rows={Math.min(7, Math.max(2, Math.ceil(editDraft.length / 48)))} aria-label="Edit your message" value={editDraft} onChange={(event) => setEditDraft(event.target.value)} maxLength={MAX_CHAT_MESSAGE_CHARACTERS} />
+                        <div className="message-edit-actions">
+                          <button type="button" className="message-edit-cancel" onClick={() => { setEditingMessageId(null); setEditDraft(""); }}>Cancel</button>
+                          <button type="button" className="message-edit-send" onClick={sendEditedMessage} disabled={!editDraft.trim()}>Send</button>
+                        </div>
+                      </div>
+                    ) : <p>{item.text}</p>}
                   </div>
                 ))}
               </div>
@@ -1802,12 +1812,18 @@ export default function Home() {
       </section>
 
       <div className="command-dock" role="region" aria-label="Workspace command">
-        <button className="command-add" type="button" aria-label="Start a new recipe" onClick={() => openTool("intake")}>＋</button>
+        <div className={taskMenuOpen ? "task-popover is-open" : "task-popover"} aria-hidden={!taskMenuOpen}>
+          <button type="button" onClick={() => runQuickTask("plan")}><span className="task-icon"><InterfaceIcon name="calendar" /></span><span>Today&apos;s plan</span></button>
+          <button type="button" onClick={() => runQuickTask("content")}><span className="task-icon"><InterfaceIcon name="edit" /></span><span>Plan content</span></button>
+          <button type="button" onClick={() => runQuickTask("links")}><span className="task-icon"><InterfaceIcon name="link" /></span><span>Links upload</span></button>
+          <button type="button" onClick={() => runQuickTask("publish")}><span className="task-icon"><InterfaceIcon name="upload" /></span><span>Publish</span></button>
+          <button type="button" onClick={() => runQuickTask("download")}><span className="task-icon"><InterfaceIcon name="download" /></span><span>Full Download</span></button>
+        </div>
+        <button className="command-add" type="button" aria-label="Choose a task" aria-expanded={taskMenuOpen} onClick={toggleTaskMenu}>＋</button>
         <form className="command-form" onSubmit={submitWorkspaceCommand}>
           <label className="sr-only" htmlFor="workspace-command">Workspace command</label>
-          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="Message Cooking Creator… paste links or ask for a plan" />
-          <button type="button" className="command-download" aria-label="Download workspace backup" title="Download a backup of local recipe drafts and creator profile" onClick={exportWorkspaceBackup}><span aria-hidden="true">↓</span><small>Download</small></button>
-          <button type="submit" className="command-submit" aria-label="Run workspace command">✦</button>
+          <input id="workspace-command" value={command} onChange={(event) => setCommand(event.target.value)} placeholder="ask me" autoComplete="off" />
+          <button type="submit" className="command-submit" aria-label="Send message"><InterfaceIcon name="edit" /></button>
         </form>
       </div>
       <nav className="quick-dock" aria-label="Quick actions">
