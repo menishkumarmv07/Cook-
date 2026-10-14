@@ -750,6 +750,7 @@ export default function Home() {
       }
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
+    if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts." };
     if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) return { tool: "content", text: responseForTool("content") };
     if (/connect|accounts?|integration|social|remote/.test(request)) return { tool: "connections", text: responseForTool("connections") };
     if (/new recipe|create recipe|start recipe|add recipe|images/.test(request)) return { tool: "intake", text: responseForTool("intake") };
