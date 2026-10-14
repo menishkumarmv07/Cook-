@@ -413,6 +413,32 @@ export default function Home() {
   }, [menuOpen, taskMenuOpen, logoMenuOpen, messageActionMenu]);
 
   useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const root = document.documentElement;
+    const updateViewportInsets = () => {
+      const visibleHeight = Math.max(1, Math.round(viewport.height));
+      const occludedBottom = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
+      root.style.setProperty("--visible-viewport-height", `${visibleHeight}px`);
+      // Ignore ordinary browser chrome changes; the keyboard creates a substantially larger inset.
+      root.style.setProperty("--keyboard-inset", `${occludedBottom > 100 ? occludedBottom : 0}px`);
+    };
+
+    updateViewportInsets();
+    viewport.addEventListener("resize", updateViewportInsets);
+    viewport.addEventListener("scroll", updateViewportInsets);
+    window.addEventListener("resize", updateViewportInsets);
+    return () => {
+      viewport.removeEventListener("resize", updateViewportInsets);
+      viewport.removeEventListener("scroll", updateViewportInsets);
+      window.removeEventListener("resize", updateViewportInsets);
+      root.style.removeProperty("--visible-viewport-height");
+      root.style.removeProperty("--keyboard-inset");
+    };
+  }, []);
+
+  useEffect(() => {
     try {
       const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
       if (savedTheme === "light" || savedTheme === "dark") setTheme(savedTheme);
