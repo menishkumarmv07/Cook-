@@ -250,7 +250,6 @@ export function findPotentialEvidenceConflicts(
   const output: PotentialEvidenceConflict[] = [];
   for (const [key, claims] of groups) {
     const values = new Map<string, ResearchEvidenceClaim[]>();
-    const identitiesByValue = new Map<string, Set<string>>();
     const distinctSourceIdentities = new Set<string>();
 
     // Build the alternatives and provenance index in one pass. Imported archives
@@ -263,12 +262,7 @@ export function findPotentialEvidenceConflicts(
       values.set(normalizedValue, alternative);
 
       const identity = sourceIdentityById.get(claim.sourceId);
-      if (identity) {
-        distinctSourceIdentities.add(identity);
-        const sourceSet = identitiesByValue.get(normalizedValue) ?? new Set<string>();
-        sourceSet.add(identity);
-        identitiesByValue.set(normalizedValue, sourceSet);
-      }
+      if (identity) distinctSourceIdentities.add(identity);
     }
 
     // Two distinct values across two distinct canonical URLs are enough to
