@@ -765,12 +765,12 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await page.locator("#evidence-source-url").fill("https://example.com/recipe-a");
   await page.locator("#evidence-source-title").fill("Recipe source A");
   await page.getByRole("button", { name: /Save source/ }).click();
-  await expect(page.getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
 
   await page.locator("#evidence-source-url").fill("https://example.org/recipe-b");
   await page.locator("#evidence-source-title").fill("Recipe source B");
   await page.getByRole("button", { name: /Save source/ }).click();
-  await expect(page.getByText("Recipe source B", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
 
   await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source A" });
   await page.locator("#evidence-claim-subject").fill("salt");
@@ -795,7 +795,7 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
-  await expect(page.getByText("Recipe source A", { exact: true })).toBeVisible();
-  await expect(page.getByText("Recipe source B", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
   await expect(page.getByText("1 possible disagreements")).toBeVisible();
 });
