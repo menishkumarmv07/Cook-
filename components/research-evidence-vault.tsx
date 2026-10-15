@@ -8,6 +8,7 @@ import {
   isHttpSourceUrl,
   mergeResearchEvidence,
   parseResearchEvidenceArchive,
+  researchEvidenceArchiveFitsByteLimit,
   type ResearchCaptureMethod,
   type ResearchEvidenceArchive,
   type ResearchEvidenceClaim,
@@ -124,8 +125,7 @@ async function writeArchive(
   if (!expected) throw new Error("The current in-memory evidence snapshot failed validation. Reload before saving.");
   // Keep the persisted archive within the same limit accepted by restore so
   // every archive saved by this version remains exportable and restorable.
-  const recoveryPayload = JSON.stringify(validated, null, 2);
-  if (new Blob([recoveryPayload]).size > MAX_IMPORT_BYTES) {
+  if (!researchEvidenceArchiveFitsByteLimit(validated, MAX_IMPORT_BYTES)) {
     throw new Error("The evidence ledger would exceed the 25 MB recovery limit. Nothing was saved. Export a backup and remove older records before trying again; the previous saved ledger remains intact.");
   }
 
@@ -189,6 +189,11 @@ async function restoreOverMissingOrInvalidArchive(
 ): Promise<void> {
   const candidate = parseResearchEvidenceArchive(candidateValue);
   if (!candidate) throw new Error("The selected recovery archive failed validation.");
+  // Recovery bypasses the normal React save path, so enforce the exact same
+  // serialized-size guard before opening a transaction or touching saved data.
+  if (!researchEvidenceArchiveFitsByteLimit(candidate, MAX_IMPORT_BYTES)) {
+    throw new Error("The selected recovery backup exceeds the 25 MB recovery limit. Nothing was written.");
+  }
 
   const database = await openEvidenceDatabase();
   try {
