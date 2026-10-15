@@ -663,6 +663,16 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/Public HTML fetched by the app/);
   await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/not independently verified/);
   await expect(page.locator('.source-reference textarea[id^="source-notes-"]')).toHaveValue(/recipe details are not independently verified/);
+
+  // The inspected payload must remain available after draft creation and be
+  // explicitly imported to the separate V2 evidence ledger, with claims still unreviewed.
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toBeVisible();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+  await expect(page.getByText(/Saved the inspected page and \d+ extracted field/)).toBeVisible();
+  await expect(page.getByText(/Lemon Rice · recipe name: Lemon Rice/)).toBeVisible();
+  await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toBeVisible();
+  await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toHaveCount(0);
 });
 
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
