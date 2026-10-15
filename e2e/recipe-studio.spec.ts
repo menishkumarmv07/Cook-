@@ -695,24 +695,25 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
-  const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
-  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
+  // Use 11 links here to prove chat intake is not limited to the old seven-link preset.
+  const links = Array.from({ length: 11 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  const request = `Take these ${links.length} Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
   await page.locator("#workspace-command").fill(request);
   await page.getByRole("button", { name: "Send message" }).click();
 
-  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText(`Take these ${links.length} Reels`);
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
-  await page.locator("#schedule-links-per-day").fill("3");
+  await page.locator("#schedule-links-per-day").fill("4");
   await page.locator("#schedule-days-count").fill("3");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
-  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(11);
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
   await page.reload();
-  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 11 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
