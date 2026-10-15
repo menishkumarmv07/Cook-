@@ -86,7 +86,16 @@ export function isHttpSourceUrl(value: unknown): value is string {
     if (!url.hostname || url.username || url.password) return false;
     if (url.port) return false;
     const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return false;
+    // Literal IPs are deliberately not accepted as stored sources; the app
+    // only needs normal public website hostnames for this evidence workflow.
+    if (
+      !host.includes(".") ||
+      host.endsWith(".") ||
+      host.includes(":") ||
+      /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) ||
+      ["localhost", "local", "internal", "lan", "home", "test", "invalid", "example"]
+        .some((suffix) => host === suffix || host.endsWith("." + suffix))
+    ) return false;
     return true;
   } catch {
     return false;
