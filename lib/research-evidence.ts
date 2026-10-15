@@ -250,32 +250,30 @@ export function findPotentialEvidenceConflicts(
   const output: PotentialEvidenceConflict[] = [];
   for (const [key, claims] of groups) {
     const values = new Map<string, ResearchEvidenceClaim[]>();
+    const identitiesByValue = new Map<string, Set<string>>();
+    const distinctSourceIdentities = new Set<string>();
 
+    // Build the alternatives and provenance index in one pass. Imported archives
+    // are byte-bounded, but can still contain many small records; avoid a
+    // quadratic pairwise scan that could freeze the owner's browser.
     for (const claim of claims) {
       const normalizedValue = normalizeEvidenceText(claim.value + " " + claim.unit);
       const alternative = values.get(normalizedValue) ?? [];
       alternative.push(claim);
       values.set(normalizedValue, alternative);
-    }
 
-    if (values.size < 2) continue;
-
-    // Duplicate records for the same URL are not independent corroboration.
-    // Require at least one differing pair from genuinely distinct source URLs.
-    let hasCrossSourceDifference = false;
-    for (let left = 0; left < claims.length && !hasCrossSourceDifference; left += 1) {
-      for (let right = left + 1; right < claims.length; right += 1) {
-        const leftIdentity = sourceIdentityById.get(claims[left].sourceId);
-        const rightIdentity = sourceIdentityById.get(claims[right].sourceId);
-        const leftValue = normalizeEvidenceText(claims[left].value + " " + claims[left].unit);
-        const rightValue = normalizeEvidenceText(claims[right].value + " " + claims[right].unit);
-        if (leftIdentity && rightIdentity && leftIdentity !== rightIdentity && leftValue !== rightValue) {
-          hasCrossSourceDifference = true;
-          break;
-        }
+      const identity = sourceIdentityById.get(claim.sourceId);
+      if (identity) {
+        distinctSourceIdentities.add(identity);
+        const sourceSet = identitiesByValue.get(normalizedValue) ?? new Set<string>();
+        sourceSet.add(identity);
+        identitiesByValue.set(normalizedValue, sourceSet);
       }
     }
-    if (!hasCrossSourceDifference) continue;
+
+    // Two distinct values across two distinct canonical URLs are enough to
+    // establish a review prompt. Same-page URL variants are not corroboration.
+    if (values.size < 2 || distinctSourceIdentities.size < 2) continue;
 
     const first = claims[0];
     output.push({
