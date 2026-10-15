@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import {
   createEmptyResearchEvidenceArchive,
   findPotentialEvidenceConflicts,
@@ -146,7 +147,7 @@ export default function ResearchEvidenceVault() {
     }
   }
 
-  async function addSource(event: React.FormEvent<HTMLFormElement>) {
+  async function addSource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!archive) return;
     const normalizedUrl = sourceUrl.trim();
@@ -225,7 +226,7 @@ export default function ResearchEvidenceVault() {
     await commit(next, reviewStatus === "accepted" ? "Claim marked as reviewed by you; this is not independent verification." : "Claim rejected in your local review.");
   }
 
-  async function importArchive(event: React.ChangeEvent<HTMLInputElement>) {
+  async function importArchive(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file || !archive) return;
