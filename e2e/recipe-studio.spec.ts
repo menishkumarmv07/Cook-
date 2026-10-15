@@ -751,3 +751,51 @@ test("AUTH: logging out clears the session and protects later workspace requests
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
 });
+
+
+test("V2 evidence ledger saves sources and claims locally, flags possible disagreements, and survives reload", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence ledger test recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/recipe-a");
+  await page.locator("#evidence-source-title").fill("Recipe source A");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.getByText("Recipe source A", { exact: true })).toBeVisible();
+
+  await page.locator("#evidence-source-url").fill("https://example.org/recipe-b");
+  await page.locator("#evidence-source-title").fill("Recipe source B");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.getByText("Recipe source B", { exact: true })).toBeVisible();
+
+  await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source A" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("1");
+  await page.locator("#evidence-claim-unit").fill("tsp");
+  await page.locator("#evidence-claim-excerpt").fill("Source A lists one teaspoon.");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText(/salt · quantity: 1 tsp/)).toBeVisible();
+
+  await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source B" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("2");
+  await page.locator("#evidence-claim-unit").fill("tsp");
+  await page.locator("#evidence-claim-excerpt").fill("Source B lists two teaspoons.");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText("2 possible disagreements")).toHaveCount(0);
+  await expect(page.getByText("1 possible disagreements")).toBeVisible();
+  await expect(page.getByText("Source A lists one teaspoon.")).toBeVisible();
+  await expect(page.getByText("Source B lists two teaspoons.")).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+  await expect(page.getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.getByText("Recipe source B", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 possible disagreements")).toBeVisible();
+});
