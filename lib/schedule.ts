@@ -123,8 +123,9 @@ export function buildScheduleDraft(input: ScheduleBuildInput): ScheduleBuildResu
   const idPrefix = input.now ?? Date.now();
 
   for (let index = 0; index < links.length; index += 1) {
-    // Centered distribution uses the selected date range instead of front-loading
-    // all links onto the first few days. It never exceeds the requested daily cap.
+    // Even distribution uses the selected range end-to-end when there are fewer
+    // links than days; when links outnumber days, daily counts differ by at most one.
+    // Original URL order is retained, and the requested daily cap is never exceeded.
     const dayIndex = links.length === 1
       ? 0
       : links.length <= daysToProcess
