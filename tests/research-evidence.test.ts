@@ -175,6 +175,31 @@ test("ignores rejected claims and different predicates when looking for possible
   assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
 });
 
+test("merge rejects duplicate IDs within the same incoming batch", () => {
+  const empty = createEmptyResearchEvidenceArchive(capturedAt);
+  assert.equal(
+    mergeResearchEvidence(
+      empty,
+      [source("duplicate"), source("duplicate", "https://other.com/recipe")],
+      [],
+      capturedAt,
+    ),
+    null,
+  );
+
+  const withSource = mergeResearchEvidence(empty, [source("one")], [], capturedAt);
+  assert.ok(withSource);
+  assert.equal(
+    mergeResearchEvidence(
+      withSource,
+      [],
+      [claim("same-claim", "one", "1"), claim("same-claim", "one", "2")],
+      capturedAt,
+    ),
+    null,
+  );
+});
+
 test("upsert merge is idempotent and rejects a claim when its source is missing", () => {
   const empty = createEmptyResearchEvidenceArchive(capturedAt);
   const withSource = mergeResearchEvidence(empty, [source("a")], [], capturedAt);
