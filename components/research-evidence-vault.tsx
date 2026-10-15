@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import {
   createEmptyResearchEvidenceArchive,
@@ -27,15 +27,36 @@ function openEvidenceDatabase(): Promise<IDBDatabase> {
 
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+    let settled = false;
+
     request.onupgradeneeded = () => {
       const database = request.result;
       if (!database.objectStoreNames.contains(ARCHIVE_STORE)) {
         database.createObjectStore(ARCHIVE_STORE);
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Could not open the local evidence database."));
-    request.onblocked = () => reject(new Error("The evidence database is busy in another tab. Close other Cooking Creator tabs and try again."));
+    request.onsuccess = () => {
+      const database = request.result;
+      database.onversionchange = () => database.close();
+      // A blocked open can later succeed after the caller has shown a recoverable
+      // error. Close that late connection instead of leaking it in the browser.
+      if (settled) {
+        database.close();
+        return;
+      }
+      settled = true;
+      resolve(database);
+    };
+    request.onerror = () => {
+      if (settled) return;
+      settled = true;
+      reject(request.error ?? new Error("Could not open the local evidence database."));
+    };
+    request.onblocked = () => {
+      if (settled) return;
+      settled = true;
+      reject(new Error("The evidence database is busy in another tab. Close other Cooking Creator tabs and try again."));
+    };
   });
 }
 
@@ -111,6 +132,8 @@ export default function ResearchEvidenceVault() {
   const [unit, setUnit] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [busy, setBusy] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -135,6 +158,12 @@ export default function ResearchEvidenceVault() {
   const conflicts = useMemo(() => archive ? findPotentialEvidenceConflicts(archive) : [], [archive]);
 
   async function commit(next: ResearchEvidenceArchive, successMessage: string): Promise<boolean> {
+    // Avoid two rapid actions writing snapshots based on the same stale React
+    // state. IndexedDB transactions are atomic, but the caller's snapshot can
+    // still be stale if concurrent writes are allowed to race.
+    if (saveLock.current) return false;
+    saveLock.current = true;
+    setSaving(true);
     setError("");
     setMessage("");
     try {
@@ -143,8 +172,18 @@ export default function ResearchEvidenceVault() {
       setMessage(successMessage);
       return true;
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not save. Your previous saved archive has not been intentionally replaced.");
+      const name = typeof cause === "object" && cause !== null && "name" in cause
+        ? String((cause as { name?: unknown }).name ?? "")
+        : "";
+      if (name === "QuotaExceededError") {
+        setError("This browser has run out of storage for the evidence ledger. Export a JSON backup, remove unneeded records, and try again. The previous saved archive was not intentionally replaced.");
+      } else {
+        setError(cause instanceof Error ? cause.message : "Could not save. Your previous saved archive has not been intentionally replaced.");
+      }
       return false;
+    } finally {
+      saveLock.current = false;
+      setSaving(false);
     }
   }
 
@@ -258,7 +297,7 @@ export default function ResearchEvidenceVault() {
   }
 
   return (
-    <section className="research-evidence-vault" aria-labelledby="research-evidence-vault-title">
+    <section className="research-evidence-vault" aria-labelledby="research-evidence-vault-title" aria-busy={busy || saving}>
       <div className="research-evidence-vault-heading">
         <div>
           <p className="eyebrow">V2 · LOCAL EVIDENCE VAULT</p>
@@ -266,12 +305,13 @@ export default function ResearchEvidenceVault() {
           <p className="muted">Keep each source connected to the exact claim you recorded. Claims start unreviewed; differences are prompts to check, not proof that a source is wrong.</p>
         </div>
         <div className="research-evidence-actions">
-          <button className="secondary" type="button" disabled={!archive || busy} onClick={() => archive && downloadArchive(archive)}>Export JSON</button>
-          <label className="secondary research-evidence-import">Restore JSON<input aria-label="Restore evidence backup JSON" type="file" accept="application/json,.json" disabled={busy} onChange={importArchive} /></label>
+          <button className="secondary" type="button" disabled={!archive || busy || saving} onClick={() => archive && downloadArchive(archive)}>Export JSON</button>
+          <label className="secondary research-evidence-import">Restore JSON<input aria-label="Restore evidence backup JSON" type="file" accept="application/json,.json" disabled={busy || saving} onChange={importArchive} /></label>
         </div>
       </div>
 
       {busy && <p role="status">Loading local evidence…</p>}
+      {saving && <p role="status">Saving evidence locally…</p>}
       {error && <p className="research-evidence-error" role="alert">{error}</p>}
       {message && <p className="research-evidence-success" role="status">{message}</p>}
 
@@ -292,7 +332,7 @@ export default function ResearchEvidenceVault() {
               <div><label htmlFor="evidence-source-publisher">Publisher (optional)</label><input id="evidence-source-publisher" value={publisher} onChange={(event) => setPublisher(event.target.value)} maxLength={250} /></div>
               <div><label htmlFor="evidence-capture-method">Capture method</label><select id="evidence-capture-method" value={captureMethod} onChange={(event) => setCaptureMethod(event.target.value as ResearchCaptureMethod)}><option value="manual">Manual notes</option><option value="schema-org">Schema.org extraction</option><option value="page-text">Page text</option><option value="official-api">Official API</option><option value="user-transcript">User-provided transcript</option><option value="nutrition-dataset">Nutrition dataset</option><option value="other">Other</option></select></div>
             </div>
-            <button className="primary" type="submit">＋ Save source</button>
+            <button className="primary" type="submit" disabled={busy || saving}>＋ Save source</button>
           </form>
 
           <form className="research-evidence-form" onSubmit={addClaim}>
@@ -305,7 +345,7 @@ export default function ResearchEvidenceVault() {
               <div><label htmlFor="evidence-claim-unit">Unit (optional)</label><input id="evidence-claim-unit" maxLength={80} value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="e.g. tsp" /></div>
               <div><label htmlFor="evidence-claim-excerpt">Short source excerpt / context (optional)</label><textarea id="evidence-claim-excerpt" rows={2} maxLength={1600} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Brief note or excerpt; avoid copying long passages." /></div>
             </div>
-            <button className="primary" type="submit">＋ Save unreviewed claim</button>
+            <button className="primary" type="submit" disabled={busy || saving}>＋ Save unreviewed claim</button>
           </form>
 
           <div className="research-evidence-list">
@@ -329,9 +369,9 @@ export default function ResearchEvidenceVault() {
                 <small>Status: {claim.reviewStatus} · Source: {source?.title || source?.url || "missing source"}</small>
                 {claim.excerpt && <p>{claim.excerpt}</p>}
                 <div className="research-evidence-review-actions">
-                  <button className="secondary" type="button" disabled={claim.reviewStatus === "accepted"} onClick={() => setClaimReviewStatus(claim.id, "accepted")}>Mark reviewed</button>
-                  <button className="text-button" type="button" disabled={claim.reviewStatus === "rejected"} onClick={() => setClaimReviewStatus(claim.id, "rejected")}>Reject claim</button>
-                  {claim.reviewStatus !== "unreviewed" && <button className="text-button" type="button" onClick={() => setClaimReviewStatus(claim.id, "unreviewed")}>Undo review</button>}
+                  <button className="secondary" type="button" disabled={saving || claim.reviewStatus === "accepted"} onClick={() => setClaimReviewStatus(claim.id, "accepted")}>Mark reviewed</button>
+                  <button className="text-button" type="button" disabled={saving || claim.reviewStatus === "rejected"} onClick={() => setClaimReviewStatus(claim.id, "rejected")}>Reject claim</button>
+                  {claim.reviewStatus !== "unreviewed" && <button className="text-button" type="button" disabled={saving} onClick={() => setClaimReviewStatus(claim.id, "unreviewed")}>Undo review</button>}
                 </div>
               </article>;
             })}
