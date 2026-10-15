@@ -829,3 +829,39 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Replacement source", { exact: true })).toHaveCount(0);
 });
+
+test("V2 evidence records can be removed safely, including linked claims", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence deletion test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://delete-test.example.com/recipe");
+  await page.locator("#evidence-source-title").fill("Source to remove");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await page.locator("#evidence-claim-source").selectOption({ label: "Source to remove" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("1");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
+
+  const cancelDialogPromise = page.waitForEvent("dialog");
+  await page.getByRole("button", { name: "Remove source and linked claims" }).click();
+  const cancelDialog = await cancelDialogPromise;
+  await expect(cancelDialog.message()).toContain("linked claim");
+  await cancelDialog.dismiss();
+  await expect(page.getByText("Source to remove", { exact: true })).toBeVisible();
+  await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
+
+  const confirmDialogPromise = page.waitForEvent("dialog");
+  await page.getByRole("button", { name: "Remove source and linked claims" }).click();
+  const confirmDialog = await confirmDialogPromise;
+  await confirmDialog.accept();
+  await expect(page.getByText("Source to remove", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/salt · quantity: 1/)).toHaveCount(0);
+  await expect(page.getByText("0 sources")).toBeVisible();
+  await expect(page.getByText("0 claims")).toBeVisible();
+});
