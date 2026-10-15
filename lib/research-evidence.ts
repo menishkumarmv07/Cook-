@@ -195,6 +195,20 @@ export function mergeResearchEvidence(
   if (new Set(incomingSources.map((source) => source.id)).size !== incomingSources.length) return null;
   if (new Set(incomingClaims.map((claim) => claim.id)).size !== incomingClaims.length) return null;
 
+  const currentSourceById = new Map(current.sources.map((source) => [source.id, source]));
+  for (const incoming of incomingSources) {
+    const existing = currentSourceById.get(incoming.id);
+    if (
+      existing &&
+      normalizeEvidenceSourceIdentity(existing.url) !== normalizeEvidenceSourceIdentity(incoming.url)
+    ) {
+      // A stable source ID is provenance identity. Changing its canonical URL
+      // would silently make all old linked claims appear to come from a new page.
+      // Record the new URL as a new source ID instead.
+      return null;
+    }
+  }
+
   const sources = new Map(current.sources.map((source) => [source.id, source]));
   for (const source of incomingSources) sources.set(source.id, { ...source, warnings: [...source.warnings] });
 
