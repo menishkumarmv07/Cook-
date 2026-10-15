@@ -131,3 +131,9 @@ input:focus, textarea:focus, select:focus { border-color: #9b6b4e; box-shadow: 0
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .task-popover, .logo-popover, .message-action-popover { transition-duration: .01ms !important; }
 }
+
+
+/* V1 regression correction: keep the tested screenshot palette consistent across stylesheets. */
+:root { --app-bg: #F1EEDD; }
+body, .shell, .shell .main { background-color: #F1EEDD; }
+.quick-dock { background-color: #713B2A; }
