@@ -337,3 +337,16 @@ Do not describe V1 as finished until the automated checks and Android manual acc
 - **Still owner-dependent / not passed by CI:** real Android Chrome acceptance while logged in; a documented one-recipe cooking trial with a real dish photo, rating, and notes; and production security review of custom-domain access protection and hosting-level login rate limiting. The mobile-width Chromium test is not a substitute for the physical Android test.
 - **V1 boundary remains unchanged:** this is a local-first workflow prototype, not a connected conversational AI or automated video-production system. Video/audio/frame analysis, evidence-backed multi-source recipe verification, automatic nutrition database lookup, chef voice/animation/video rendering, social OAuth, direct scheduling/publishing, analytics, and monetization integrations are not implemented.
 - Status: **IN PROGRESS — code, automated regression checks, and deployment status verified; owner/device acceptance and security gates remain open.**
+
+
+## Flexible link planning continuation — 15 October 2026
+
+**Implementation branch:** `feat/balanced-unbounded-link-planning-20261015` (verification pending until its exact CI run completes).
+
+- Replaced the former exactly-seven-link chat-router rule with flexible link intake. Chat requests can send any number of valid HTTP(S) links into Plan Content; single-link requests mentioning a plan are routed to the planner.
+- Removed fixed 3-day/7-day preset wording and the explicit “Links stay in this browser unless you export them. No external platform is contacted.” line from the planner's customizer.
+- The creator selects a maximum posts-per-day and a total US Eastern calendar date range. Inputs no longer have arbitrary 365-day or 1,000-links-per-day caps; safe whole-number and calendar-range validation still protects date arithmetic. The planner checks capacity before generating and never silently drops links.
+- All links remain in pasted order. A tested pure helper distributes the posts across the selected date range, validates HTTP(S) URLs, and keeps calendar-day arithmetic stable across daylight-saving changes. The chosen day count and daily cap are saved and restored with the other local planner state.
+- Added unit coverage for 1,005 links in a day, variable link counts, insufficient capacity, invalid URLs, US Eastern date defaults, and daylight-saving date arithmetic.
+- **Verification status:** implementation and regression tests have been committed to the feature branch; do not mark this continuation as passed until the exact PR workflow reports successful unit tests, ESLint, TypeScript, production build, owner-auth smoke, and Playwright E2E. Production deployment, real Android Chrome acceptance, cooking-trial evidence, and existing production security gates remain separate release requirements.
+
