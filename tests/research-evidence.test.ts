@@ -106,6 +106,18 @@ test("flags different quantities reported by two source records with both citati
   assert.match(conflicts[0].explanation, /Check units/);
 });
 
+test("does not mistake duplicate URL records for independent conflicting sources", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [
+      source("a", "https://recipes.com/pasta#ingredients"),
+      source("b", "https://recipes.com/pasta/"),
+    ],
+    claims: [claim("claim-a", "a", "1"), claim("claim-b", "b", "2")],
+  };
+  assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
+});
+
 test("normalization handles Unicode and whitespace without claiming semantic equivalence", () => {
   assert.equal(normalizeEvidenceText("  1\u00a0CUP  "), "1 CUP".toLocaleLowerCase("en-US"));
   const archive = {
