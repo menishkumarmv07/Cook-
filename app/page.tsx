@@ -339,6 +339,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [sourceInspection, setSourceInspection] = useState<SourceInspectionResult | null>(null);
+  const [pendingEvidenceCapture, setPendingEvidenceCapture] = useState<SourceInspectionResult | null>(null);
   const [inspectionBusy, setInspectionBusy] = useState(false);
   const [notes, setNotes] = useState("");
   const [servings, setServings] = useState("4");
@@ -1186,6 +1187,9 @@ export default function Home() {
     };
     setProjects((existing) => [project, ...existing]);
     setActive(project.id);
+    // Keep the explicit page-inspection result available in the new recipe workspace
+    // so the owner can import its provenance-linked claims into the V2 ledger.
+    setPendingEvidenceCapture(sourceInspection);
     setName("");
     setUrl("");
     setSourceInspection(null);
@@ -1772,7 +1776,10 @@ export default function Home() {
                   <p className="warning">Public HTML inspection runs only after an explicit intake action. It does not independently verify sources or analyze video frames/audio. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
 
-                <ResearchEvidenceVault />
+                <ResearchEvidenceVault
+                  inspectedSource={pendingEvidenceCapture}
+                  onImportedSource={() => setPendingEvidenceCapture(null)}
+                />
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "", nutritionCalories: "", nutritionProteinG: "", nutritionCarbsG: "", nutritionFatG: "", nutritionBasis: "", nutritionSourceUrl: "" }] })}>＋ Add ingredient</button></div>
                 {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
