@@ -178,6 +178,54 @@ async function writeArchive(
   }
 }
 
+/**
+ * Recovery-only path used when the current archive could not be parsed.
+ * It replaces the stored value only if it is still missing or invalid, and
+ * only after the owner explicitly chooses a valid backup. A concurrently
+ * repaired valid archive is never overwritten by this recovery operation.
+ */
+async function restoreOverMissingOrInvalidArchive(
+  candidateValue: ResearchEvidenceArchive,
+): Promise<void> {
+  const candidate = parseResearchEvidenceArchive(candidateValue);
+  if (!candidate) throw new Error("The selected recovery archive failed validation.");
+
+  const database = await openEvidenceDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(ARCHIVE_STORE, "readwrite");
+      const store = transaction.objectStore(ARCHIVE_STORE);
+      const request = store.get(PRIMARY_ARCHIVE_KEY);
+      let recoveryError: Error | null = null;
+
+      request.onsuccess = () => {
+        const rawCurrent = request.result;
+        if (rawCurrent !== undefined && parseResearchEvidenceArchive(rawCurrent)) {
+          recoveryError = new Error(
+            "A valid evidence ledger is now saved in this browser, so recovery stopped to protect it. Reload this page before restoring again.",
+          );
+          transaction.abort();
+          return;
+        }
+        store.put(candidate, PRIMARY_ARCHIVE_KEY);
+      };
+      request.onerror = () => {
+        recoveryError = new Error("Could not verify the stored archive before recovery. No backup was written.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => {
+        reject(recoveryError ?? transaction.error ?? new Error("Backup recovery could not be completed."));
+      };
+      transaction.onabort = () => {
+        reject(recoveryError ?? transaction.error ?? new Error("Backup recovery was interrupted. No successful restore was reported."));
+      };
+    });
+  } finally {
+    database.close();
+  }
+}
+
 function makeRecordId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -507,7 +555,34 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
         setError("This file is not a valid supported evidence backup. Nothing was imported.");
         return;
       }
-      if (archive && (archive.sources.length > 0 || archive.claims.length > 0)) {
+
+      if (!archive) {
+        const confirmed = window.confirm(
+          "The current evidence ledger could not be loaded. Restoring this backup may replace the unusable saved archive. The app will protect any valid archive that another tab has saved meanwhile. Continue?",
+        );
+        if (!confirmed) {
+          setError("");
+          setMessage("Recovery cancelled. No saved evidence was changed.");
+          return;
+        }
+        setSaving(true);
+        setError("");
+        setMessage("");
+        try {
+          const recovered = { ...candidate, updatedAt: new Date().toISOString() };
+          await restoreOverMissingOrInvalidArchive(recovered);
+          setArchive(recovered);
+          setSelectedSourceId(recovered.sources[0]?.id ?? "");
+          setMessage("Evidence backup restored. Review the source records before relying on them.");
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Backup recovery failed. The saved archive was not confirmed as changed.");
+        } finally {
+          setSaving(false);
+        }
+        return;
+      }
+
+      if (archive.sources.length > 0 || archive.claims.length > 0) {
         const confirmed = window.confirm(
           "Restoring this backup replaces the current local evidence ledger. Export a backup first. Continue?",
         );
@@ -517,7 +592,10 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
           return;
         }
       }
-      await commit({ ...candidate, updatedAt: new Date().toISOString() }, "Evidence backup restored locally.");
+      const restored = { ...candidate, updatedAt: new Date().toISOString() };
+      if (await commit(restored, "Evidence backup restored locally.")) {
+        setSelectedSourceId(restored.sources[0]?.id ?? "");
+      }
     } catch {
       setError("The backup could not be read. Nothing was imported.");
     }
