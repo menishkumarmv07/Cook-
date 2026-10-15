@@ -118,6 +118,29 @@ test("does not mistake duplicate URL records for independent conflicting sources
   assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
 });
 
+test("detects a cross-source difference even when one source records multiple alternatives", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [source("a"), source("b", "https://other.com/recipe")],
+    claims: [
+      claim("claim-a-one", "a", "1"),
+      claim("claim-a-two", "a", "2"),
+      claim("claim-b-one", "b", "1"),
+    ],
+  };
+
+  const conflicts = findPotentialEvidenceConflicts(archive);
+  assert.equal(conflicts.length, 1);
+  assert.deepEqual(
+    conflicts[0].alternatives.map((alternative) => alternative.displayValue).sort(),
+    ["1 tsp", "2 tsp"],
+  );
+  assert.deepEqual(
+    conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)).sort(),
+    ["https://other.com/recipe", "https://recipes.com/a"],
+  );
+});
+
 test("normalization handles Unicode and whitespace without claiming semantic equivalence", () => {
   assert.equal(normalizeEvidenceText("  1\u00a0CUP  "), "1 CUP".toLocaleLowerCase("en-US"));
   const archive = {
