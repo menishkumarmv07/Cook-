@@ -11,16 +11,7 @@ type ScheduledPost = {
 };
 
 const STORAGE_KEY = "cooking-creator-local-schedule-v1";
-const THREE_DAY_TIMES = [
-  { day: 0, time: "09:00" },
-  { day: 0, time: "18:00" },
-  { day: 1, time: "09:00" },
-  { day: 1, time: "13:00" },
-  { day: 2, time: "09:00" },
-  { day: 2, time: "13:00" },
-  { day: 2, time: "18:00" },
-];
-const WEEK_TIMES = Array.from({ length: 7 }, (_, day) => ({ day, time: "18:00" }));
+const SUGGESTED_TIMES = ["09:00", "13:00", "18:00"] as const;
 
 function localDateString(date: Date): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -67,7 +58,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
-  const [message, setMessage] = useState("Add up to seven public Reel or video URLs, one per line.");
+  const [message, setMessage] = useState("Add as many public Reel or video URLs as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -112,26 +103,33 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       setMessage("Choose a valid start date before generating the plan.");
       return;
     }
-    if (links.length !== 7) {
-      setMessage(`Add exactly 7 URLs first. Currently found ${links.length}.`);
+    if (links.length === 0) {
+      setMessage("Add at least one video URL before generating a plan.");
       return;
     }
     if (invalidLinks.length) {
       setMessage("Every line must be a complete http:// or https:// URL. Fix the highlighted invalid links first.");
       return;
     }
-    const slots = mode === "three-day" ? THREE_DAY_TIMES : WEEK_TIMES;
-    const next = links.map((url, index) => ({
-      id: `${Date.now()}-${index}`,
-      url,
-      date: addDays(startDate, slots[index].day),
-      time: slots[index].time,
-      status: "Draft — approval needed" as const,
-    }));
+    const dayCount = mode === "three-day" ? 3 : 7;
+    const postsPerDay = Array.from({ length: dayCount }, () => 0);
+    const next = links.map((url, index) => {
+      // Spread any number of links as evenly as possible across the chosen number of days.
+      const day = Math.floor((index * dayCount) / links.length);
+      const time = SUGGESTED_TIMES[postsPerDay[day] % SUGGESTED_TIMES.length];
+      postsPerDay[day] += 1;
+      return {
+        id: `${Date.now()}-${index}`,
+        url,
+        date: addDays(startDate, day),
+        time,
+        status: "Draft — approval needed" as const,
+      };
+    });
     setPlan(next);
     setMessage(mode === "three-day"
-      ? "Created a local three-day draft: 2 posts on Day 1, 2 on Day 2 and 3 on Day 3."
-      : "Created a local seven-day draft with one post per day.");
+      ? "Created a local three-day draft with all " + links.length + " link(s), spread as evenly as possible across the three days."
+      : "Created a local seven-day draft with all " + links.length + " link(s), spread as evenly as possible across the week.");
   }
 
   function updatePost(id: string, field: "date" | "time", value: string) {
@@ -165,15 +163,15 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       <div className="section-head">
         <div>
           <p className="eyebrow">CONTENT CALENDAR · LOCAL DRAFT</p>
-          <h2 id="schedule-preview-title">Plan your next seven posts</h2>
-          <p>Paste seven video links, choose a start date, then generate either a three-day batch or one post each day for a week.</p>
+          <h2 id="schedule-preview-title">Plan your video links</h2>
+          <p>Add as many video links as you want. Choose a start date and spread all links across three days or seven days.</p>
         </div>
         <span className="step">APPROVAL REQUIRED</span>
       </div>
 
       <div className="schedule-builder">
         <div className="schedule-inputs">
-          <label htmlFor="schedule-links">Seven Reel / video URLs <span>{links.length}/7</span></label>
+          <label htmlFor="schedule-links">Reel / video URLs <span>{links.length} link{links.length === 1 ? "" : "s"}</span></label>
           <textarea
             id="schedule-links"
             value={linksText}
@@ -187,8 +185,8 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <p className="hint">Suggested slots use US Eastern Time (ET): morning 9:00 AM, afternoon 1:00 PM, evening 6:00 PM. These are starting suggestions, not predictions of reach.</p>
         </div>
         <div className="schedule-actions">
-          <button className="primary action-primary" type="button" onClick={() => generateSchedule("three-day")}>Build 3-day plan (2 / 2 / 3)</button>
-          <button className="secondary" type="button" onClick={() => generateSchedule("seven-day")}>Build 7-day plan (1 per day)</button>
+          <button className="primary action-primary" type="button" onClick={() => generateSchedule("three-day")}>Build 3-day plan (spread all links)</button>
+          <button className="secondary" type="button" onClick={() => generateSchedule("seven-day")}>Build 7-day plan (spread all links)</button>
           <p className="hint">Links stay in this browser unless you export them. No external platform is contacted.</p>
         </div>
       </div>
