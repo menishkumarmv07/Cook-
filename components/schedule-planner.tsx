@@ -193,7 +193,9 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(objectUrl);
+    // Keep the Blob URL alive long enough for Android Chrome and other browsers
+    // to begin the download before releasing the temporary object URL.
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
     setMessage("Schedule draft exported as JSON.");
   }
 
