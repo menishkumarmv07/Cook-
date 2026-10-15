@@ -6,6 +6,7 @@ import {
   getUsEasternCalendarDate,
   isSuggestedTime,
   isValidCalendarDate,
+  isValidScheduleUrl,
   parseScheduleLinks,
   SUGGESTED_TIMES,
   type ScheduledPost,
@@ -53,7 +54,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
-  }, [hydrated, linksText, startDate, plan]);
+  }, [hydrated, linksText, startDate, daysToProcess, linksPerDay, plan]);
 
   const links = useMemo(() => parseScheduleLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !isValidScheduleUrl(link)), [links]);
@@ -152,7 +153,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
                   <td>{index + 1}</td>
                   <td><a href={post.url} target="_blank" rel="noreferrer">{post.url}</a></td>
                   <td><input aria-label={`Post ${index + 1} date`} type="date" value={post.date} onChange={(event) => updatePost(post.id, "date", event.target.value)} /></td>
-                  <td><select aria-label={`Post ${index + 1} time`} value={post.time} onChange={(event) => updatePost(post.id, "time", event.target.value)}><option value="09:00">9:00 AM</option><option value="13:00">1:00 PM</option><option value="18:00">6:00 PM</option></select></td>
+                  <td><select aria-label={`Post ${index + 1} time`} value={post.time} onChange={(event) => updatePost(post.id, "time", event.target.value)}>{SUGGESTED_TIMES.map((time) => <option key={time} value={time}>{time === "09:00" ? "9:00 AM" : time === "13:00" ? "1:00 PM" : "6:00 PM"}</option>)}</select></td>
                   <td><span className="status status-warning">{post.status}</span></td>
                 </tr>
               ))}
