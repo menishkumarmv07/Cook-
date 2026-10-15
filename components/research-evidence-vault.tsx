@@ -114,18 +114,58 @@ async function readArchive(): Promise<ResearchEvidenceArchive> {
   }
 }
 
-async function writeArchive(archive: ResearchEvidenceArchive): Promise<void> {
+async function writeArchive(
+  archive: ResearchEvidenceArchive,
+  expectedCurrentArchive: ResearchEvidenceArchive,
+): Promise<void> {
   const validated = parseResearchEvidenceArchive(archive);
   if (!validated) throw new Error("The evidence archive failed validation and was not saved.");
+  const expected = parseResearchEvidenceArchive(expectedCurrentArchive);
+  if (!expected) throw new Error("The current in-memory evidence snapshot failed validation. Reload before saving.");
 
   const database = await openEvidenceDatabase();
   try {
     await new Promise<void>((resolve, reject) => {
+      // Read and compare inside the same read-write transaction. This makes
+      // the check atomic across tabs and prevents a stale tab silently erasing
+      // records saved by another tab.
       const transaction = database.transaction(ARCHIVE_STORE, "readwrite");
-      transaction.objectStore(ARCHIVE_STORE).put(validated, PRIMARY_ARCHIVE_KEY);
+      const store = transaction.objectStore(ARCHIVE_STORE);
+      const currentRequest = store.get(PRIMARY_ARCHIVE_KEY);
+      let safeAbortError: Error | null = null;
+
+      currentRequest.onsuccess = () => {
+        const rawCurrent = currentRequest.result;
+        if (rawCurrent === undefined) {
+          if (expected.sources.length > 0 || expected.claims.length > 0) {
+            safeAbortError = new Error("The saved evidence ledger changed in another tab. Reload this page before saving again; no current records were overwritten.");
+            transaction.abort();
+            return;
+          }
+        } else {
+          const current = parseResearchEvidenceArchive(rawCurrent);
+          if (!current) {
+            safeAbortError = new Error("The saved evidence ledger no longer passes validation. Nothing was overwritten; export or recover a known-good backup before continuing.");
+            transaction.abort();
+            return;
+          }
+          if (JSON.stringify(current) !== JSON.stringify(expected)) {
+            safeAbortError = new Error("The evidence ledger changed in another tab. Reload this page before saving again; your newer saved records were not overwritten.");
+            transaction.abort();
+            return;
+          }
+        }
+
+        store.put(validated, PRIMARY_ARCHIVE_KEY);
+      };
+      currentRequest.onerror = () => {
+        safeAbortError = currentRequest.error instanceof Error
+          ? currentRequest.error
+          : new Error("Could not check the current saved evidence before writing.");
+      };
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error("Could not save the local evidence archive."));
-      transaction.onabort = () => reject(transaction.error ?? new Error("Saving was interrupted. The previous saved archive should remain intact."));
+      transaction.onerror = () => reject(safeAbortError ?? transaction.error ?? new Error("Could not save the local evidence archive."));
+      transaction.onabort = () => reject(safeAbortError ?? transaction.error ?? new Error("Saving was interrupted. The previous saved archive should remain intact."));
     });
   } finally {
     database.close();
@@ -195,7 +235,8 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
     setError("");
     setMessage("");
     try {
-      await writeArchive(next);
+      if (!archive) throw new Error("The evidence ledger has not finished loading. Nothing was saved.");
+      await writeArchive(next, archive);
       setArchive(next);
       setMessage(successMessage);
       return true;
