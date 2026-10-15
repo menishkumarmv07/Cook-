@@ -200,6 +200,27 @@ test("merge rejects duplicate IDs within the same incoming batch", () => {
   );
 });
 
+test("stable source identity cannot be silently redirected to a different canonical URL", () => {
+  const empty = createEmptyResearchEvidenceArchive(capturedAt);
+  const initial = mergeResearchEvidence(empty, [source("stable", "https://recipes.com/old")], [], capturedAt);
+  assert.ok(initial);
+
+  // Harmless canonical variants still identify the same page.
+  assert.ok(mergeResearchEvidence(
+    initial,
+    [source("stable", "https://recipes.com/old/#ingredients")],
+    [],
+    capturedAt,
+  ));
+
+  // Reusing the source ID for another page would corrupt provenance on all
+  // existing claims linked to that ID, so this update must be rejected.
+  assert.equal(
+    mergeResearchEvidence(initial, [source("stable", "https://different.com/new")], [], capturedAt),
+    null,
+  );
+});
+
 test("upsert merge is idempotent and rejects a claim when its source is missing", () => {
   const empty = createEmptyResearchEvidenceArchive(capturedAt);
   const withSource = mergeResearchEvidence(empty, [source("a")], [], capturedAt);
