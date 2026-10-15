@@ -220,9 +220,15 @@ function normalizeEvidenceSourceIdentity(value: string): string {
 }
 
 /**
- * Finds possible conflicts only when distinct source URLs record different
- * values for the same normalized subject and predicate. Rejected claims are
- * excluded. Results are review prompts, not factual verdicts.
+ * Finds possible conflicts only when different canonical source URLs record
+ * different sets of values for the same normalized subject and predicate.
+ * Rejected claims are excluded. Results are review prompts, not factual verdicts.
+ *
+ * Comparing per-source value sets avoids a false positive where two sources
+ * independently list the same two alternatives (for example, two serving
+ * suggestions on each page). It still flags one source listing {1, 2} while
+ * another lists only {1}. URL fragments and trailing slashes do not establish
+ * independent sources.
  */
 export function findPotentialEvidenceConflicts(
   archiveValue: unknown,
@@ -241,7 +247,9 @@ export function findPotentialEvidenceConflicts(
     const subjectKey = normalizeEvidenceText(claim.subject);
     const predicateKey = normalizeEvidenceText(claim.predicate);
     if (!subjectKey || !predicateKey || !normalizeEvidenceText(claim.value)) continue;
-    const key = subjectKey + "::" + predicateKey;
+    // Encode tuple elements instead of joining with a delimiter that user text
+    // could itself contain.
+    const key = JSON.stringify([subjectKey, predicateKey]);
     const group = groups.get(key) ?? [];
     group.push(claim);
     groups.set(key, group);
@@ -250,11 +258,9 @@ export function findPotentialEvidenceConflicts(
   const output: PotentialEvidenceConflict[] = [];
   for (const [key, claims] of groups) {
     const values = new Map<string, ResearchEvidenceClaim[]>();
-    const distinctSourceIdentities = new Set<string>();
+    const valuesBySource = new Map<string, Set<string>>();
 
-    // Build the alternatives and provenance index in one pass. Imported archives
-    // are byte-bounded, but can still contain many small records; avoid a
-    // quadratic pairwise scan that could freeze the owner's browser.
+    // Linear indexing keeps large but byte-bounded imports responsive.
     for (const claim of claims) {
       const normalizedValue = normalizeEvidenceText(claim.value + " " + claim.unit);
       const alternative = values.get(normalizedValue) ?? [];
@@ -262,12 +268,20 @@ export function findPotentialEvidenceConflicts(
       values.set(normalizedValue, alternative);
 
       const identity = sourceIdentityById.get(claim.sourceId);
-      if (identity) distinctSourceIdentities.add(identity);
+      if (!identity) continue;
+      const sourceValues = valuesBySource.get(identity) ?? new Set<string>();
+      sourceValues.add(normalizedValue);
+      valuesBySource.set(identity, sourceValues);
     }
 
-    // Two distinct values across two distinct canonical URLs are enough to
-    // establish a review prompt. Same-page URL variants are not corroboration.
-    if (values.size < 2 || distinctSourceIdentities.size < 2) continue;
+    if (values.size < 2 || valuesBySource.size < 2) continue;
+
+    // If every independent source records the same set of alternatives, there
+    // is no cross-source disagreement to flag. Compare set signatures in O(n).
+    const profileSignatures = new Set(
+      [...valuesBySource.values()].map((sourceValues) => JSON.stringify([...sourceValues].sort())),
+    );
+    if (profileSignatures.size < 2) continue;
 
     const first = claims[0];
     output.push({
@@ -283,7 +297,7 @@ export function findPotentialEvidenceConflicts(
           .filter((source): source is ResearchEvidenceSource => Boolean(source))
           .map((source) => ({ ...source, warnings: [...source.warnings] })),
       })),
-      explanation: "Sources record different values for the same subject and field. Check units, context and source wording before deciding whether this is a true conflict.",
+      explanation: "Sources record different sets of values for the same subject and field. Check units, context and source wording before deciding whether this is a true conflict.",
     });
   }
 
