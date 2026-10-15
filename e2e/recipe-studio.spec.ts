@@ -854,6 +854,49 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await expect(page.locator(".research-evidence-list").first().getByText("Replacement source", { exact: true })).toHaveCount(0);
 });
 
+test("V2 evidence ledger rejects stale writes from another tab without losing newer records", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Cross-tab evidence test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/shared-source-a");
+  await page.locator("#evidence-source-title").fill("Shared source A");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+
+  // Open a second tab after source A has been saved so it has the same baseline.
+  const secondPage = await page.context().newPage();
+  try {
+    await secondPage.goto("/");
+    await expect(secondPage.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+
+    // The first tab advances the stored archive after the second tab has loaded.
+    await page.locator("#evidence-source-url").fill("https://example.org/shared-source-b");
+    await page.locator("#evidence-source-title").fill("Shared source B");
+    await page.getByRole("button", { name: /Save source/ }).click();
+    await expect(page.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+
+    // The stale second tab must refuse to replace the newer archive with A + C.
+    await secondPage.locator("#evidence-source-url").fill("https://example.net/stale-source-c");
+    await secondPage.locator("#evidence-source-title").fill("Stale source C");
+    await secondPage.getByRole("button", { name: /Save source/ }).click();
+    await expect(secondPage.getByText(/evidence ledger changed in another tab/i)).toBeVisible();
+    await expect(page.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+
+    await secondPage.reload();
+    await expect(secondPage.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Stale source C", { exact: true })).toHaveCount(0);
+  } finally {
+    await secondPage.close();
+  }
+});
+
 test("V2 evidence records can be removed safely, including linked claims", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
