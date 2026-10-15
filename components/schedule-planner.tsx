@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   buildScheduleDraft,
   getUsEasternCalendarDate,
@@ -22,9 +22,21 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Add as many public Reel or video URLs as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
+  const initialPrefill = useRef(prefillLinksText.trim());
 
   useEffect(() => {
-    if (prefillLinksText.trim()) setLinksText(prefillLinksText);
+    const nextText = prefillLinksText.trim();
+    if (!nextText) return;
+    const nextLinks = parseScheduleLinks(nextText);
+    setLinksText(nextText);
+    setPlan((current) => {
+      const currentUrls = current.map((post) => post.url);
+      return currentUrls.length === nextLinks.length &&
+        currentUrls.every((url, index) => url === nextLinks[index])
+        ? current
+        : [];
+    });
+    setMessage("New links loaded. Build a new plan to review them.");
   }, [prefillLinksText]);
 
   useEffect(() => {
@@ -32,7 +44,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; daysToProcess?: unknown; linksPerDay?: unknown; plan?: unknown };
-        if (typeof saved.linksText === "string") setLinksText(saved.linksText);
+        if (!initialPrefill.current && typeof saved.linksText === "string") setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
         if (typeof saved.daysToProcess === "string" && Number.isSafeInteger(Number(saved.daysToProcess)) && Number(saved.daysToProcess) > 0) setDaysToProcess(saved.daysToProcess);
         if (typeof saved.linksPerDay === "string" && Number.isSafeInteger(Number(saved.linksPerDay)) && Number(saved.linksPerDay) > 0) setLinksPerDay(saved.linksPerDay);
@@ -41,7 +53,13 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           typeof item.id === "string" && typeof item.url === "string" && isValidScheduleUrl(item.url) &&
           typeof item.date === "string" && isValidCalendarDate(item.date) &&
           isSuggestedTime(item.time) && item.status === "Draft — approval needed"
-        )) setPlan(saved.plan as ScheduledPost[]);
+        )) {
+          const savedPlan = saved.plan as ScheduledPost[];
+          const prefilledLinks = parseScheduleLinks(initialPrefill.current);
+          const matchesPrefill = savedPlan.length === prefilledLinks.length &&
+            savedPlan.every((post, index) => post.url === prefilledLinks[index]);
+          if (!initialPrefill.current || matchesPrefill) setPlan(savedPlan);
+        }
       }
     } catch {
       setMessage("Saved schedule could not be restored. You can create a new local draft.");
