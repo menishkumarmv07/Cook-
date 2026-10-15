@@ -673,6 +673,20 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toBeVisible();
   await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
   await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toHaveCount(0);
+
+  // Re-inspecting the same canonical URL must update the existing source rather
+  // than fabricate a second independent source or duplicate unchanged claims.
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Lemon rice re-inspection");
+  await page.locator("#url").fill(sourceUrl);
+  await page.getByRole("button", { name: "Inspect public recipe page" }).click();
+  await expect(page.locator(".source-inspection-preview")).toBeVisible();
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toBeVisible();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+  await expect(page.getByText("Updated the existing source details. No duplicate facts were added.")).toBeVisible();
+  await expect(page.locator(".research-evidence-counts span").nth(0)).toContainText("1");
+  await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toHaveCount(1);
 });
 
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
