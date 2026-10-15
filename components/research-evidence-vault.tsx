@@ -259,32 +259,30 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
         return urlValue.trim();
       }
     };
-    const existingEquivalent = archive.sources.find((existing) => {
-      if (
-        captureIdentity(existing.url) !== captureIdentity(finalUrl) ||
-        existing.title !== (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500) ||
-        existing.publisher !== publisher
-      ) return false;
-      return candidates.every((candidate) => archive.claims.some((claim) =>
-        claim.sourceId === existing.id &&
+    const sourceTitle = (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500);
+    const sourceIdentity = captureIdentity(finalUrl);
+    // A re-inspection of one canonical URL updates the existing source record.
+    // It must not create a fake "independent" source merely because the title,
+    // publisher metadata, or extracted recipe fields changed.
+    const existingSource = archive.sources.find((existing) =>
+      captureIdentity(existing.url) === sourceIdentity
+    );
+    const missingCandidates = candidates.filter((candidate) => !(
+      existingSource && archive.claims.some((claim) =>
+        claim.sourceId === existingSource.id &&
         claim.subject === recipeLabel &&
         claim.predicate === candidate.predicate &&
         claim.value === candidate.value &&
-        claim.unit === ""
-      ));
-    });
-
-    if (existingEquivalent) {
-      setError("");
-      setMessage("This inspected source and its extracted facts are already in the ledger. No duplicate records were added.");
-      onImportedSource?.();
-      return;
-    }
+        claim.unit === "" &&
+        claim.excerpt === candidate.excerpt &&
+        claim.reviewStatus !== "rejected"
+      )
+    ));
 
     const source: ResearchEvidenceSource = {
-      id: makeRecordId("source"),
+      id: existingSource?.id ?? makeRecordId("source"),
       url: finalUrl,
-      title: (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500),
+      title: sourceTitle,
       publisher,
       capturedAt,
       captureMethod: recipe ? "schema-org" : "page-text",
@@ -297,7 +295,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
         ...(!recipe ? ["No Schema.org recipe was available; no video/audio or frames were analysed."] : []),
       ],
     };
-    const claims: ResearchEvidenceClaim[] = candidates.map((candidate) => ({
+    const claims: ResearchEvidenceClaim[] = missingCandidates.map((candidate) => ({
       id: makeRecordId("claim"),
       sourceId: source.id,
       subject: recipeLabel,
@@ -314,10 +312,12 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
       return;
     }
 
-    const saved = await commit(
-      nextArchive,
-      `Saved the inspected page and ${claims.length} extracted field${claims.length === 1 ? "" : "s"} as unreviewed evidence. Check every value against the source before relying on it.`,
-    );
+    const successMessage = existingSource
+      ? claims.length > 0
+        ? `Updated the existing source and added ${claims.length} new unreviewed field${claims.length === 1 ? "" : "s"}. Existing facts were not duplicated.`
+        : "Updated the existing source details. No duplicate facts were added."
+      : `Saved the inspected page and ${claims.length} extracted field${claims.length === 1 ? "" : "s"} as unreviewed evidence. Check every value against the source before relying on it.`;
+    const saved = await commit(nextArchive, successMessage);
     if (saved) onImportedSource?.();
   }
 
