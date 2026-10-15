@@ -205,9 +205,24 @@ export function mergeResearchEvidence(
 }
 
 /**
- * Finds possible conflicts only where different source records provide
- * different values for the same normalized subject and predicate. Rejected
- * claims are excluded. Results are review prompts, not factual verdicts.
+ * Canonical identity for conflict checking. A fragment or trailing slash does
+ * not make a page an independent source. Query parameters remain significant.
+ */
+function normalizeEvidenceSourceIdentity(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\\/+$/, "") || "/";
+    return url.href;
+  } catch {
+    return value.trim();
+  }
+}
+
+/**
+ * Finds possible conflicts only when distinct source URLs record different
+ * values for the same normalized subject and predicate. Rejected claims are
+ * excluded. Results are review prompts, not factual verdicts.
  */
 export function findPotentialEvidenceConflicts(
   archiveValue: unknown,
@@ -216,6 +231,9 @@ export function findPotentialEvidenceConflicts(
   if (!archive) return [];
 
   const sourceById = new Map(archive.sources.map((source) => [source.id, source]));
+  const sourceIdentityById = new Map(
+    archive.sources.map((source) => [source.id, normalizeEvidenceSourceIdentity(source.url)]),
+  );
   const groups = new Map<string, ResearchEvidenceClaim[]>();
 
   for (const claim of archive.claims) {
@@ -231,7 +249,6 @@ export function findPotentialEvidenceConflicts(
 
   const output: PotentialEvidenceConflict[] = [];
   for (const [key, claims] of groups) {
-    const sourceIds = new Set(claims.map((claim) => claim.sourceId));
     const values = new Map<string, ResearchEvidenceClaim[]>();
 
     for (const claim of claims) {
@@ -241,7 +258,24 @@ export function findPotentialEvidenceConflicts(
       values.set(normalizedValue, alternative);
     }
 
-    if (sourceIds.size < 2 || values.size < 2) continue;
+    if (values.size < 2) continue;
+
+    // Duplicate records for the same URL are not independent corroboration.
+    // Require at least one differing pair from genuinely distinct source URLs.
+    let hasCrossSourceDifference = false;
+    for (let left = 0; left < claims.length && !hasCrossSourceDifference; left += 1) {
+      for (let right = left + 1; right < claims.length; right += 1) {
+        const leftIdentity = sourceIdentityById.get(claims[left].sourceId);
+        const rightIdentity = sourceIdentityById.get(claims[right].sourceId);
+        const leftValue = normalizeEvidenceText(claims[left].value + " " + claims[left].unit);
+        const rightValue = normalizeEvidenceText(claims[right].value + " " + claims[right].unit);
+        if (leftIdentity && rightIdentity && leftIdentity !== rightIdentity && leftValue !== rightValue) {
+          hasCrossSourceDifference = true;
+          break;
+        }
+      }
+    }
+    if (!hasCrossSourceDifference) continue;
 
     const first = claims[0];
     output.push({
