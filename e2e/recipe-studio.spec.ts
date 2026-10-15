@@ -897,6 +897,76 @@ test("V2 evidence ledger rejects stale writes from another tab without losing ne
   }
 });
 
+test("V2 evidence ledger can recover an invalid saved archive from an explicit backup", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence recovery test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+
+  // Simulate a malformed archive left by an old build, interrupted migration,
+  // or browser-side corruption. The application must not silently overwrite it.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("cooking-creator-research-evidence", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction("archives", "readwrite");
+        transaction.objectStore("archives").put({ version: 999, invalid: true }, "primary");
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  await page.reload();
+  await expect(page.getByRole("alert")).toContainText("saved evidence archive failed validation");
+  await expect(page.getByLabel("Restore evidence backup JSON")).toBeEnabled();
+
+  const backupTimestamp = new Date().toISOString();
+  const validArchive = {
+    version: 1,
+    updatedAt: backupTimestamp,
+    sources: [{
+      id: "source-recovered-from-backup",
+      url: "https://recovery.example.org/recipe",
+      title: "Recovered source",
+      publisher: "Recovery test",
+      capturedAt: backupTimestamp,
+      captureMethod: "manual",
+      status: "needs-input",
+      warnings: ["Recovered test data; not independently verified."],
+    }],
+    claims: [],
+  };
+
+  const restoreDialogPromise = page.waitForEvent("dialog");
+  await page.getByLabel("Restore evidence backup JSON").setInputFiles({
+    name: "recovery-evidence.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(validArchive)),
+  });
+  const restoreDialog = await restoreDialogPromise;
+  expect(restoreDialog.type()).toBe("confirm");
+  expect(restoreDialog.message()).toContain("current evidence ledger could not be loaded");
+  await restoreDialog.accept();
+
+  await expect(page.getByText("Evidence backup restored. Review the source records before relying on them.")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
+
+  // The recovered archive should survive another full component reload.
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
+});
+
 test("V2 evidence records can be removed safely, including linked claims", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
