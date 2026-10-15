@@ -90,7 +90,8 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; timeZone?: unknown; plan?: unknown };
         const savedTimeZone = isAudienceTimeZone(saved.timeZone) ? saved.timeZone : DEFAULT_AUDIENCE_TIME_ZONE;
         setTimeZone(savedTimeZone);
-        if (typeof saved.linksText === "string") setLinksText(saved.linksText);
+        // Explicit links passed from the chat command must win over an older saved list.
+        if (typeof saved.linksText === "string" && !prefillLinksText.trim()) setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
         else setStartDate(localDateString(new Date(), savedTimeZone));
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
@@ -239,9 +240,9 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         <div className="schedule-actions schedule-customizer">
           <p className="schedule-customizer-title">CUSTOM PLAN</p>
           <label htmlFor="schedule-links-per-day">How many links per day?</label>
-          <input id="schedule-links-per-day" type="number" min="1" max="1000" step="1" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
+          <input id="schedule-links-per-day" type="number" min="1" step="1" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
           <label htmlFor="schedule-days-count">How many days?</label>
-          <input id="schedule-days-count" type="number" min="1" max="365" step="1" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
+          <input id="schedule-days-count" type="number" min="1" step="1" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
           <p className="schedule-capacity" aria-live="polite">Capacity: {Number(linksPerDay) > 0 && Number(daysToProcess) > 0 ? capacityLabel : 0} links · You added {links.length}</p>
           <button className="schedule-build-button" type="button" onClick={generateSchedule}>Build my custom plan</button>
           <p className="hint">Links are processed in the same order you pasted them. If the capacity is too small, increase the days or links per day to include every link.</p>
