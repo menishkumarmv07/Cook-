@@ -1147,7 +1147,7 @@ test("chat link planning accepts any submitted URL count and prefers explicit li
   );
   await page.getByRole("button", { name: "Send message" }).click();
 
-  await expect(page.locator("#schedule-links")).toHaveValue(requestedLinks.join("\\n"));
+  await expect(page.locator("#schedule-links")).toHaveValue(requestedLinks.join("\n"));
   await expect(page.locator(".chat-transcript")).toContainText("I found 3 valid HTTP(S) link(s)");
   await expect(page.locator(".chat-transcript")).not.toContainText("exactly seven");
   await expect(page.locator("#schedule-links")).not.toHaveValue("https://old.example/previous-list");
