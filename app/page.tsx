@@ -1,6 +1,7 @@
 "use client";
 
 import SchedulePlanner from "@/components/schedule-planner";
+import ResearchEvidenceVault from "@/components/research-evidence-vault";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
@@ -1770,6 +1771,8 @@ export default function Home() {
                   </>}
                   <p className="warning">Public HTML inspection runs only after an explicit intake action. It does not independently verify sources or analyze video frames/audio. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
+
+                <ResearchEvidenceVault />
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "", nutritionCalories: "", nutritionProteinG: "", nutritionCarbsG: "", nutritionFatG: "", nutritionBasis: "", nutritionSourceUrl: "" }] })}>＋ Add ingredient</button></div>
                 {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
