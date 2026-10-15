@@ -400,6 +400,52 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
     await commit(next, reviewStatus === "accepted" ? "Claim marked as reviewed by you; this is not independent verification." : "Claim rejected in your local review.");
   }
 
+  async function removeSource(sourceId: string) {
+    if (!archive || saving) return;
+    const source = archive.sources.find((item) => item.id === sourceId);
+    if (!source) return;
+    const linkedClaims = archive.claims.filter((claim) => claim.sourceId === sourceId);
+    const confirmed = window.confirm(
+      `Remove “${source.title || source.url}” and its ${linkedClaims.length} linked claim(s) from this browser? Export a backup first if you may need them.`,
+    );
+    if (!confirmed) return;
+
+    const next = parseResearchEvidenceArchive({
+      ...archive,
+      updatedAt: new Date().toISOString(),
+      sources: archive.sources.filter((item) => item.id !== sourceId),
+      claims: archive.claims.filter((claim) => claim.sourceId !== sourceId),
+    });
+    if (!next) {
+      setError("The source could not be removed safely. Your saved evidence was not changed.");
+      return;
+    }
+    if (await commit(next, "Source and its linked claims removed from this browser.")) {
+      if (selectedSourceId === sourceId) setSelectedSourceId(next.sources[0]?.id ?? "");
+    }
+  }
+
+  async function removeClaim(claimId: string) {
+    if (!archive || saving) return;
+    const claim = archive.claims.find((item) => item.id === claimId);
+    if (!claim) return;
+    const confirmed = window.confirm(
+      `Remove the claim “${claim.subject} · ${claim.predicate}: ${claim.value}” from this browser?`,
+    );
+    if (!confirmed) return;
+
+    const next = parseResearchEvidenceArchive({
+      ...archive,
+      updatedAt: new Date().toISOString(),
+      claims: archive.claims.filter((item) => item.id !== claimId),
+    });
+    if (!next) {
+      setError("The claim could not be removed safely. Your saved evidence was not changed.");
+      return;
+    }
+    await commit(next, "Claim removed from this browser.");
+  }
+
   async function importArchive(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -502,6 +548,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
                 <a href={source.url} target="_blank" rel="noreferrer">{source.url}</a>
                 <small>{source.publisher || "Publisher not recorded"} · {source.captureMethod} · {source.status} · {new Date(source.capturedAt).toLocaleString()}</small>
                 {source.warnings.map((warning) => <p className="hint" key={warning}>{warning}</p>)}
+                <button className="text-button" type="button" disabled={saving} onClick={() => void removeSource(source.id)}>Remove source and linked claims</button>
               </article>
             ))}
           </div>
@@ -518,6 +565,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
                   <button className="secondary" type="button" disabled={saving || claim.reviewStatus === "accepted"} onClick={() => setClaimReviewStatus(claim.id, "accepted")}>Mark reviewed</button>
                   <button className="text-button" type="button" disabled={saving || claim.reviewStatus === "rejected"} onClick={() => setClaimReviewStatus(claim.id, "rejected")}>Reject claim</button>
                   {claim.reviewStatus !== "unreviewed" && <button className="text-button" type="button" disabled={saving} onClick={() => setClaimReviewStatus(claim.id, "unreviewed")}>Undo review</button>}
+                  <button className="text-button" type="button" disabled={saving} onClick={() => void removeClaim(claim.id)}>Remove claim</button>
                 </div>
               </article>;
             })}
