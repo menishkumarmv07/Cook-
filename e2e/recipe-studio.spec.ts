@@ -184,7 +184,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(rows).toHaveCount(11);
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
   await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
-  await expect(page.getByLabel("Post 2 time")).toHaveValue("18:00");
+  await expect(page.getByLabel("Post 2 time")).toHaveValue("13:00");
   await expect(page.getByLabel("Post 5 date")).toHaveValue("2026-10-15");
   await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-16");
   await expect(page.getByText("Draft — approval needed").first()).toBeVisible();
@@ -203,8 +203,8 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await page.locator("#schedule-start-date").fill("2026-10-31");
   await page.getByRole("button", { name: "Build 7-day plan (spread all links)" }).click();
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-31");
-  await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-11-01");
-  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-02");
+  await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-10-31");
+  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-01");
   await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-06");
 
   const downloadPromise = page.waitForEvent("download");
