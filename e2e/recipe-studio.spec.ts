@@ -610,7 +610,7 @@ test("ingredient additions are explicitly mapped to cooking steps and spoken in 
 
 
 test("public recipe-page inspection previews extracted facts and copies them to notes only on request", async ({ page }) => {
-  const sourceUrl = "https://recipes.example/lemon-rice";
+  const sourceUrl = "https://recipes.example.com/lemon-rice";
   await page.route("**/api/sources/inspect", async (route) => {
     await route.fulfill({
       status: 200,
@@ -690,7 +690,7 @@ test("public recipe-page inspection previews extracted facts and copies them to 
 });
 
 test("V2 evidence import preserves the bounded page excerpt when structured recipe data is absent", async ({ page }) => {
-  const sourceUrl = "https://recipes.example/story-without-recipe-markup";
+  const sourceUrl = "https://recipes.example.com/story-without-recipe-markup";
   await page.route("**/api/sources/inspect", async (route) => {
     await route.fulfill({
       status: 200,
@@ -785,7 +785,7 @@ test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sour
 
 test("AUTH: logged-out source inspection requests are rejected", async ({ page }) => {
   const response = await page.request.post("/api/sources/inspect", {
-    data: { url: "https://recipes.example/lemon-rice" },
+    data: { url: "https://recipes.example.com/lemon-rice" },
   });
   expect(response.status()).toBe(401);
 });
