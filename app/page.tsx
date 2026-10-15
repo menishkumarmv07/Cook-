@@ -740,11 +740,11 @@ export default function Home() {
     const urls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
     const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
     if (urls.length > 1 || (scheduleIntent && urls.length > 0)) {
-      const valid = urls.filter(isHttpUrl);
-      setSchedulePrefill(valid.join("\n"));
-      return { tool: "content", text: valid.length === 7
-        ? "I found seven valid HTTP(S) links and placed them in Plan Content. Choose a 3-day or 7-day draft option below. These are local drafts only."
-        : `I found ${valid.length} valid link(s) and placed them in Plan Content. The planner needs exactly seven links to build a schedule. Nothing is scheduled or published.` };
+      const invalid = urls.filter((link) => !isHttpUrl(link));
+      setSchedulePrefill(urls.join("\n"));
+      return { tool: "content", text: invalid.length
+        ? `I found ${urls.length} link(s) and placed the list in Plan Content. ${invalid.length} link(s) need correction; the planner will highlight invalid URLs. Choose your links-per-day and number-of-days settings after correcting them. Nothing is scheduled or published.`
+        : `I found ${urls.length} valid HTTP(S) link(s) and placed them in Plan Content. Choose how many links per day and how many days to use; the planner preserves your order and includes every link when the chosen capacity is sufficient. This is a local draft only. Nothing is scheduled or published.` };
     }
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
       if (isHttpUrl(rawRequest)) {
@@ -886,7 +886,7 @@ export default function Home() {
     if (tool === "plan") return current
       ? `Today’s Plan is open for “${current.name}”. Review the next step below. Your saved local posting schedule is also shown here when available.`
       : "Today’s Plan is open. Create a local posting draft with Plan Content, then return here to review your plan. Nothing is scheduled or published by this screen.";
-    if (tool === "content") return "Plan Content is open. Add seven public video/Reel URLs, then choose a 3-day plan (2/2/3 posts) or a 7-day plan (one post per day). Suggested US Eastern times are placeholders, not audience-analytics predictions. This creates a local draft only; it does not schedule or publish posts.";
+    if (tool === "content") return "Plan Content is open. Paste any number of public video/Reel URLs, then choose how many links to process per day and how many days to use. Select the US audience timezone for suggested local times. Suggestions are not audience-analytics predictions; this creates a local draft only and does not schedule or publish posts.";
     if (tool === "research") return current
       ? `Research Studio is open for “${current.name}”. Add source references and record the ingredients, steps, timings, and safety/storage notes you actually checked. Public HTML extraction is not independent verification; video frames and audio are not analyzed.`
       : "Research Studio is open. Start a recipe draft below first, then add source references in its research desk. An accessible public recipe page can be inspected only after you request it; video/Reel frame and audio analysis is not implemented.";
@@ -963,14 +963,14 @@ export default function Home() {
     const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
     if (detectedUrls.length > 1 || (scheduleIntent && detectedUrls.length > 0)) {
       const invalidLinks = detectedUrls.filter((link) => !isHttpUrl(link));
-      setSchedulePrefill(detectedUrls.filter(isHttpUrl).join("\n"));
+      // Keep every detected line visible so malformed URLs can be corrected rather than silently disappearing.
+      setSchedulePrefill(detectedUrls.join("\n"));
       if (invalidLinks.length > 0) {
-        openTool("content", rawRequest, `I found ${detectedUrls.length} link(s), but ${invalidLinks.length} do not look like valid HTTP(S) URLs. I placed the valid links into the planner. Correct the invalid link(s) and confirm there are exactly seven before generating a schedule.`);
+        openTool("content", rawRequest, `I found ${detectedUrls.length} link(s) and placed the list in Plan Content. ${invalidLinks.length} link(s) need correction; the planner will highlight invalid URLs. Fix those lines, then choose how many links per day and how many days to use. Nothing is scheduled or published.`);
         return;
       }
-      openTool("content", rawRequest, detectedUrls.length === 7
-        ? "I found seven valid HTTP(S) links and placed them in the Plan Content list. Choose the 3-day or 7-day draft option below. Times are suggested US Eastern slots; no posts are scheduled or published."
-        : `I found ${detectedUrls.length} valid link(s) and placed them in the Plan Content list. The current planner needs exactly seven links to build a schedule; add or remove links before generating it. Nothing is scheduled or published.`);
+      openTool("content", rawRequest,
+        `I found ${detectedUrls.length} valid HTTP(S) link(s) and placed them in Plan Content. Choose how many links per day and how many days to use; the planner preserves your order and includes every link when the chosen capacity is sufficient. These are suggested times in your selected US audience timezone, not analytics-backed predictions. Nothing is scheduled or published.`);
       return;
     }
 
