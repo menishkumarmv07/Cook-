@@ -1066,6 +1066,8 @@ test("US audience scheduling supports multiple time zones and values beyond the 
   await expect(page.locator("#schedule-audience-timezone")).toHaveValue("America/Los_Angeles");
 
   await expect(page.locator('label[for="schedule-start-date"]')).toContainText("Pacific Time (PT)");
+  await expect(page.locator("#schedule-links-per-day")).not.toHaveAttribute("max");
+  await expect(page.locator("#schedule-days-count")).not.toHaveAttribute("max");
   await page.locator("#schedule-links-per-day").fill("1500");
   await page.locator("#schedule-days-count").fill("400");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
