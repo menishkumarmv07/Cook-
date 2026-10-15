@@ -57,6 +57,8 @@ function validHttpUrl(value: string): boolean {
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => localDateString(new Date()));
+  const [daysToProcess, setDaysToProcess] = useState("3");
+  const [linksPerDay, setLinksPerDay] = useState("2");
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Add as many public Reel or video URLs as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
@@ -98,7 +100,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
 
-  function generateSchedule(mode: "three-day" | "seven-day") {
+  function generateSchedule() {
     if (!isValidCalendarDate(startDate)) {
       setMessage("Choose a valid start date before generating the plan.");
       return;
@@ -107,15 +109,27 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       setMessage("Add at least one video URL before generating a plan.");
       return;
     }
+    const dayCount = Number(daysToProcess);
+    const perDay = Number(linksPerDay);
+    if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 365 ||
+        !Number.isInteger(perDay) || perDay < 1 || perDay > 1000) {
+      setMessage("Choose 1–365 days and 1–1,000 links per day.");
+      return;
+    }
+    const capacity = dayCount * perDay;
+    if (links.length > capacity) {
+      const requiredDays = Math.ceil(links.length / perDay);
+      setMessage(`You have ${links.length} links, but these settings fit ${capacity}. Increase the days to at least ${requiredDays}, or allow more links per day, so every link is included.`);
+      return;
+    }
     if (invalidLinks.length) {
       setMessage("Every line must be a complete http:// or https:// URL. Fix the highlighted invalid links first.");
       return;
     }
-    const dayCount = mode === "three-day" ? 3 : 7;
     const postsPerDay = Array.from({ length: dayCount }, () => 0);
     const next = links.map((url, index) => {
-      // Spread any number of links as evenly as possible across the chosen number of days.
-      const day = Math.floor((index * dayCount) / links.length);
+      // Preserve the pasted link order and process up to the selected number each day.
+      const day = Math.floor(index / perDay);
       const time = SUGGESTED_TIMES[postsPerDay[day] % SUGGESTED_TIMES.length];
       postsPerDay[day] += 1;
       return {
@@ -127,9 +141,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       };
     });
     setPlan(next);
-    setMessage(mode === "three-day"
-      ? "Created a local three-day draft with all " + links.length + " link(s), spread as evenly as possible across the three days."
-      : "Created a local seven-day draft with all " + links.length + " link(s), spread as evenly as possible across the week.");
+    setMessage(`Created a local ${dayCount}-day draft with all ${links.length} links, in the order you entered them, at up to ${perDay} links per day.`);
   }
 
   function updatePost(id: string, field: "date" | "time", value: string) {
@@ -164,7 +176,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         <div>
           <p className="eyebrow">CONTENT CALENDAR · LOCAL DRAFT</p>
           <h2 id="schedule-preview-title">Plan your video links</h2>
-          <p>Add as many video links as you want. Choose a start date and spread all links across three days or seven days.</p>
+          <p>Add as many video links as you want, then choose how many links to process each day and how many days to use.</p>
         </div>
         <span className="step">APPROVAL REQUIRED</span>
       </div>
@@ -184,9 +196,15 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <input id="schedule-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
           <p className="hint">Suggested slots use US Eastern Time (ET): morning 9:00 AM, afternoon 1:00 PM, evening 6:00 PM. These are starting suggestions, not predictions of reach.</p>
         </div>
-        <div className="schedule-actions">
-          <button className="primary action-primary" type="button" onClick={() => generateSchedule("three-day")}>Build 3-day plan (spread all links)</button>
-          <button className="secondary" type="button" onClick={() => generateSchedule("seven-day")}>Build 7-day plan (spread all links)</button>
+        <div className="schedule-actions schedule-customizer">
+          <p className="schedule-customizer-title">CUSTOM PLAN</p>
+          <label htmlFor="schedule-links-per-day">How many links per day?</label>
+          <input id="schedule-links-per-day" type="number" min="1" max="1000" step="1" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
+          <label htmlFor="schedule-days-count">How many days?</label>
+          <input id="schedule-days-count" type="number" min="1" max="365" step="1" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
+          <p className="schedule-capacity" aria-live="polite">Capacity: {Number(linksPerDay) > 0 && Number(daysToProcess) > 0 ? Number(linksPerDay) * Number(daysToProcess) : 0} links · You added {links.length}</p>
+          <button className="schedule-build-button" type="button" onClick={generateSchedule}>Build my custom plan</button>
+          <p className="hint">Links are processed in the same order you pasted them. If the capacity is too small, increase the days or links per day to include every link.</p>
           <p className="hint">Links stay in this browser unless you export them. No external platform is contacted.</p>
         </div>
       </div>
