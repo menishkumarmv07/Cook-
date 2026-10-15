@@ -180,6 +180,28 @@ export function parseResearchEvidenceArchive(value: unknown): ResearchEvidenceAr
  * Idempotent upsert by stable record ID. Invalid data returns null so the
  * caller can preserve the previous archive and display a recoverable error.
  */
+/**
+ * Return the UTF-8 byte size of the canonical, pretty-printed recovery archive.
+ * Measuring the same representation that is downloaded keeps local writes and
+ * recovery imports under one consistent size limit (including non-ASCII text).
+ */
+export function researchEvidenceArchiveByteSize(value: unknown): number | null {
+  const archive = parseResearchEvidenceArchive(value);
+  if (!archive) return null;
+  try {
+    return new TextEncoder().encode(JSON.stringify(archive, null, 2)).byteLength;
+  } catch {
+    return null;
+  }
+}
+
+/** Invalid archives or limits are never considered safe to persist. */
+export function researchEvidenceArchiveFitsByteLimit(value: unknown, maxBytes: number): boolean {
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0) return false;
+  const bytes = researchEvidenceArchiveByteSize(value);
+  return bytes !== null && bytes <= maxBytes;
+}
+
 export function mergeResearchEvidence(
   currentValue: unknown,
   incomingSources: readonly ResearchEvidenceSource[],
