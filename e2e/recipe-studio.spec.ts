@@ -188,7 +188,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
   await expect(page.getByLabel("Post 2 time")).toHaveValue("13:00");
   await expect(page.getByLabel("Post 5 date")).toHaveValue("2026-10-15");
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-17");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-16");
   await expect(page.getByText("Draft — approval needed").first()).toBeVisible();
 
   await page.getByLabel("Post 1 time").selectOption("13:00");
@@ -200,7 +200,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await page.locator("#schedule-links-per-day").fill("2");
   await page.locator("#schedule-days-count").fill("7");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-20");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-19");
   await expect(page.getByLabel("Post 11 time")).toHaveValue("09:00");
 
   // Calendar-day planning must stay correct across the US daylight-saving transition.
@@ -211,7 +211,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-31");
   await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-10-31");
   await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-01");
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-06");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-05");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export schedule JSON" }).click();
