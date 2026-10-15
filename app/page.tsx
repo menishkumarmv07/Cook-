@@ -648,7 +648,7 @@ export default function Home() {
     if (task === "plan") openTool("plan");
     else if (task === "content") openTool("content");
     else if (task === "links") {
-      openTool("content", "Links upload", "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts.");
+      openTool("content", "Links upload", "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts.");
       window.requestAnimationFrame(() => document.getElementById("workspace-command")?.focus());
     } else if (task === "publish") openTool("publish");
     else exportWorkspaceBackup();
@@ -740,9 +740,9 @@ export default function Home() {
     if (urls.length > 1 || (scheduleIntent && urls.length > 0)) {
       const valid = urls.filter(isHttpUrl);
       setSchedulePrefill(valid.join("\n"));
-      return { tool: "content", text: valid.length === 7
-        ? "I found seven valid HTTP(S) links and placed them in Plan Content. Choose a 3-day or 7-day draft option below. These are local drafts only."
-        : `I found ${valid.length} valid link(s) and placed them in Plan Content. The planner needs exactly seven links to build a schedule. Nothing is scheduled or published.` };
+      return { tool: "content", text: valid.length === urls.length
+        ? "I found " + valid.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose your maximum links per day and total number of US Eastern calendar days below. All links will be included when the settings have enough capacity."
+        : "I placed the valid links in Plan Content. Some URLs need correcting before the plan can include every link." };
     }
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
       if (isHttpUrl(rawRequest)) {
@@ -751,8 +751,8 @@ export default function Home() {
       }
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
-    if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste recipe or Reel URLs into the message bar, or use Plan Content to review a list of links. This V1 saves a local planner draft; it does not analyze Reel audio/video or publish posts." };
-    if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) return { tool: "content", text: responseForTool("content") };
+    if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts." };
+    if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) return { tool: "content", text: responseForTool("content") };
     if (/connect|accounts?|integration|social|remote/.test(request)) return { tool: "connections", text: responseForTool("connections") };
     if (/new recipe|create recipe|start recipe|add recipe|images/.test(request)) return { tool: "intake", text: responseForTool("intake") };
     if (/research|source|trend|video link|explore/.test(request)) return { tool: "research", text: responseForTool("research") };
@@ -884,7 +884,7 @@ export default function Home() {
     if (tool === "plan") return current
       ? `Today’s Plan is open for “${current.name}”. Review the next step below. Your saved local posting schedule is also shown here when available.`
       : "Today’s Plan is open. Create a local posting draft with Plan Content, then return here to review your plan. Nothing is scheduled or published by this screen.";
-    if (tool === "content") return "Plan Content is open. Add seven public video/Reel URLs, then choose a 3-day plan (2/2/3 posts) or a 7-day plan (one post per day). Suggested US Eastern times are placeholders, not audience-analytics predictions. This creates a local draft only; it does not schedule or publish posts.";
+    if (tool === "content") return "Plan Content is open. Paste as many public video/Reel URLs as you need, then choose the maximum links per day and the total number of days. Every valid link is kept in your original order and balanced across the selected US Eastern calendar dates. Suggested time slots are starting points, not audience-analytics predictions. Review the draft before publishing; nothing is automatically scheduled or published.";
     if (tool === "research") return current
       ? `Research Studio is open for “${current.name}”. Add source references and record the ingredients, steps, timings, and safety/storage notes you actually checked. Public HTML extraction is not independent verification; video frames and audio are not analyzed.`
       : "Research Studio is open. Start a recipe draft below first, then add source references in its research desk. An accessible public recipe page can be inspected only after you request it; video/Reel frame and audio analysis is not implemented.";
@@ -961,14 +961,13 @@ export default function Home() {
     const scheduleIntent = /\b(schedule|post|posting|week|morning|afternoon|evening|per day|daily|three days|3 days|seven days|7 days)\b/i.test(rawRequest);
     if (detectedUrls.length > 1 || (scheduleIntent && detectedUrls.length > 0)) {
       const invalidLinks = detectedUrls.filter((link) => !isHttpUrl(link));
-      setSchedulePrefill(detectedUrls.filter(isHttpUrl).join("\n"));
+      const validLinks = detectedUrls.filter(isHttpUrl);
+      setSchedulePrefill(validLinks.join("\n"));
       if (invalidLinks.length > 0) {
-        openTool("content", rawRequest, `I found ${detectedUrls.length} link(s), but ${invalidLinks.length} do not look like valid HTTP(S) URLs. I placed the valid links into the planner. Correct the invalid link(s) and confirm there are exactly seven before generating a schedule.`);
+        openTool("content", rawRequest, "I found " + detectedUrls.length + " link(s), but " + invalidLinks.length + " are not valid HTTP(S) URLs. I placed the valid links into Plan Content; correct the invalid ones before building a plan.");
         return;
       }
-      openTool("content", rawRequest, detectedUrls.length === 7
-        ? "I found seven valid HTTP(S) links and placed them in the Plan Content list. Choose the 3-day or 7-day draft option below. Times are suggested US Eastern slots; no posts are scheduled or published."
-        : `I found ${detectedUrls.length} valid link(s) and placed them in the Plan Content list. The current planner needs exactly seven links to build a schedule; add or remove links before generating it. Nothing is scheduled or published.`);
+      openTool("content", rawRequest, "I found " + validLinks.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose the maximum links per day and the total number of US Eastern calendar days. The planner will include every link when the daily capacity is sufficient. Times are suggestions, not analytics-backed predictions; nothing is automatically scheduled or published.");
       return;
     }
 
@@ -983,7 +982,7 @@ export default function Home() {
       return;
     }
 
-    if (scheduleIntent || /plan content|seven links|7 links|three-day plan|7-day plan/.test(request)) {
+    if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) {
       setSchedulePrefill("");
       openTool("content", rawRequest);
       return;
