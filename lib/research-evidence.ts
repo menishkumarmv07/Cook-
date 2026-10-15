@@ -212,7 +212,7 @@ function normalizeEvidenceSourceIdentity(value: string): string {
   try {
     const url = new URL(value);
     url.hash = "";
-    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\\/+$/, "") || "/";
+    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, "") || "/";
     return url.href;
   } catch {
     return value.trim();
