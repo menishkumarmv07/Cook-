@@ -13,7 +13,7 @@ import {
 
 const capturedAt = "2026-10-15T12:00:00.000Z";
 
-function source(id: string, url = "https://recipes.example/" + id): ResearchEvidenceSource {
+function source(id: string, url = "https://recipes.com/" + id): ResearchEvidenceSource {
   return {
     id,
     url,
@@ -54,13 +54,19 @@ test("creates and validates an empty versioned archive", () => {
 });
 
 test("accepts HTTP(S) source links without credentials and rejects unsafe URL forms", () => {
-  assert.equal(isHttpSourceUrl("https://recipes.example/dish"), true);
-  assert.equal(isHttpSourceUrl("http://recipes.example/dish"), true);
+  assert.equal(isHttpSourceUrl("https://recipes.com/dish"), true);
+  assert.equal(isHttpSourceUrl("http://recipes.com/dish"), true);
   assert.equal(isHttpSourceUrl("javascript:alert(1)"), false);
   assert.equal(isHttpSourceUrl("file:///private/source"), false);
-  assert.equal(isHttpSourceUrl("https://user:pass@recipes.example/dish"), false);
+  assert.equal(isHttpSourceUrl("https://user:pass@recipes.com/dish"), false);
   assert.equal(isHttpSourceUrl("http://localhost/recipe"), false);
-  assert.equal(isHttpSourceUrl("https://recipes.example:8443/dish"), false);
+  assert.equal(isHttpSourceUrl("http://127.0.0.1/recipe"), false);
+  assert.equal(isHttpSourceUrl("http://10.0.0.1/recipe"), false);
+  assert.equal(isHttpSourceUrl("http://192.168.1.5/recipe"), false);
+  assert.equal(isHttpSourceUrl("http://[::1]/recipe"), false);
+  assert.equal(isHttpSourceUrl("https://recipes.example/dish"), false);
+  assert.equal(isHttpSourceUrl("https://recipes.invalid/dish"), false);
+  assert.equal(isHttpSourceUrl("https://recipes.com:8443/dish"), false);
   assert.equal(isHttpSourceUrl("not a URL"), false);
 });
 
@@ -68,7 +74,7 @@ test("rejects duplicate source IDs, duplicate claim IDs and orphan claims", () =
   const archive = createEmptyResearchEvidenceArchive(capturedAt);
   assert.equal(parseResearchEvidenceArchive({
     ...archive,
-    sources: [source("same"), source("same", "https://other.example/recipe")],
+    sources: [source("same"), source("same", "https://other.com/recipe")],
   }), null);
   assert.equal(parseResearchEvidenceArchive({
     ...archive,
@@ -85,7 +91,7 @@ test("rejects duplicate source IDs, duplicate claim IDs and orphan claims", () =
 test("flags different quantities reported by two source records with both citations", () => {
   const archive = {
     ...createEmptyResearchEvidenceArchive(capturedAt),
-    sources: [source("a"), source("b", "https://other.example/recipe")],
+    sources: [source("a"), source("b", "https://other.com/recipe")],
     claims: [claim("claim-a", "a", "1"), claim("claim-b", "b", "2")],
   };
   const conflicts = findPotentialEvidenceConflicts(archive);
@@ -95,7 +101,7 @@ test("flags different quantities reported by two source records with both citati
   assert.equal(conflicts[0].alternatives.length, 2);
   assert.deepEqual(
     conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)).sort(),
-    ["https://other.example/recipe", "https://recipes.example/a"],
+    ["https://other.com/recipe", "https://recipes.com/a"],
   );
   assert.match(conflicts[0].explanation, /Check units/);
 });
