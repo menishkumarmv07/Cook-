@@ -125,10 +125,11 @@ export function buildScheduleDraft(input: ScheduleBuildInput): ScheduleBuildResu
   for (let index = 0; index < links.length; index += 1) {
     // Centered distribution uses the selected date range instead of front-loading
     // all links onto the first few days. It never exceeds the requested daily cap.
-    const dayIndex = Math.min(
-      daysToProcess - 1,
-      Math.floor(((index + 0.5) * daysToProcess) / links.length),
-    );
+    const dayIndex = links.length === 1
+      ? 0
+      : links.length <= daysToProcess
+        ? Math.round((index * (daysToProcess - 1)) / (links.length - 1))
+        : Math.floor((index * daysToProcess) / links.length);
     const countForDay = postedPerDay.get(dayIndex) ?? 0;
     if (countForDay >= linksPerDay) {
       return { ok: false, error: "These settings cannot fit every link. Increase the days or links per day, then try again." };
