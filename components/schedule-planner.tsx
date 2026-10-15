@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ScheduledPost = {
   id: string;
@@ -78,6 +78,8 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
   const [message, setMessage] = useState("Add as many public Reel or video URLs as you want, one per line.");
   const [hydrated, setHydrated] = useState(false);
+  // Keep initial prefill separate from future prop changes during browser hydration.
+  const initialPrefillLinksText = useRef(prefillLinksText);
 
   useEffect(() => {
     if (prefillLinksText.trim()) setLinksText(prefillLinksText);
@@ -91,7 +93,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         const savedTimeZone = isAudienceTimeZone(saved.timeZone) ? saved.timeZone : DEFAULT_AUDIENCE_TIME_ZONE;
         setTimeZone(savedTimeZone);
         // Explicit links passed from the chat command must win over an older saved list.
-        if (typeof saved.linksText === "string" && !prefillLinksText.trim()) setLinksText(saved.linksText);
+        if (typeof saved.linksText === "string" && !initialPrefillLinksText.current.trim()) setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
         else setStartDate(localDateString(new Date(), savedTimeZone));
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
@@ -115,7 +117,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
-  }, [hydrated, linksText, startDate, plan]);
+  }, [hydrated, linksText, startDate, timeZone, plan]);
 
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);

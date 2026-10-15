@@ -1055,6 +1055,16 @@ test("US audience scheduling supports multiple time zones and values beyond the 
   ].join("\\n"));
 
   await page.locator("#schedule-audience-timezone").selectOption("America/Los_Angeles");
+
+  // Save timezone choices immediately, without needing to generate a schedule.
+  await page.waitForFunction(() => {
+    const saved = localStorage.getItem("cooking-creator-local-schedule-v1");
+    return Boolean(saved && JSON.parse(saved).timeZone === "America/Los_Angeles");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator("#schedule-audience-timezone")).toHaveValue("America/Los_Angeles");
+
   await expect(page.locator('label[for="schedule-start-date"]')).toContainText("Pacific Time (PT)");
   await page.locator("#schedule-links-per-day").fill("1500");
   await page.locator("#schedule-days-count").fill("400");
