@@ -798,4 +798,34 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
   await expect(page.getByText("1 possible disagreements")).toBeVisible();
+
+  const backupTimestamp = new Date().toISOString();
+  const replacementArchive = {
+    version: 1,
+    updatedAt: backupTimestamp,
+    sources: [{
+      id: "source-replacement-restore-test",
+      url: "https://replacement.com/recipe",
+      title: "Replacement source",
+      publisher: "Playwright test",
+      capturedAt: backupTimestamp,
+      captureMethod: "manual",
+      status: "needs-input",
+      warnings: ["Test-only source; not independently verified."],
+    }],
+    claims: [],
+  };
+  const restoreDialogPromise = page.waitForEvent("dialog");
+  await page.getByLabel("Restore evidence backup JSON").setInputFiles({
+    name: "replacement-evidence.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(replacementArchive)),
+  });
+  const restoreDialog = await restoreDialogPromise;
+  expect(restoreDialog.type()).toBe("confirm");
+  expect(restoreDialog.message()).toContain("replaces the current local evidence ledger");
+  await restoreDialog.dismiss();
+  await expect(page.getByText("Restore cancelled. Your current evidence was not changed.")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Replacement source", { exact: true })).toHaveCount(0);
 });
