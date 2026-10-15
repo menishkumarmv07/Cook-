@@ -735,7 +735,7 @@ export default function Home() {
 
   function replyForEditedRequest(rawRequest: string): { tool: WorkspaceTool; text: string } {
     const request = rawRequest.toLowerCase();
-    const urls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const urls = Array.from(rawRequest.matchAll(/(?:\b[a-z][a-z0-9+.-]*:\/\/|\b(?:javascript|data):)[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
     const scheduleIntent = /\b(schedule|plan|planning|post|posting|week|morning|afternoon|evening|per day|daily|\d+\s+days?)\b/i.test(rawRequest);
     if (urls.length > 1 || (scheduleIntent && urls.length > 0)) {
       const valid = urls.filter(isHttpUrl);
@@ -957,7 +957,7 @@ export default function Home() {
     const request = rawRequest.toLowerCase();
     if (!rawRequest) return;
 
-    const detectedUrls = Array.from(rawRequest.matchAll(/https?:\/\/[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
+    const detectedUrls = Array.from(rawRequest.matchAll(/(?:\b[a-z][a-z0-9+.-]*:\/\/|\b(?:javascript|data):)[^\s]+/gi), (match) => match[0].replace(/[),.;!?]+$/g, ""));
     const scheduleIntent = /\b(schedule|plan|planning|post|posting|week|morning|afternoon|evening|per day|daily|\d+\s+days?)\b/i.test(rawRequest);
     if (detectedUrls.length > 1 || (scheduleIntent && detectedUrls.length > 0)) {
       const invalidLinks = detectedUrls.filter((link) => !isHttpUrl(link));
