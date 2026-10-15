@@ -12,10 +12,25 @@ type ScheduledPost = {
 
 const STORAGE_KEY = "cooking-creator-local-schedule-v1";
 const SUGGESTED_TIMES = ["09:00", "13:00", "18:00"] as const;
+const DEFAULT_AUDIENCE_TIME_ZONE = "America/New_York";
+const US_AUDIENCE_TIME_ZONES = [
+  { value: "America/New_York", label: "Eastern Time (ET)", shortLabel: "ET" },
+  { value: "America/Chicago", label: "Central Time (CT)", shortLabel: "CT" },
+  { value: "America/Denver", label: "Mountain Time (MT)", shortLabel: "MT" },
+  { value: "America/Phoenix", label: "Arizona (MST year-round)", shortLabel: "Arizona" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)", shortLabel: "PT" },
+  { value: "America/Anchorage", label: "Alaska Time (AKT)", shortLabel: "AKT" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)", shortLabel: "HT" },
+] as const;
+type AudienceTimeZone = typeof US_AUDIENCE_TIME_ZONES[number]["value"];
 
-function localDateString(date: Date): string {
+function isAudienceTimeZone(value: unknown): value is AudienceTimeZone {
+  return typeof value === "string" && US_AUDIENCE_TIME_ZONES.some((zone) => zone.value === value);
+}
+
+function localDateString(date: Date, timeZone: AudienceTimeZone): string {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -56,7 +71,8 @@ function validHttpUrl(value: string): boolean {
 
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
-  const [startDate, setStartDate] = useState(() => localDateString(new Date()));
+  const [timeZone, setTimeZone] = useState<AudienceTimeZone>(DEFAULT_AUDIENCE_TIME_ZONE);
+  const [startDate, setStartDate] = useState(() => localDateString(new Date(), DEFAULT_AUDIENCE_TIME_ZONE));
   const [daysToProcess, setDaysToProcess] = useState("3");
   const [linksPerDay, setLinksPerDay] = useState("2");
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
@@ -71,9 +87,12 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; plan?: unknown };
+        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; timeZone?: unknown; plan?: unknown };
+        const savedTimeZone = isAudienceTimeZone(saved.timeZone) ? saved.timeZone : DEFAULT_AUDIENCE_TIME_ZONE;
+        setTimeZone(savedTimeZone);
         if (typeof saved.linksText === "string") setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
+        else setStartDate(localDateString(new Date(), savedTimeZone));
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
           typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
@@ -91,7 +110,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, plan }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, timeZone, plan }));
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
@@ -99,6 +118,11 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
 
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
+  const activeTimeZone = US_AUDIENCE_TIME_ZONES.find((zone) => zone.value === timeZone) ?? US_AUDIENCE_TIME_ZONES[0];
+  const capacityValue = Number(linksPerDay) * Number(daysToProcess);
+  const capacityLabel = Number.isSafeInteger(capacityValue) && capacityValue > 0
+    ? capacityValue.toLocaleString("en-US")
+    : "above the safe numeric range";
 
   function generateSchedule() {
     if (!isValidCalendarDate(startDate)) {
@@ -111,27 +135,26 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     }
     const dayCount = Number(daysToProcess);
     const perDay = Number(linksPerDay);
-    if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 365 ||
-        !Number.isInteger(perDay) || perDay < 1 || perDay > 1000) {
-      setMessage("Choose 1–365 days and 1–1,000 links per day.");
+    if (!Number.isSafeInteger(dayCount) || dayCount < 1 ||
+        !Number.isSafeInteger(perDay) || perDay < 1) {
+      setMessage("Enter positive whole numbers for days and links per day. Very large values beyond the browser's safe numeric range are not supported.");
       return;
     }
-    const capacity = dayCount * perDay;
-    if (links.length > capacity) {
-      const requiredDays = Math.ceil(links.length / perDay);
-      setMessage(`You have ${links.length} links, but these settings fit ${capacity}. Increase the days to at least ${requiredDays}, or allow more links per day, so every link is included.`);
+    const requiredDays = Math.ceil(links.length / perDay);
+    if (requiredDays > dayCount) {
+      setMessage(`You have ${links.length} links. At ${perDay} links per day, they need ${requiredDays} days; increase the days so every link is included.`);
       return;
     }
     if (invalidLinks.length) {
       setMessage("Every line must be a complete http:// or https:// URL. Fix the highlighted invalid links first.");
       return;
     }
-    const postsPerDay = Array.from({ length: dayCount }, () => 0);
     const next = links.map((url, index) => {
-      // Preserve the pasted link order and process up to the selected number each day.
+      // Preserve the pasted link order without allocating an array for every selected day.
+      // Times repeat in local sequence when a day contains more than three posts.
       const day = Math.floor(index / perDay);
-      const time = SUGGESTED_TIMES[postsPerDay[day] % SUGGESTED_TIMES.length];
-      postsPerDay[day] += 1;
+      const positionWithinDay = index % perDay;
+      const time = SUGGESTED_TIMES[positionWithinDay % SUGGESTED_TIMES.length];
       return {
         id: `${Date.now()}-${index}`,
         url,
@@ -155,8 +178,9 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     }
     const blob = new Blob([JSON.stringify({
       version: 1,
-      audienceTimezone: "America/New_York",
-      timesAre: "Suggested local draft times; not analytics-backed and not scheduled with a social platform.",
+      audienceTimezone: timeZone,
+      audienceTimezoneLabel: activeTimeZone.label,
+      timesAre: "Suggested wall-clock times in the selected US audience timezone; not analytics-backed and not scheduled with a social platform.",
       posts: plan,
     }, null, 2)], { type: "application/json" });
     const objectUrl = URL.createObjectURL(blob);
@@ -192,9 +216,25 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
             placeholder={"https://www.instagram.com/reel/...\nhttps://www.youtube.com/shorts/...\nOne URL per line"}
           />
           {invalidLinks.length > 0 && <p className="schedule-error" role="alert">{invalidLinks.length} invalid URL(s) found. Use complete HTTP(S) links.</p>}
-          <label htmlFor="schedule-start-date">Start date (US Eastern Time)</label>
+          <label htmlFor="schedule-audience-timezone">Target US audience timezone</label>
+          <select
+            id="schedule-audience-timezone"
+            value={timeZone}
+            onChange={(event) => {
+              const nextTimeZone = event.target.value;
+              if (!isAudienceTimeZone(nextTimeZone)) return;
+              const todayInCurrentZone = localDateString(new Date(), timeZone);
+              setTimeZone(nextTimeZone);
+              if (startDate === todayInCurrentZone) setStartDate(localDateString(new Date(), nextTimeZone));
+              const nextLabel = US_AUDIENCE_TIME_ZONES.find((zone) => zone.value === nextTimeZone)?.label ?? "selected timezone";
+              setMessage(`Audience timezone changed to ${nextLabel}. Existing times are local planning labels; no platform was contacted.`);
+            }}
+          >
+            {US_AUDIENCE_TIME_ZONES.map((zone) => <option key={zone.value} value={zone.value}>{zone.label}</option>)}
+          </select>
+          <label htmlFor="schedule-start-date">Start date ({activeTimeZone.label})</label>
           <input id="schedule-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <p className="hint">Suggested slots use US Eastern Time (ET): morning 9:00 AM, afternoon 1:00 PM, evening 6:00 PM. These are starting suggestions, not predictions of reach.</p>
+          <p className="hint">Suggested slots use the selected audience's local time: 9:00 AM, 1:00 PM, and 6:00 PM. They are starting suggestions, not predictions of reach or guaranteed best posting times.</p>
         </div>
         <div className="schedule-actions schedule-customizer">
           <p className="schedule-customizer-title">CUSTOM PLAN</p>
@@ -202,7 +242,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <input id="schedule-links-per-day" type="number" min="1" max="1000" step="1" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
           <label htmlFor="schedule-days-count">How many days?</label>
           <input id="schedule-days-count" type="number" min="1" max="365" step="1" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
-          <p className="schedule-capacity" aria-live="polite">Capacity: {Number(linksPerDay) > 0 && Number(daysToProcess) > 0 ? Number(linksPerDay) * Number(daysToProcess) : 0} links · You added {links.length}</p>
+          <p className="schedule-capacity" aria-live="polite">Capacity: {Number(linksPerDay) > 0 && Number(daysToProcess) > 0 ? capacityLabel : 0} links · You added {links.length}</p>
           <button className="schedule-build-button" type="button" onClick={generateSchedule}>Build my custom plan</button>
           <p className="hint">Links are processed in the same order you pasted them. If the capacity is too small, increase the days or links per day to include every link.</p>
           <p className="hint">Links stay in this browser unless you export them. No external platform is contacted.</p>
@@ -214,7 +254,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
       {plan.length > 0 && (
         <div className="schedule-table-wrap">
           <table className="schedule-table">
-            <thead><tr><th>#</th><th>Video link</th><th>Planned date</th><th>Time (ET)</th><th>Status</th></tr></thead>
+            <thead><tr><th>#</th><th>Video link</th><th>Planned date</th><th>Time ({activeTimeZone.shortLabel})</th><th>Status</th></tr></thead>
             <tbody>
               {plan.map((post, index) => (
                 <tr key={post.id}>
