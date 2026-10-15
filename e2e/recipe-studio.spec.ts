@@ -1087,3 +1087,29 @@ test("US audience scheduling supports multiple time zones and values beyond the 
     "https://example.com/three",
   ]);
 });
+
+
+test("V2 evidence ledger reuses an existing canonical source instead of duplicating it", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Canonical source deduplication test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/same-recipe#ingredients");
+  await page.locator("#evidence-source-title").fill("Original source");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.getByText("1 sources")).toBeVisible();
+
+  // A fragment and trailing slash are not independent source identities.
+  await page.locator("#evidence-source-url").fill("https://example.com/same-recipe/");
+  await page.locator("#evidence-source-title").fill("Duplicate title should not replace original");
+  await page.getByRole("button", { name: /Save source/ }).click();
+
+  await expect(page.getByText(/already in the evidence ledger/i)).toBeVisible();
+  await expect(page.getByText("1 sources")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Original source", { exact: true })).toBeVisible();
+  await expect(page.getByText("Duplicate title should not replace original", { exact: true })).toHaveCount(0);
+  await expect(page.locator("#evidence-claim-source")).toHaveValue(/source-/);
+});
