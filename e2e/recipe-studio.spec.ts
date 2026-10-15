@@ -161,7 +161,7 @@ test("mobile workspace matches the two reference screens and has no horizontal o
   expect(overflow).toBe(false);
 });
 
-test("schedule planner builds, edits, saves, and exports seven-post drafts", async ({ page }) => {
+test("schedule planner accepts unlimited links and builds, edits, saves, and exports plans", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "Plan Content");
   const expectedEasternDate = await page.evaluate(() => {
@@ -175,37 +175,37 @@ test("schedule planner builds, edits, saves, and exports seven-post drafts", asy
     return `${part("year")}-${part("month")}-${part("day")}`;
   });
   await expect(page.locator("#schedule-start-date")).toHaveValue(expectedEasternDate);
-  const urls = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  const urls = Array.from({ length: 11 }, (_, index) => `https://example.com/reel-${index + 1}`);
   await page.locator("#schedule-links").fill(urls.join("\n"));
   await page.locator("#schedule-start-date").fill("2026-10-14");
 
-  await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
+  await page.getByRole("button", { name: "Build 3-day plan (spread all links)" }).click();
   const rows = page.locator(".schedule-table tbody tr");
-  await expect(rows).toHaveCount(7);
+  await expect(rows).toHaveCount(11);
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
   await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
   await expect(page.getByLabel("Post 2 time")).toHaveValue("18:00");
-  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-10-15");
-  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-10-16");
+  await expect(page.getByLabel("Post 5 date")).toHaveValue("2026-10-15");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-16");
   await expect(page.getByText("Draft — approval needed").first()).toBeVisible();
 
   await page.getByLabel("Post 1 time").selectOption("13:00");
   await page.reload();
-  await expect(rows).toHaveCount(7);
+  await expect(rows).toHaveCount(11);
   await expect(page.getByLabel("Post 1 time")).toHaveValue("13:00");
   await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
 
-  await page.getByRole("button", { name: "Build 7-day plan (1 per day)" }).click();
-  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-10-20");
-  await expect(page.getByLabel("Post 7 time")).toHaveValue("18:00");
+  await page.getByRole("button", { name: "Build 7-day plan (spread all links)" }).click();
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-20");
+  await expect(page.getByLabel("Post 11 time")).toHaveValue("09:00");
 
   // Calendar-day planning must stay correct across the US daylight-saving transition.
   await page.locator("#schedule-start-date").fill("2026-10-31");
-  await page.getByRole("button", { name: "Build 7-day plan (1 per day)" }).click();
+  await page.getByRole("button", { name: "Build 7-day plan (spread all links)" }).click();
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-31");
   await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-11-01");
   await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-02");
-  await expect(page.getByLabel("Post 7 date")).toHaveValue("2026-11-06");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-06");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export schedule JSON" }).click();
@@ -672,7 +672,7 @@ test("pasting a supported recipe or video URL into the chat dock prefills intake
   await expect(page.locator("#name")).toBeVisible();
 });
 
-test("chat menu selections are shown in the transcript and seven pasted links prefill Plan Content", async ({ page }) => {
+test("chat menu selections are shown in the transcript and pasted links prefill Plan Content", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 
@@ -688,9 +688,9 @@ test("chat menu selections are shown in the transcript and seven pasted links pr
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
-  await expect(page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Build 3-day plan (spread all links)" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
-  await page.getByRole("button", { name: "Build 3-day plan (2 / 2 / 3)" }).click();
+  await page.getByRole("button", { name: "Build 3-day plan (spread all links)" }).click();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
