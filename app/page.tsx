@@ -471,6 +471,22 @@ export default function Home() {
   }, [activeTool, activeToolReady]);
 
   useEffect(() => {
+    if (!activeToolReady) return;
+    const destination = new URL(window.location.href);
+    if (destination.searchParams.get("settings") !== "1") return;
+
+    setActiveTool("profile");
+    window.requestAnimationFrame(() => {
+      const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+      if (details) details.open = true;
+      document.getElementById("creator-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
+    destination.searchParams.delete("settings");
+    window.history.replaceState(window.history.state, "", `${destination.pathname}${destination.search}${destination.hash}`);
+  }, [activeToolReady]);
+
+  useEffect(() => {
     try {
       const savedConversations = window.localStorage.getItem(CHAT_CONVERSATIONS_STORAGE_KEY);
       let loadedConversations: ChatConversation[] = [];
@@ -663,7 +679,7 @@ export default function Home() {
 
   function showMessageActionMenu(item: ChatMessage, x: number, y: number) {
     const width = 132;
-    const height = item.role === "user" ? 102 : 58;
+    const naturalHeight = item.role === "user" ? 102 : 58;
     const viewport = window.visualViewport;
     const viewportTop = viewport?.offsetTop ?? 0;
     const visibleBottom = Math.min(viewportTop + (viewport?.height ?? window.innerHeight), window.innerHeight);
@@ -671,6 +687,8 @@ export default function Home() {
     const bottomLimit = dockTop !== undefined && dockTop > viewportTop
       ? Math.min(visibleBottom - 8, dockTop - 8)
       : visibleBottom - 8;
+    const usableHeight = Math.max(24, bottomLimit - viewportTop - 16);
+    const height = Math.min(naturalHeight, usableHeight);
     const left = Math.max(8, Math.min(x + 8, window.innerWidth - width - 8));
     let top = y + 8;
     if (top + height > bottomLimit) top = y - height - 8;
@@ -811,17 +829,37 @@ export default function Home() {
   function startNewChat() {
     const id = makeId();
     const now = new Date().toISOString();
-    setChatConversations((previous) => [{
-      id,
-      title: "New chat",
-      createdAt: now,
-      updatedAt: now,
-      messages: [],
-    }, ...previous]);
+    const currentMessages = normalizeChatMessages(chatMessages);
+    const currentTitle = getConversationTitle(currentMessages);
+
+    // Commit the conversation currently on screen before switching to a new blank chat.
+    setChatConversations((previous) => {
+      const preserved = activeConversationId
+        ? previous.map((conversation) => conversation.id === activeConversationId
+            ? {
+                ...conversation,
+                title: currentTitle === "New chat" ? conversation.title : currentTitle,
+                updatedAt: currentMessages.length > 0 ? now : conversation.updatedAt,
+                messages: currentMessages,
+              }
+            : conversation)
+        : previous;
+      const next: ChatConversation = {
+        id,
+        title: "New chat",
+        createdAt: now,
+        updatedAt: now,
+        messages: [],
+      };
+      return [next, ...preserved.filter((conversation) => conversation.id !== id)]
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
+    });
     setActiveConversationId(id);
     setChatMessages([]);
     setCommand("");
     setSchedulePrefill("");
+    setEditingMessageId(null);
+    setEditDraft("");
     setActiveTool("home");
     closeOverlays();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));

@@ -1331,7 +1331,7 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 }
 
 /* Anchor the quick-task popup directly to the plus button instead of floating above the entire dock. */
-.shell .task-popover { bottom: calc(100% - 6px); left: 12px; }
+.shell .task-popover { bottom: calc(100% - 2px); left: 12px; }
 @media (max-width: 650px) { .shell .task-popover { left: 10px; } }
 @media (max-width: 370px) { .shell .task-popover { left: 8px; } }
 
@@ -1362,3 +1362,155 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell[data-theme="dark"] .message-edit-box textarea { background: #211914; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-cancel { background: #2C211B; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-send { background: #C9704F; color: #211914; border-color: #C9704F; }
+
+
+/* Signed-out account menu — same original Cooking Creator chef logo and warm palette. */
+.login-shell {
+  position: relative;
+  min-height: 100svh;
+  padding: 96px 16px 24px;
+  background: #F1EEDD;
+  color: #3D281E;
+}
+.login-topbar {
+  position: fixed;
+  z-index: 200;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  height: 72px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 clamp(14px, 3vw, 28px);
+  background: #3D251B;
+  color: #F4E3C5;
+  border-bottom: 1px solid #3D251B;
+}
+.login-brand {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 4px;
+}
+.login-brand strong {
+  color: #F4E3C5;
+  font-size: 16px;
+  line-height: 1.15;
+  letter-spacing: -.2px;
+}
+.login-brand small {
+  color: #D7BE9C;
+  font-size: 9px;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.login-logo-anchor { position: relative; z-index: 1; flex: 0 0 auto; }
+.login-assistant-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(255,240,220,.15);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #BD762E 0%, #743812 72%, #54280E 100%);
+  color: #FFF7E7;
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.22), 0 2px 6px rgba(0,0,0,.15);
+  cursor: pointer;
+}
+.login-assistant-mark:hover { background: radial-gradient(circle at 35% 25%, #CC843C 0%, #82451A 72%, #54280E 100%); }
+.login-assistant-mark .chef-hat-logo { width: 30px; height: 30px; }
+.login-logo-popover {
+  position: absolute;
+  z-index: 220;
+  top: calc(100% + 8px);
+  right: 0;
+  display: flex;
+  width: 178px;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid #D2BF9A;
+  border-radius: 15px;
+  background: #F0EDDA;
+  color: #3D281E;
+  box-shadow: 0 12px 38px rgba(59,34,20,.2);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-5px) scale(.96);
+  transform-origin: top right;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s;
+}
+.login-logo-popover.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+.login-logo-popover button {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #3D281E;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+.login-logo-popover button:hover { background: #E7DEC6; }
+.login-logo-popover svg { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.login-account-dot { width: 9px; height: 9px; flex: 0 0 9px; border-radius: 50%; background: #BF6D24; }
+.login-popup-dismiss {
+  position: fixed;
+  z-index: 180;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.login-shell .login-card {
+  width: min(100%, 420px);
+  border-color: #D7C7A9;
+  background: #FFFDF4;
+  box-shadow: 0 12px 36px rgba(72,47,24,.09);
+}
+.login-shell .login-mark {
+  display: grid;
+  width: 68px;
+  height: 68px;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 32% 25%, #F4D1A0 0%, #EAB16B 48%, #D88A35 100%);
+  color: #FFF7E7;
+}
+.login-shell .login-mark .chef-hat-logo { width: 42px; height: 42px; }
+.login-shell .login-eyebrow { color: #8B6546; }
+.login-shell .login-card h1 { color: #3D251B; }
+.login-shell .login-description { color: #78634E; }
+.login-shell .login-form input { background: #FFFDF4; color: #3D281E; border-color: #D7C19E; }
+.login-shell .login-form input:focus { border-color: #BF6D24; outline-color: rgba(191,109,36,.18); }
+.login-shell .login-form button { border-color: #BF6D24; background: #BF6D24; color: #FFF7E8; }
+.login-shell .login-form button:hover:not(:disabled) { background: #A95719; }
+.login-shell .login-warning, .login-shell .login-notice { border-color: #D7C19E; background: #EFDEC0; color: #4A2A1D; }
+.login-shell .login-footnote { border-top-color: #D7C19E; color: #78634E; }
+@media (max-width: 390px) {
+  .login-topbar { height: 62px; padding-inline: 12px; }
+  .login-brand strong { font-size: 14px; }
+  .login-brand small { font-size: 8px; }
+  .login-assistant-mark { width: 40px; height: 40px; }
+  .login-shell { padding-top: 82px; }
+  .login-shell .login-card { padding: 23px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-logo-popover { transition-duration: .01ms; }
+}

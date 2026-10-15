@@ -124,3 +124,25 @@ test("composer and plus popup stay inside the visible viewport when the keyboard
   expect((popupBox!.y + popupBox!.height)).toBeLessThanOrEqual(plusBox!.y + 2.5);
   expect(popupBox!.height).toBeLessThan(viewport.visibleHeight);
 });
+
+
+test("swiping the navigation drawer to the left closes it", async ({ page }) => {
+  await page.goto("/");
+  const drawer = page.locator("#workspace-drawer");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await expect(drawer).toHaveAttribute("aria-hidden", "false");
+
+  await drawer.evaluate((element) => {
+    const touchEvent = (type: "touchstart" | "touchend", clientX: number) => {
+      const event = new Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "changedTouches", {
+        value: [{ clientX, clientY: 250 }],
+      });
+      element.dispatchEvent(event);
+    };
+    touchEvent("touchstart", 280);
+    touchEvent("touchend", 160);
+  });
+
+  await expect(drawer).toHaveAttribute("aria-hidden", "true");
+});
