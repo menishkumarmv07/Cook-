@@ -229,7 +229,7 @@ export default function ResearchEvidenceVault() {
   async function importArchive(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || !archive) return;
+    if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {
       setError("Evidence backup is larger than 2 MB. Nothing was imported.");
       return;
@@ -256,7 +256,7 @@ export default function ResearchEvidenceVault() {
         </div>
         <div className="research-evidence-actions">
           <button className="secondary" type="button" disabled={!archive || busy} onClick={() => archive && downloadArchive(archive)}>Export JSON</button>
-          <label className="secondary research-evidence-import">Restore JSON<input aria-label="Restore evidence backup JSON" type="file" accept="application/json,.json" disabled={!archive || busy} onChange={importArchive} /></label>
+          <label className="secondary research-evidence-import">Restore JSON<input aria-label="Restore evidence backup JSON" type="file" accept="application/json,.json" disabled={busy} onChange={importArchive} /></label>
         </div>
       </div>
 
