@@ -1113,3 +1113,37 @@ test("V2 evidence ledger reuses an existing canonical source instead of duplicat
   await expect(page.getByText("Duplicate title should not replace original", { exact: true })).toHaveCount(0);
   await expect(page.locator("#evidence-claim-source")).toHaveValue(/source-/);
 });
+
+
+test("chat link planning accepts any submitted URL count and prefers explicit links over an old saved list", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("cooking-creator-local-schedule-v1", JSON.stringify({
+      linksText: "https://old.example/previous-list",
+      startDate: "2026-10-14",
+      plan: [],
+    }));
+  });
+  await page.goto("/");
+
+  const requestedLinks = [
+    "https://example.com/a",
+    "https://example.com/b",
+    "https://example.com/c",
+  ];
+  await page.locator("#workspace-command").fill(
+    `Plan these videos: ${requestedLinks.join(" ")}`,
+  );
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator("#schedule-links")).toHaveValue(requestedLinks.join("\\n"));
+  await expect(page.locator(".chat-transcript")).toContainText("I found 3 valid HTTP(S) link(s)");
+  await expect(page.locator(".chat-transcript")).not.toContainText("exactly seven");
+  await expect(page.locator("#schedule-links")).not.toHaveValue("https://old.example/previous-list");
+
+  await page.locator("#schedule-links-per-day").fill("2");
+  await page.locator("#schedule-days-count").fill("2");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(3);
+  await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
+  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-10-15");
+});
