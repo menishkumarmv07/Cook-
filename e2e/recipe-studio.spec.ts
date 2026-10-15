@@ -1043,3 +1043,47 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await expect(page.getByText("0 sources")).toBeVisible();
   await expect(page.getByText("0 claims")).toBeVisible();
 });
+
+
+test("US audience scheduling supports multiple time zones and values beyond the old arbitrary caps", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill([
+    "https://example.com/one",
+    "https://example.com/two",
+    "https://example.com/three",
+  ].join("\\n"));
+
+  await page.locator("#schedule-audience-timezone").selectOption("America/Los_Angeles");
+  await expect(page.locator('label[for="schedule-start-date"]')).toContainText("Pacific Time (PT)");
+  await page.locator("#schedule-links-per-day").fill("1500");
+  await page.locator("#schedule-days-count").fill("400");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+
+  const rows = page.locator(".schedule-table tbody tr");
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByLabel("Post 1 date")).toHaveValue(await page.locator("#schedule-start-date").inputValue());
+  await expect(page.getByLabel("Post 2 date")).toHaveValue(await page.locator("#schedule-start-date").inputValue());
+  await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
+  await expect(page.getByLabel("Post 2 time")).toHaveValue("13:00");
+  await expect(page.locator(".schedule-table thead")).toContainText("Time (PT)");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export schedule JSON" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-schedule-draft.json");
+  const path = await download.path();
+  expect(path).toBeTruthy();
+  const exported = JSON.parse(await readFile(path!, "utf8")) as {
+    audienceTimezone?: string;
+    audienceTimezoneLabel?: string;
+    posts?: Array<{ url: string; date: string; time: string }>;
+  };
+  expect(exported.audienceTimezone).toBe("America/Los_Angeles");
+  expect(exported.audienceTimezoneLabel).toBe("Pacific Time (PT)");
+  expect(exported.posts?.map((post) => post.url)).toEqual([
+    "https://example.com/one",
+    "https://example.com/two",
+    "https://example.com/three",
+  ]);
+});
