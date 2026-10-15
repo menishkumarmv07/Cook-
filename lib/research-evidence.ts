@@ -190,6 +190,11 @@ export function mergeResearchEvidence(
   if (!current || !isTimestamp(updatedAt)) return null;
   if (!incomingSources.every(validSource) || !incomingClaims.every(validClaim)) return null;
 
+  // A repeated ID inside one batch is ambiguous (which payload should win?).
+  // Existing IDs across batches are still valid upserts by stable ID.
+  if (new Set(incomingSources.map((source) => source.id)).size !== incomingSources.length) return null;
+  if (new Set(incomingClaims.map((claim) => claim.id)).size !== incomingClaims.length) return null;
+
   const sources = new Map(current.sources.map((source) => [source.id, source]));
   for (const source of incomingSources) sources.set(source.id, { ...source, warnings: [...source.warnings] });
 
