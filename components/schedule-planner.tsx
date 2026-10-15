@@ -1,62 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
-type ScheduledPost = {
-  id: string;
-  url: string;
-  date: string;
-  time: string;
-  status: "Draft — approval needed";
-};
-
-const STORAGE_KEY = "cooking-creator-local-schedule-v1";
-const SUGGESTED_TIMES = ["09:00", "13:00", "18:00"] as const;
-
-function localDateString(date: Date): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(date);
-  const part = (type: string) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function isValidCalendarDate(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const [year, month, day] = value.split("-").map(Number);
-  const date = new Date(0);
-  date.setUTCHours(12, 0, 0, 0);
-  date.setUTCFullYear(year, month - 1, day);
-  return date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day;
-}
-
-function addDays(start: string, days: number): string {
-  const date = new Date(`${start}T12:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function parseLinks(value: string): string[] {
-  return value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-}
-
-function validHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "https:" || url.protocol === "http:";
-  } catch {
-    return false;
-  }
-}
+import {
+  buildScheduleDraft,
+  getUsEasternCalendarDate,
+  isSuggestedTime,
+  isValidCalendarDate,
+  parseScheduleLinks,
+  SUGGESTED_TIMES,
+  type ScheduledPost,
+} from "@/lib/schedule";
 
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
-  const [startDate, setStartDate] = useState(() => localDateString(new Date()));
+  const [startDate, setStartDate] = useState(() => getUsEasternCalendarDate(new Date()));
   const [daysToProcess, setDaysToProcess] = useState("3");
   const [linksPerDay, setLinksPerDay] = useState("2");
   const [plan, setPlan] = useState<ScheduledPost[]>([]);
@@ -71,15 +28,16 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; plan?: unknown };
+        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; daysToProcess?: unknown; linksPerDay?: unknown; plan?: unknown };
         if (typeof saved.linksText === "string") setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
+        if (typeof saved.daysToProcess === "string" && Number.isSafeInteger(Number(saved.daysToProcess)) && Number(saved.daysToProcess) > 0) setDaysToProcess(saved.daysToProcess);
+        if (typeof saved.linksPerDay === "string" && Number.isSafeInteger(Number(saved.linksPerDay)) && Number(saved.linksPerDay) > 0) setLinksPerDay(saved.linksPerDay);
         if (Array.isArray(saved.plan) && saved.plan.every((item) =>
           typeof item === "object" && item !== null &&
-          typeof item.id === "string" && typeof item.url === "string" && validHttpUrl(item.url) &&
+          typeof item.id === "string" && typeof item.url === "string" && isValidScheduleUrl(item.url) &&
           typeof item.date === "string" && isValidCalendarDate(item.date) &&
-          (item.time === "09:00" || item.time === "13:00" || item.time === "18:00") &&
-          item.status === "Draft — approval needed"
+          isSuggestedTime(item.time) && item.status === "Draft — approval needed"
         )) setPlan(saved.plan as ScheduledPost[]);
       }
     } catch {
@@ -91,57 +49,30 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, plan }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, daysToProcess, linksPerDay, plan }));
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
   }, [hydrated, linksText, startDate, plan]);
 
-  const links = useMemo(() => parseLinks(linksText), [linksText]);
-  const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
+  const links = useMemo(() => parseScheduleLinks(linksText), [linksText]);
+  const invalidLinks = useMemo(() => links.filter((link) => !isValidScheduleUrl(link)), [links]);
 
   function generateSchedule() {
-    if (!isValidCalendarDate(startDate)) {
-      setMessage("Choose a valid start date before generating the plan.");
-      return;
-    }
-    if (links.length === 0) {
-      setMessage("Add at least one video URL before generating a plan.");
-      return;
-    }
-    const dayCount = Number(daysToProcess);
-    const perDay = Number(linksPerDay);
-    if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 365 ||
-        !Number.isInteger(perDay) || perDay < 1 || perDay > 1000) {
-      setMessage("Choose 1–365 days and 1–1,000 links per day.");
-      return;
-    }
-    const capacity = dayCount * perDay;
-    if (links.length > capacity) {
-      const requiredDays = Math.ceil(links.length / perDay);
-      setMessage(`You have ${links.length} links, but these settings fit ${capacity}. Increase the days to at least ${requiredDays}, or allow more links per day, so every link is included.`);
-      return;
-    }
-    if (invalidLinks.length) {
-      setMessage("Every line must be a complete http:// or https:// URL. Fix the highlighted invalid links first.");
-      return;
-    }
-    const postsPerDay = Array.from({ length: dayCount }, () => 0);
-    const next = links.map((url, index) => {
-      // Preserve the pasted link order and process up to the selected number each day.
-      const day = Math.floor(index / perDay);
-      const time = SUGGESTED_TIMES[postsPerDay[day] % SUGGESTED_TIMES.length];
-      postsPerDay[day] += 1;
-      return {
-        id: `${Date.now()}-${index}`,
-        url,
-        date: addDays(startDate, day),
-        time,
-        status: "Draft — approval needed" as const,
-      };
+    const result = buildScheduleDraft({
+      links,
+      startDate,
+      daysToProcess: Number(daysToProcess),
+      linksPerDay: Number(linksPerDay),
     });
-    setPlan(next);
-    setMessage(`Created a local ${dayCount}-day draft with all ${links.length} links, in the order you entered them, at up to ${perDay} links per day.`);
+    if (!result.ok) {
+      setMessage(result.error);
+      return;
+    }
+    setPlan(result.posts);
+    setMessage("Created a " + daysToProcess + "-day draft with all " + links.length +
+      " links kept in your original order and balanced across the selected US Eastern dates, at no more than " +
+      linksPerDay + " links per day.");
   }
 
   function updatePost(id: string, field: "date" | "time", value: string) {
@@ -149,7 +80,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   }
 
   function exportPlan() {
-    if (plan.some((post) => !isValidCalendarDate(post.date) || !["09:00", "13:00", "18:00"].includes(post.time))) {
+    if (plan.some((post) => !isValidCalendarDate(post.date) || !isSuggestedTime(post.time))) {
       setMessage("Choose a valid date and suggested time for every post before exporting.");
       return;
     }
@@ -199,13 +130,13 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
         <div className="schedule-actions schedule-customizer">
           <p className="schedule-customizer-title">CUSTOM PLAN</p>
           <label htmlFor="schedule-links-per-day">How many links per day?</label>
-          <input id="schedule-links-per-day" type="number" min="1" max="1000" step="1" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
+          <input id="schedule-links-per-day" type="number" min="1" step="1" inputMode="numeric" value={linksPerDay} onChange={(event) => setLinksPerDay(event.target.value)} />
           <label htmlFor="schedule-days-count">How many days?</label>
-          <input id="schedule-days-count" type="number" min="1" max="365" step="1" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
-          <p className="schedule-capacity" aria-live="polite">Capacity: {Number(linksPerDay) > 0 && Number(daysToProcess) > 0 ? Number(linksPerDay) * Number(daysToProcess) : 0} links · You added {links.length}</p>
+          <input id="schedule-days-count" type="number" min="1" step="1" inputMode="numeric" value={daysToProcess} onChange={(event) => setDaysToProcess(event.target.value)} />
+          <p className="schedule-capacity" aria-live="polite">Daily limit: {Number.isSafeInteger(Number(linksPerDay)) && Number(linksPerDay) > 0 ? Number(linksPerDay) : "—"} · Days: {Number.isSafeInteger(Number(daysToProcess)) && Number(daysToProcess) > 0 ? Number(daysToProcess) : "—"} · Links to schedule: {links.length}</p>
           <button className="schedule-build-button" type="button" onClick={generateSchedule}>Build my custom plan</button>
-          <p className="hint">Links are processed in the same order you pasted them. If the capacity is too small, increase the days or links per day to include every link.</p>
-          <p className="hint">Links stay in this browser unless you export them. No external platform is contacted.</p>
+          <p className="hint">All links stay in pasted order and are balanced across your selected date range. Links per day is the maximum allowed on a date.</p>
+          <p className="hint">Every valid link is included in the draft; if the plan does not have enough daily capacity, the app asks you to adjust the settings instead of dropping links.</p>
         </div>
       </div>
 
