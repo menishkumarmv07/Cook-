@@ -689,6 +689,47 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toHaveCount(1);
 });
 
+test("V2 evidence import preserves the bounded page excerpt when structured recipe data is absent", async ({ page }) => {
+  const sourceUrl = "https://recipes.example/story-without-recipe-markup";
+  await page.route("**/api/sources/inspect", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        source: {
+          requestedUrl: sourceUrl,
+          finalUrl: sourceUrl,
+          contentType: "text/html",
+          redirectCount: 0,
+          limitation: "Readable public page text only; no structured recipe and no video/audio analysis.",
+          title: "A cooking story",
+          description: "",
+          siteName: "Example Kitchen",
+          textExcerpt: "The author describes a simmered tomato sauce and says to cook until thick. No ingredient quantities are present in this excerpt.",
+          structuredRecipe: null,
+        },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Story excerpt evidence");
+  await page.locator("#url").fill(sourceUrl);
+  await page.getByRole("button", { name: "Inspect public recipe page" }).click();
+  await expect(page.locator(".source-inspection-preview")).toContainText("A cooking story");
+  await expect(page.locator(".source-inspection-preview")).toContainText("No ingredient quantities are present");
+
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Import inspected page into the evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+
+  await expect(page.getByText(/Saved the inspected page and 1 extracted field/)).toBeVisible();
+  await expect(page.getByText(/Story excerpt evidence · page text excerpt:/)).toBeVisible();
+  await expect(page.getByText(/No ingredient quantities are present in this excerpt/)).toBeVisible();
+  await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
+});
+
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
   await page.goto("/");
   const sourceUrl = "https://www.youtube.com/watch?v=123456789ab";
