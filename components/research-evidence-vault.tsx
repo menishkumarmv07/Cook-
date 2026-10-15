@@ -132,15 +132,17 @@ export default function ResearchEvidenceVault() {
 
   const conflicts = useMemo(() => archive ? findPotentialEvidenceConflicts(archive) : [], [archive]);
 
-  async function commit(next: ResearchEvidenceArchive, successMessage: string) {
+  async function commit(next: ResearchEvidenceArchive, successMessage: string): Promise<boolean> {
     setError("");
     setMessage("");
     try {
       await writeArchive(next);
       setArchive(next);
       setMessage(successMessage);
+      return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not save. Your previous saved archive has not been intentionally replaced.");
+      return false;
     }
   }
 
@@ -168,11 +170,12 @@ export default function ResearchEvidenceVault() {
       setError("The source record failed validation and was not saved.");
       return;
     }
-    await commit(next, "Source saved locally. Its contents are not verified.");
-    setSourceUrl("");
-    setSourceTitle("");
-    setPublisher("");
-    setSelectedSourceId(source.id);
+    if (await commit(next, "Source saved locally. Its contents are not verified.")) {
+      setSourceUrl("");
+      setSourceTitle("");
+      setPublisher("");
+      setSelectedSourceId(source.id);
+    }
   }
 
   async function addClaim(event: React.FormEvent<HTMLFormElement>) {
@@ -199,12 +202,27 @@ export default function ResearchEvidenceVault() {
       setError("Complete the subject, field and value. The claim failed validation and was not saved.");
       return;
     }
-    await commit(next, "Claim saved locally and marked unreviewed.");
-    setSubject("");
-    setPredicate("");
-    setValue("");
-    setUnit("");
-    setExcerpt("");
+    if (await commit(next, "Claim saved locally and marked unreviewed.")) {
+      setSubject("");
+      setPredicate("");
+      setValue("");
+      setUnit("");
+      setExcerpt("");
+    }
+  }
+
+  async function setClaimReviewStatus(claimId: string, reviewStatus: ResearchEvidenceClaim["reviewStatus"]) {
+    if (!archive) return;
+    const next = parseResearchEvidenceArchive({
+      ...archive,
+      updatedAt: new Date().toISOString(),
+      claims: archive.claims.map((claim) => claim.id === claimId ? { ...claim, reviewStatus } : claim),
+    });
+    if (!next) {
+      setError("The review change failed validation and was not saved.");
+      return;
+    }
+    await commit(next, reviewStatus === "accepted" ? "Claim marked as reviewed by you; this is not independent verification." : "Claim rejected in your local review.");
   }
 
   async function importArchive(event: React.ChangeEvent<HTMLInputElement>) {
@@ -298,6 +316,11 @@ export default function ResearchEvidenceVault() {
                 <strong>{claim.subject} · {claim.predicate}: {claim.value}{claim.unit ? ` ${claim.unit}` : ""}</strong>
                 <small>Status: {claim.reviewStatus} · Source: {source?.title || source?.url || "missing source"}</small>
                 {claim.excerpt && <p>{claim.excerpt}</p>}
+                <div className="research-evidence-review-actions">
+                  <button className="secondary" type="button" disabled={claim.reviewStatus === "accepted"} onClick={() => setClaimReviewStatus(claim.id, "accepted")}>Mark reviewed</button>
+                  <button className="text-button" type="button" disabled={claim.reviewStatus === "rejected"} onClick={() => setClaimReviewStatus(claim.id, "rejected")}>Reject claim</button>
+                  {claim.reviewStatus !== "unreviewed" && <button className="text-button" type="button" onClick={() => setClaimReviewStatus(claim.id, "unreviewed")}>Undo review</button>}
+                </div>
               </article>;
             })}
           </div>
