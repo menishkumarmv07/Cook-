@@ -343,6 +343,11 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
     addCandidate("listed total time", recipe?.totalTime);
     recipe?.ingredients.forEach((ingredient, index) => addCandidate(`ingredient ${index + 1}`, ingredient));
     recipe?.instructions.forEach((instruction, index) => addCandidate(`instruction step ${index + 1}`, instruction));
+    // When Schema.org recipe data is absent, keep the exact bounded page excerpt
+    // as attributed evidence instead of losing the only text the inspector found.
+    if (!recipe && inspectedSource.textExcerpt.trim()) {
+      addCandidate("page text excerpt", inspectedSource.textExcerpt.slice(0, 2_000));
+    }
 
     const captureIdentity = (urlValue: string) => {
       try {
