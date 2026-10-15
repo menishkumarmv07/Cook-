@@ -7,6 +7,8 @@ import {
   mergeResearchEvidence,
   normalizeEvidenceText,
   parseResearchEvidenceArchive,
+  researchEvidenceArchiveByteSize,
+  researchEvidenceArchiveFitsByteLimit,
   type ResearchEvidenceClaim,
   type ResearchEvidenceSource,
 } from "../lib/research-evidence";
@@ -232,6 +234,21 @@ test("upsert merge is idempotent and rejects a claim when its source is missing"
   assert.equal(twice.sources.length, 1);
   assert.equal(twice.claims.length, 1);
   assert.equal(mergeResearchEvidence(empty, [], [claim("orphan", "missing", "1")], capturedAt), null);
+});
+
+test("archive recovery size is measured as canonical UTF-8 JSON bytes", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [source("unicode", "https://recipes.com/unicode",)],
+  };
+  archive.sources[0].title = "🍜 Café crème — recipe";
+  const expectedBytes = new TextEncoder().encode(JSON.stringify(archive, null, 2)).byteLength;
+
+  assert.equal(researchEvidenceArchiveByteSize(archive), expectedBytes);
+  assert.equal(researchEvidenceArchiveFitsByteLimit(archive, expectedBytes), true);
+  assert.equal(researchEvidenceArchiveFitsByteLimit(archive, expectedBytes - 1), false);
+  assert.equal(researchEvidenceArchiveByteSize({ version: 999 }), null);
+  assert.equal(researchEvidenceArchiveFitsByteLimit(archive, -1), false);
 });
 
 test("malformed timestamps and oversized evidence fields fail validation", () => {
