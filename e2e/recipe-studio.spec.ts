@@ -761,3 +761,14 @@ test("AUTH: logging out clears the session and protects later workspace requests
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
 });
+
+
+test("mixed valid and unsupported URL schemes are reported instead of silently omitted", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#workspace-command").fill("Plan these links https://example.com/reel ftp://example.com/recipe");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("1 are not valid HTTP(S) URLs");
+  await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/reel");
+  await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
+});
