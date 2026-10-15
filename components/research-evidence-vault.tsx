@@ -14,6 +14,34 @@ import {
   type ResearchEvidenceSource,
 } from "@/lib/research-evidence";
 
+export type ResearchPageCapture = {
+  requestedUrl: string;
+  finalUrl: string;
+  contentType: string;
+  redirectCount: number;
+  limitation: string;
+  title: string;
+  description: string;
+  siteName: string;
+  textExcerpt: string;
+  structuredRecipe: {
+    name: string;
+    description: string;
+    author: string;
+    servings: string;
+    prepTime: string;
+    cookTime: string;
+    totalTime: string;
+    ingredients: string[];
+    instructions: string[];
+  } | null;
+};
+
+type ResearchEvidenceVaultProps = {
+  inspectedSource?: ResearchPageCapture | null;
+  onImportedSource?: () => void;
+};
+
 const DATABASE_NAME = "cooking-creator-research-evidence";
 const DATABASE_VERSION = 1;
 const ARCHIVE_STORE = "archives";
@@ -119,7 +147,7 @@ function downloadArchive(archive: ResearchEvidenceArchive) {
   window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
-export default function ResearchEvidenceVault() {
+export default function ResearchEvidenceVault({ inspectedSource = null, onImportedSource }: ResearchEvidenceVaultProps) {
   const [archive, setArchive] = useState<ResearchEvidenceArchive | null>(null);
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceTitle, setSourceTitle] = useState("");
@@ -185,6 +213,112 @@ export default function ResearchEvidenceVault() {
       saveLock.current = false;
       setSaving(false);
     }
+  }
+
+  async function saveInspectedSourceToLedger() {
+    if (!archive || !inspectedSource) return;
+
+    const finalUrl = inspectedSource.finalUrl.trim();
+    if (!isHttpSourceUrl(finalUrl)) {
+      setError("The inspected page URL cannot be stored by the evidence ledger. Nothing was imported.");
+      return;
+    }
+
+    const capturedAt = new Date().toISOString();
+    const recipe = inspectedSource.structuredRecipe;
+    const recipeLabel = (recipe?.name.trim() || inspectedSource.title.trim() || new URL(finalUrl).hostname).slice(0, 240);
+    const publisher = (inspectedSource.siteName.trim() || new URL(finalUrl).hostname).slice(0, 250);
+    const candidates: Array<{ predicate: string; value: string; excerpt: string }> = [];
+    const addCandidate = (predicate: string, value: string | undefined) => {
+      const cleaned = typeof value === "string" ? value.trim() : "";
+      if (!cleaned) return;
+      candidates.push({
+        predicate: predicate.slice(0, 120),
+        value: cleaned.slice(0, 2_000),
+        excerpt: cleaned.slice(0, 1_600),
+      });
+    };
+
+    addCandidate("recipe name", recipe?.name);
+    addCandidate("description", recipe?.description || inspectedSource.description);
+    addCandidate("listed author", recipe?.author);
+    addCandidate("listed yield", recipe?.servings);
+    addCandidate("listed prep time", recipe?.prepTime);
+    addCandidate("listed cook time", recipe?.cookTime);
+    addCandidate("listed total time", recipe?.totalTime);
+    recipe?.ingredients.forEach((ingredient, index) => addCandidate(`ingredient ${index + 1}`, ingredient));
+    recipe?.instructions.forEach((instruction, index) => addCandidate(`instruction step ${index + 1}`, instruction));
+
+    const captureIdentity = (urlValue: string) => {
+      try {
+        const url = new URL(urlValue);
+        url.hash = "";
+        if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\\/+$/, "") || "/";
+        return url.href;
+      } catch {
+        return urlValue.trim();
+      }
+    };
+    const existingEquivalent = archive.sources.find((existing) => {
+      if (
+        captureIdentity(existing.url) !== captureIdentity(finalUrl) ||
+        existing.title !== (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500) ||
+        existing.publisher !== publisher
+      ) return false;
+      return candidates.every((candidate) => archive.claims.some((claim) =>
+        claim.sourceId === existing.id &&
+        claim.subject === recipeLabel &&
+        claim.predicate === candidate.predicate &&
+        claim.value === candidate.value &&
+        claim.unit === ""
+      ));
+    });
+
+    if (existingEquivalent) {
+      setError("");
+      setMessage("This inspected source and its extracted facts are already in the ledger. No duplicate records were added.");
+      onImportedSource?.();
+      return;
+    }
+
+    const source: ResearchEvidenceSource = {
+      id: makeRecordId("source"),
+      url: finalUrl,
+      title: (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500),
+      publisher,
+      capturedAt,
+      captureMethod: recipe ? "schema-org" : "page-text",
+      status: "accessible",
+      warnings: [
+        "Captured from accessible public HTML after an explicit owner action. Extracted facts are not independently verified.",
+        `Requested URL: ${inspectedSource.requestedUrl.slice(0, 800)}`,
+        `Content type: ${inspectedSource.contentType.slice(0, 200)}; redirects followed: ${inspectedSource.redirectCount}`,
+        `Inspection limitation: ${inspectedSource.limitation.slice(0, 1_000)}`,
+        ...(!recipe ? ["No Schema.org recipe was available; no video/audio or frames were analysed."] : []),
+      ],
+    };
+    const claims: ResearchEvidenceClaim[] = candidates.map((candidate) => ({
+      id: makeRecordId("claim"),
+      sourceId: source.id,
+      subject: recipeLabel,
+      predicate: candidate.predicate,
+      value: candidate.value,
+      unit: "",
+      excerpt: candidate.excerpt,
+      capturedAt,
+      reviewStatus: "unreviewed",
+    }));
+    const nextArchive = mergeResearchEvidence(archive, [source], claims, capturedAt);
+    if (!nextArchive) {
+      setError("The inspected source could not be validated for the evidence ledger. Nothing was imported.");
+      return;
+    }
+
+    const saved = await commit(
+      nextArchive,
+      `Saved the inspected page and ${claims.length} extracted field${claims.length === 1 ? "" : "s"} as unreviewed evidence. Check every value against the source before relying on it.`,
+    );
+    if (saved) onImportedSource?.();
   }
 
   async function addSource(event: FormEvent<HTMLFormElement>) {
@@ -322,6 +456,18 @@ export default function ResearchEvidenceVault() {
             <span><strong>{archive.claims.length}</strong> claims</span>
             <span><strong>{conflicts.length}</strong> possible disagreements</span>
           </div>
+
+          {inspectedSource && (
+            <div className="research-evidence-form" aria-label="Inspected page evidence import">
+              <h4>Import inspected page into the evidence ledger</h4>
+              <p className="hint">Use the existing page inspector result. Ingredients and steps stay linked to this source, but every extracted field remains unreviewed until you check it. This does not analyse video/audio or verify correctness.</p>
+              <p><strong>{inspectedSource.structuredRecipe?.name || inspectedSource.title || inspectedSource.finalUrl}</strong></p>
+              <p className="hint">{inspectedSource.finalUrl}</p>
+              <button className="primary" type="button" disabled={busy || saving || !archive} onClick={() => void saveInspectedSourceToLedger()}>
+                Save inspected facts to evidence ledger
+              </button>
+            </div>
+          )}
 
           <form className="research-evidence-form" onSubmit={addSource}>
             <h4>Add a source record</h4>
