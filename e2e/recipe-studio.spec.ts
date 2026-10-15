@@ -725,8 +725,8 @@ test("V2 evidence import preserves the bounded page excerpt when structured reci
   await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
 
   await expect(page.getByText(/Saved the inspected page and 1 extracted field/)).toBeVisible();
-  await expect(page.getByText(/Story excerpt evidence · page text excerpt:/)).toBeVisible();
-  await expect(page.getByText(/No ingredient quantities are present in this excerpt/)).toBeVisible();
+  await expect(page.getByText(/A cooking story · page text excerpt:/)).toBeVisible();
+  await expect(page.locator(".research-evidence-list").nth(1).getByText(/No ingredient quantities are present in this excerpt/).first()).toBeVisible();
   await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
 });
 
