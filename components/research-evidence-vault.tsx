@@ -94,7 +94,8 @@ function downloadArchive(archive: ResearchEvidenceArchive) {
   anchor.href = url;
   anchor.download = `cooking-creator-evidence-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
-  URL.revokeObjectURL(url);
+  // Allow the browser to begin the download before releasing the object URL.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 export default function ResearchEvidenceVault() {
@@ -240,6 +241,16 @@ export default function ResearchEvidenceVault() {
         setError("This file is not a valid supported evidence backup. Nothing was imported.");
         return;
       }
+      if (archive && (archive.sources.length > 0 || archive.claims.length > 0)) {
+        const confirmed = window.confirm(
+          "Restoring this backup replaces the current local evidence ledger. Export a backup first. Continue?",
+        );
+        if (!confirmed) {
+          setError("");
+          setMessage("Restore cancelled. Your current evidence was not changed.");
+          return;
+        }
+      }
       await commit({ ...candidate, updatedAt: new Date().toISOString() }, "Evidence backup restored locally.");
     } catch {
       setError("The backup could not be read. Nothing was imported.");
@@ -264,7 +275,7 @@ export default function ResearchEvidenceVault() {
       {error && <p className="research-evidence-error" role="alert">{error}</p>}
       {message && <p className="research-evidence-success" role="status">{message}</p>}
 
-      {!busy && archive && !error && (
+      {!busy && archive && (
         <>
           <div className="research-evidence-counts">
             <span><strong>{archive.sources.length}</strong> sources</span>
