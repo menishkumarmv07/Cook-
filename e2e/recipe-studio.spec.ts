@@ -772,3 +772,22 @@ test("mixed valid and unsupported URL schemes are reported instead of silently o
   await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/reel");
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
 });
+
+
+test("new chat link intake replaces stale saved schedule rows", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill("https://example.com/old-reel");
+  await page.locator("#schedule-links-per-day").fill("1");
+  await page.locator("#schedule-days-count").fill("1");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
+
+  await page.reload();
+  await page.locator("#workspace-command").fill("Plan this new link https://example.com/new-reel");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/new-reel");
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed in Plan Content");
+});
