@@ -51,7 +51,7 @@ test("spreads seven links across a chosen three-day window without changing link
       counts[post.date] = (counts[post.date] ?? 0) + 1;
       return counts;
     }, {}),
-    { "2026-10-15": 2, "2026-10-16": 3, "2026-10-17": 2 },
+    { "2026-10-15": 3, "2026-10-16": 2, "2026-10-17": 2 },
   );
   assert.ok(result.posts.every((post) => post.status === "Draft — approval needed"));
 });
