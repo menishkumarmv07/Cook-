@@ -196,6 +196,15 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(rows).toHaveCount(11);
   await expect(page.getByLabel("Post 1 time")).toHaveValue("13:00");
   await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
+  await expect(page.locator("#schedule-links-per-day")).toHaveValue("4");
+  await expect(page.locator("#schedule-days-count")).toHaveValue("3");
+
+  // Too little capacity must keep the last valid plan and explain how to fit every link.
+  await page.locator("#schedule-links-per-day").fill("3");
+  await page.locator("#schedule-days-count").fill("3");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".message")).toContainText("Choose at least 4 days");
+  await expect(rows).toHaveCount(11);
 
   await page.locator("#schedule-links-per-day").fill("2");
   await page.locator("#schedule-days-count").fill("7");
@@ -692,7 +701,7 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
@@ -704,7 +713,7 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
 
   await page.reload();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
