@@ -46,7 +46,7 @@ const DATABASE_NAME = "cooking-creator-research-evidence";
 const DATABASE_VERSION = 1;
 const ARCHIVE_STORE = "archives";
 const PRIMARY_ARCHIVE_KEY = "primary";
-const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+const MAX_IMPORT_BYTES = 25 * 1024 * 1024;
 
 function openEvidenceDatabase(): Promise<IDBDatabase> {
   if (typeof indexedDB === "undefined") {
@@ -122,6 +122,12 @@ async function writeArchive(
   if (!validated) throw new Error("The evidence archive failed validation and was not saved.");
   const expected = parseResearchEvidenceArchive(expectedCurrentArchive);
   if (!expected) throw new Error("The current in-memory evidence snapshot failed validation. Reload before saving.");
+  // Keep the persisted archive within the same limit accepted by restore so
+  // every archive saved by this version remains exportable and restorable.
+  const recoveryPayload = JSON.stringify(validated, null, 2);
+  if (new Blob([recoveryPayload]).size > MAX_IMPORT_BYTES) {
+    throw new Error("The evidence ledger would exceed the 25 MB recovery limit. Nothing was saved. Export a backup and remove older records before trying again; the previous saved ledger remains intact.");
+  }
 
   const database = await openEvidenceDatabase();
   try {
@@ -492,7 +498,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
     event.target.value = "";
     if (!file) return;
     if (file.size > MAX_IMPORT_BYTES) {
-      setError("Evidence backup is larger than 2 MB. Nothing was imported.");
+      setError("Evidence backup is larger than 25 MB. Nothing was imported.");
       return;
     }
     try {
