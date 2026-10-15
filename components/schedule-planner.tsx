@@ -12,6 +12,8 @@ import {
   type ScheduledPost,
 } from "@/lib/schedule";
 
+const STORAGE_KEY = "cooking-creator-local-schedule-v1";
+
 export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLinksText?: string }) {
   const [linksText, setLinksText] = useState("");
   const [startDate, setStartDate] = useState(() => getUsEasternCalendarDate(new Date()));
