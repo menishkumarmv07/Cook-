@@ -253,7 +253,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
       try {
         const url = new URL(urlValue);
         url.hash = "";
-        if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\\/+$/, "") || "/";
+        if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, "") || "/";
         return url.href;
       } catch {
         return urlValue.trim();
