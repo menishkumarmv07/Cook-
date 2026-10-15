@@ -237,7 +237,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           </select>
           <label htmlFor="schedule-start-date">Start date ({activeTimeZone.label})</label>
           <input id="schedule-start-date" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
-          <p className="hint">Suggested slots use the selected audience's local time: 9:00 AM, 1:00 PM, and 6:00 PM. They are starting suggestions, not predictions of reach or guaranteed best posting times.</p>
+          <p className="hint">Suggested slots use the selected audience&apos;s local time: 9:00 AM, 1:00 PM, and 6:00 PM. They are starting suggestions, not predictions of reach or guaranteed best posting times.</p>
         </div>
         <div className="schedule-actions schedule-customizer">
           <p className="schedule-customizer-title">CUSTOM PLAN</p>
