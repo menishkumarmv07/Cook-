@@ -197,3 +197,31 @@ test("malformed timestamps and oversized evidence fields fail validation", () =>
     claims: [claim("claim-x", "x", "1".repeat(2_001))],
   }), null);
 });
+
+test("does not flag matching multivalued evidence sets repeated by each source", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [source("a"), source("b", "https://other.com/recipe")],
+    claims: [
+      claim("a-one", "a", "1"),
+      claim("a-two", "a", "2"),
+      claim("b-one", "b", "1"),
+      claim("b-two", "b", "2"),
+    ],
+  };
+
+  assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
+});
+
+test("keeps subject and predicate keys distinct when text contains separator-like characters", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [source("a"), source("b", "https://other.com/recipe")],
+    claims: [
+      claim("claim-a", "a", "5", { subject: "beans::prep", predicate: "time" }),
+      claim("claim-b", "b", "10", { subject: "beans", predicate: "prep::time" }),
+    ],
+  };
+
+  assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
+});
