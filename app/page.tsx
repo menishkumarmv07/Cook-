@@ -1709,7 +1709,7 @@ export default function Home() {
           </section>
 
           <section className="profile-section" id="creator-profile">
-            <details className="profile-panel">
+            <details className="profile-panel" open={activeTool === "profile"}>
               <summary><span><strong>Kitchen & creator profile</strong><small>Saved on this device · reused in every content pack</small></span><span className="profile-chevron">＋</span></summary>
               <p className="muted">Set your voice and cooking constraints once. This V1 uses these details as content-pack guidance; it does not call an AI model or automatically translate captions.</p>
               <div className="settings-appearance-row">
@@ -1924,7 +1924,7 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2><p className="muted">{projects.length === 0 ? "Your saved recipe projects will appear here." : `${projects.length} saved recipe project${projects.length === 1 ? "" : "s"}`}</p></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup} disabled={projects.length === 0}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts} disabled={projects.length === 0}>Clear all local drafts</button></div></div>{projects.length === 0 ? <div className="empty"><h3>No saved recipes yet</h3><p>Create a recipe project first. Your drafts are stored on this device.</p><button className="secondary" type="button" onClick={() => goToSection("intake")}>Create recipe →</button></div> : <div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div>}</section>
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
