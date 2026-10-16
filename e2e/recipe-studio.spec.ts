@@ -866,3 +866,37 @@ test("manual link-list edits clear stale schedule rows before export", async ({ 
   await expect(page.getByRole("button", { name: "Export schedule JSON" })).toHaveCount(0);
   await expect(page.locator(".message")).toContainText("Build a new plan");
 });
+
+test("Plan Content and Research Studio show only their own workspace surfaces", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
+  await expect(page.locator(".schedule-preview")).toBeVisible();
+  await expect(page.locator("#daily-plan")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Research Studio", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "research");
+  await expect(page.locator("#research-trends")).toBeVisible();
+  await expect(page.locator("#daily-plan")).toBeHidden();
+  await expect(page.locator(".schedule-preview")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+});
+
+test("Library remains a useful dedicated screen when there are no saved recipes", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.removeItem("cooking-creator-v1-drafts");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Library / recent drafts");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "library");
+  await expect(page.locator("#recent-projects")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No saved recipes yet" })).toBeVisible();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+});
+
