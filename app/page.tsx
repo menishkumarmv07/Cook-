@@ -734,6 +734,9 @@ export default function Home() {
       item === "remote" ? "connections" :
       item === "scheduled" ? "content" : "research";
     navigateToTool(tool);
+    if (item === "scheduled") {
+      window.requestAnimationFrame(() => document.getElementById("schedule-links")?.focus());
+    }
   }
 
   function runQuickTask(task: "plan" | "content" | "links" | "publish" | "download") {
@@ -869,7 +872,7 @@ export default function Home() {
     const result = replyForEditedRequest(raw);
     const answer: ChatMessage = { id: makeId(), role: "assistant", text: result.text, timestamp: new Date().toISOString() };
     setChatMessages([...prefix, editedUser, answer].slice(-MAX_CHAT_HISTORY_MESSAGES));
-    setActiveTool(result.tool);
+    navigateToTool(result.tool);
     setEditingMessageId(null);
     setEditDraft("");
     setCommand("");
