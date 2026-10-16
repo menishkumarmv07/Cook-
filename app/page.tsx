@@ -478,6 +478,12 @@ export default function Home() {
 
   useEffect(() => {
     try {
+      // Give Home a real history entry so the first Up/Back action stays inside the app.
+      const currentHistoryState = window.history.state as { cookingCreatorScreen?: unknown } | null;
+      if (!currentHistoryState || !WORKSPACE_TOOLS.includes(currentHistoryState.cookingCreatorScreen as WorkspaceTool)) {
+        window.history.replaceState({ cookingCreatorScreen: "home" }, "", window.location.href);
+      }
+
       const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
       if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
         const restoredTool = savedTool as WorkspaceTool;
@@ -485,7 +491,10 @@ export default function Home() {
         toolHistoryRef.current = restoredTool === "home" ? ["home"] : ["home", restoredTool];
         if (restoredTool !== "home") {
           try {
-            window.history.pushState({ cookingCreatorScreen: restoredTool, restored: true }, "", window.location.href);
+            const currentState = window.history.state as { cookingCreatorScreen?: unknown } | null;
+            if (currentState?.cookingCreatorScreen !== restoredTool) {
+              window.history.pushState({ cookingCreatorScreen: restoredTool, restored: true }, "", window.location.href);
+            }
             screenHistoryPushedRef.current = 1;
           } catch {
             // The in-app Back button still works if browser history cannot be updated.
