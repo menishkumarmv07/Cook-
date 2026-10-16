@@ -1367,7 +1367,8 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 /* Dedicated destinations: only Home uses the conversation transcript and composer. */
 .shell:not([data-active-tool="home"]) .content > .chat-transcript,
 .shell:not([data-active-tool="home"]) .command-dock,
-.shell:not([data-active-tool="home"]) .assistant-menu-anchor {
+.shell:not([data-active-tool="home"]) .assistant-menu-anchor,
+.shell:not([data-active-tool="home"]) .quick-dock {
   display: none !important;
 }
 .screen-back-trigger { align-self: center; }
