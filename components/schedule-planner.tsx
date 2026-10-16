@@ -139,7 +139,19 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <textarea
             id="schedule-links"
             value={linksText}
-            onChange={(event) => setLinksText(event.target.value)}
+            onChange={(event) => {
+              const nextText = event.target.value;
+              const nextLinks = parseScheduleLinks(nextText);
+              setLinksText(nextText);
+              setPlan((current) => {
+                if (current.length === 0) return current;
+                const currentUrls = current.map((post) => post.url);
+                const stillMatches = currentUrls.length === nextLinks.length &&
+                  currentUrls.every((url, index) => url === nextLinks[index]);
+                return stillMatches ? current : [];
+              });
+              setMessage("Link list changed. Build a new plan to review it before exporting.");
+            }}
             rows={5}
             placeholder={"https://www.instagram.com/reel/...\nhttps://www.youtube.com/shorts/...\nOne URL per line"}
           />

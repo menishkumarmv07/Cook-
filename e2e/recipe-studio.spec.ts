@@ -791,3 +791,18 @@ test("new chat link intake replaces stale saved schedule rows", async ({ page })
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed in Plan Content");
 });
+
+test("manual link-list edits clear stale schedule rows before export", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill("https://example.com/old-manual-link");
+  await page.locator("#schedule-links-per-day").fill("1");
+  await page.locator("#schedule-days-count").fill("1");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
+
+  await page.locator("#schedule-links").fill("https://example.com/new-manual-link");
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export schedule JSON" })).toHaveCount(0);
+  await expect(page.locator(".message")).toContainText("Build a new plan");
+});
