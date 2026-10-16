@@ -3,8 +3,8 @@ name: V1 quality checks
 on:
   push:
     branches: [main]
+  # Run checks for stacked feature PRs too, not only PRs whose base is main.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
