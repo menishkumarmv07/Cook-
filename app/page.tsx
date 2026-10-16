@@ -412,7 +412,7 @@ export default function Home() {
       closeOverlays();
       menuButtonRef.current?.focus();
     }
-    function handleBrowserBack() {
+    function handleBrowserBack(event: PopStateEvent) {
       if (overlayHistoryPushedRef.current) {
         overlayHistoryPushedRef.current = false;
         setMenuOpen(false);
@@ -422,6 +422,26 @@ export default function Home() {
         return;
       }
 
+      // The browser history entry is authoritative, including after refresh/reset.
+      const poppedState = event.state as {
+        cookingCreatorScreen?: unknown;
+        cookingCreatorStack?: unknown;
+      } | null;
+      if (poppedState && WORKSPACE_TOOLS.includes(poppedState.cookingCreatorScreen as WorkspaceTool)) {
+        const restoredScreen = poppedState.cookingCreatorScreen as WorkspaceTool;
+        const savedStack = Array.isArray(poppedState.cookingCreatorStack)
+          ? poppedState.cookingCreatorStack.filter((item): item is WorkspaceTool =>
+              typeof item === "string" && WORKSPACE_TOOLS.includes(item as WorkspaceTool))
+          : [];
+        toolHistoryRef.current = savedStack.length > 0 && savedStack[savedStack.length - 1] === restoredScreen
+          ? savedStack
+          : restoredScreen === "home" ? ["home"] : ["home", restoredScreen];
+        screenHistoryPushedRef.current = Math.max(0, toolHistoryRef.current.length - 1);
+        setActiveTool(restoredScreen);
+        return;
+      }
+
+      // Compatibility fallback for older entries that have no app state.
       const history = toolHistoryRef.current;
       if (history.length > 1) {
         const previousScreens = history.slice(0, -1);
@@ -481,7 +501,7 @@ export default function Home() {
       // Give Home a real history entry so the first Up/Back action stays inside the app.
       const currentHistoryState = window.history.state as { cookingCreatorScreen?: unknown } | null;
       if (!currentHistoryState || !WORKSPACE_TOOLS.includes(currentHistoryState.cookingCreatorScreen as WorkspaceTool)) {
-        window.history.replaceState({ cookingCreatorScreen: "home" }, "", window.location.href);
+        window.history.replaceState({ cookingCreatorScreen: "home", cookingCreatorStack: ["home"] }, "", window.location.href);
       }
 
       const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
@@ -491,9 +511,16 @@ export default function Home() {
         toolHistoryRef.current = restoredTool === "home" ? ["home"] : ["home", restoredTool];
         if (restoredTool !== "home") {
           try {
-            const currentState = window.history.state as { cookingCreatorScreen?: unknown } | null;
+            const currentState = window.history.state as {
+              cookingCreatorScreen?: unknown;
+              cookingCreatorStack?: unknown;
+            } | null;
             if (currentState?.cookingCreatorScreen !== restoredTool) {
-              window.history.pushState({ cookingCreatorScreen: restoredTool, restored: true }, "", window.location.href);
+              window.history.pushState({
+                cookingCreatorScreen: restoredTool,
+                cookingCreatorStack: toolHistoryRef.current,
+                restored: true,
+              }, "", window.location.href);
             }
             screenHistoryPushedRef.current = 1;
           } catch {
@@ -636,7 +663,10 @@ export default function Home() {
       closeOverlays({ popHistory: false });
       if (overlayWasOpen) {
         try {
-          window.history.replaceState({ cookingCreatorScreen: tool }, "", window.location.href);
+          window.history.replaceState({
+            cookingCreatorScreen: tool,
+            cookingCreatorStack: toolHistoryRef.current,
+          }, "", window.location.href);
         } catch {
           // Tool selection continues even when browser history is unavailable.
         }
@@ -646,7 +676,10 @@ export default function Home() {
       closeOverlays({ popHistory: false });
       toolHistoryRef.current = [...toolHistoryRef.current, tool];
       try {
-        const state = { cookingCreatorScreen: tool };
+        const state = {
+          cookingCreatorScreen: tool,
+          cookingCreatorStack: toolHistoryRef.current,
+        };
         if (overlayWasOpen) window.history.replaceState(state, "", window.location.href);
         else window.history.pushState(state, "", window.location.href);
         screenHistoryPushedRef.current += 1;
@@ -672,7 +705,7 @@ export default function Home() {
     toolHistoryRef.current = ["home"];
     screenHistoryPushedRef.current = 0;
     try {
-      window.history.replaceState({ cookingCreatorScreen: "home" }, "", window.location.href);
+      window.history.replaceState({ cookingCreatorScreen: "home", cookingCreatorStack: ["home"] }, "", window.location.href);
     } catch {
       // Returning home still works without browser history support.
     }
@@ -693,7 +726,16 @@ export default function Home() {
       }
       const previousScreens = history.slice(0, -1);
       toolHistoryRef.current = previousScreens;
-      setActiveTool(previousScreens[previousScreens.length - 1] ?? "home");
+      const previousTool = previousScreens[previousScreens.length - 1] ?? "home";
+      try {
+        window.history.replaceState({
+          cookingCreatorScreen: previousTool,
+          cookingCreatorStack: previousScreens,
+        }, "", window.location.href);
+      } catch {
+        // The in-app screen still changes if browser history is unavailable.
+      }
+      setActiveTool(previousTool);
       return;
     }
 
@@ -705,7 +747,11 @@ export default function Home() {
     const alreadyOpen = menuOpen || taskMenuOpen || logoMenuOpen || Boolean(messageActionMenu);
     if (!alreadyOpen && !overlayHistoryPushedRef.current) {
       try {
-        window.history.pushState({ cookingCreatorOverlay: true }, "", window.location.href);
+        window.history.pushState({
+        cookingCreatorOverlay: true,
+        cookingCreatorScreen: activeTool,
+        cookingCreatorStack: toolHistoryRef.current,
+      }, "", window.location.href);
         overlayHistoryPushedRef.current = true;
       } catch {
         // Popups still work when the browser disallows a history state change.
