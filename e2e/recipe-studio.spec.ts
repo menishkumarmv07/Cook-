@@ -34,9 +34,11 @@ async function chooseMenuTool(page: import("@playwright/test").Page, label: stri
   // Tool screens are separate destinations; return to Home before opening the drawer/task menu.
   for (let attempts = 0; attempts < 20; attempts += 1) {
     if (await page.locator(".shell").getAttribute("data-active-tool") === "home") break;
+    const currentTool = await page.locator(".shell").getAttribute("data-active-tool");
     const backButton = page.getByRole("button", { name: "Back", exact: true });
     if (!(await backButton.count())) break;
     await backButton.click();
+    await expect(page.locator(".shell")).not.toHaveAttribute("data-active-tool", currentTool ?? "");
   }
   await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
 
