@@ -79,6 +79,18 @@ const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
 };
 
+const WORKSPACE_SCREEN_TITLES: Record<WorkspaceTool, string> = {
+  home: "Cooking Creator",
+  plan: "Today’s Plan",
+  content: "Plan Content",
+  research: "Research Studio",
+  publish: "Publish",
+  intake: "Recipe Studio",
+  profile: "Settings",
+  library: "Library",
+  connections: "Social Connections",
+};
+
 const SOCIAL_PLATFORMS = [
   { name: "YouTube", mark: "YT", description: "Channels and Shorts" },
   { name: "Instagram", mark: "IG", description: "Reels and food posts" },
@@ -118,7 +130,7 @@ function ChefHatLogo() {
   );
 }
 
-type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu" | "arrow-up";
+type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu" | "arrow-up" | "arrow-left";
 
 function InterfaceIcon({ name }: { name: InterfaceIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -141,6 +153,7 @@ function InterfaceIcon({ name }: { name: InterfaceIconName }) {
       {name === "close" && <><path d="m5 5 14 14M19 5 5 19" /></>}
       {name === "menu" && <><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></>}
       {name === "arrow-up" && <><path d="M12 19V5" /><path d="m5.5 11.5 6.5-6.5 6.5 6.5" /></>}
+      {name === "arrow-left" && <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>}
     </svg>
   );
 }
@@ -370,6 +383,8 @@ export default function Home() {
   const drawerCloseRef = useRef<HTMLButtonElement>(null);
   const editInputRef = useRef<HTMLTextAreaElement>(null);
   const overlayHistoryPushedRef = useRef(false);
+  const toolHistoryRef = useRef<WorkspaceTool[]>(["home"]);
+  const screenHistoryPushedRef = useRef(0);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
   const copiedToastTimerRef = useRef<number | null>(null);
@@ -398,12 +413,25 @@ export default function Home() {
       menuButtonRef.current?.focus();
     }
     function handleBrowserBack() {
-      if (!overlayHistoryPushedRef.current) return;
-      overlayHistoryPushedRef.current = false;
-      setMenuOpen(false);
-      setTaskMenuOpen(false);
-      setLogoMenuOpen(false);
-      setMessageActionMenu(null);
+      if (overlayHistoryPushedRef.current) {
+        overlayHistoryPushedRef.current = false;
+        setMenuOpen(false);
+        setTaskMenuOpen(false);
+        setLogoMenuOpen(false);
+        setMessageActionMenu(null);
+        return;
+      }
+
+      const history = toolHistoryRef.current;
+      if (history.length > 1) {
+        const previousScreens = history.slice(0, -1);
+        toolHistoryRef.current = previousScreens;
+        setActiveTool(previousScreens[previousScreens.length - 1] ?? "home");
+        screenHistoryPushedRef.current = Math.max(0, screenHistoryPushedRef.current - 1);
+        return;
+      }
+
+      if (activeTool !== "home") setActiveTool("home");
     }
     window.addEventListener("keydown", handleOverlayKeydown);
     window.addEventListener("popstate", handleBrowserBack);
@@ -411,7 +439,7 @@ export default function Home() {
       window.removeEventListener("keydown", handleOverlayKeydown);
       window.removeEventListener("popstate", handleBrowserBack);
     };
-  }, [menuOpen, taskMenuOpen, logoMenuOpen, messageActionMenu]);
+  }, [menuOpen, taskMenuOpen, logoMenuOpen, messageActionMenu, activeTool]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -452,7 +480,17 @@ export default function Home() {
     try {
       const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
       if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
-        setActiveTool(savedTool as WorkspaceTool);
+        const restoredTool = savedTool as WorkspaceTool;
+        setActiveTool(restoredTool);
+        toolHistoryRef.current = restoredTool === "home" ? ["home"] : ["home", restoredTool];
+        if (restoredTool !== "home") {
+          try {
+            window.history.pushState({ cookingCreatorScreen: restoredTool, restored: true }, "", window.location.href);
+            screenHistoryPushedRef.current = 1;
+          } catch {
+            // The in-app Back button still works if browser history cannot be updated.
+          }
+        }
       }
     } catch {
       // The default chat home remains available if browser storage is blocked.
@@ -570,15 +608,88 @@ export default function Home() {
     }
   }, [theme]);
 
-  function closeOverlays() {
+  function closeOverlays(options: { popHistory?: boolean } = {}) {
     setMenuOpen(false);
     setTaskMenuOpen(false);
     setLogoMenuOpen(false);
     setMessageActionMenu(null);
     if (overlayHistoryPushedRef.current) {
       overlayHistoryPushedRef.current = false;
-      window.history.back();
+      if (options.popHistory !== false) window.history.back();
     }
+  }
+
+  function navigateToTool(tool: WorkspaceTool) {
+    const currentScreen = toolHistoryRef.current[toolHistoryRef.current.length - 1] ?? "home";
+    const overlayWasOpen = overlayHistoryPushedRef.current;
+
+    if (currentScreen === tool) {
+      closeOverlays({ popHistory: false });
+      if (overlayWasOpen) {
+        try {
+          window.history.replaceState({ cookingCreatorScreen: tool }, "", window.location.href);
+        } catch {
+          // Tool selection continues even when browser history is unavailable.
+        }
+      }
+      setActiveTool(tool);
+    } else {
+      closeOverlays({ popHistory: false });
+      toolHistoryRef.current = [...toolHistoryRef.current, tool];
+      try {
+        const state = { cookingCreatorScreen: tool };
+        if (overlayWasOpen) window.history.replaceState(state, "", window.location.href);
+        else window.history.pushState(state, "", window.location.href);
+        screenHistoryPushedRef.current += 1;
+      } catch {
+        // The in-app Back button still works if browser history cannot be updated.
+      }
+      setActiveTool(tool);
+    }
+
+    if (tool === "profile") {
+      window.requestAnimationFrame(() => {
+        const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
+        if (details) details.open = true;
+      });
+    }
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>(".content")?.scrollTo({ top: 0, behavior: "auto" });
+    });
+  }
+
+  function resetToolNavigation() {
+    closeOverlays({ popHistory: false });
+    toolHistoryRef.current = ["home"];
+    screenHistoryPushedRef.current = 0;
+    try {
+      window.history.replaceState({ cookingCreatorScreen: "home" }, "", window.location.href);
+    } catch {
+      // Returning home still works without browser history support.
+    }
+    setActiveTool("home");
+  }
+
+  function goBackFromScreen() {
+    if (menuOpen || taskMenuOpen || logoMenuOpen || messageActionMenu) {
+      closeOverlays();
+      return;
+    }
+
+    const history = toolHistoryRef.current;
+    if (history.length > 1) {
+      if (screenHistoryPushedRef.current > 0) {
+        window.history.back();
+        return;
+      }
+      const previousScreens = history.slice(0, -1);
+      toolHistoryRef.current = previousScreens;
+      setActiveTool(previousScreens[previousScreens.length - 1] ?? "home");
+      return;
+    }
+
+    setActiveTool("home");
+    toolHistoryRef.current = ["home"];
   }
 
   function openOverlay(kind: OverlayKind, messageMenu?: MessageActionMenu) {
@@ -613,45 +724,28 @@ export default function Home() {
   }
 
   function openSettingsView() {
-    closeOverlays();
-    setActiveTool("profile");
-    window.requestAnimationFrame(() => {
-      const details = document.querySelector<HTMLDetailsElement>("#creator-profile details");
-      if (details) details.open = true;
-      document.getElementById("creator-profile")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
+    navigateToTool("profile");
   }
 
   function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore") {
-    closeOverlays();
     const tool: WorkspaceTool =
       item === "images" ? "intake" :
       item === "library" || item === "projects" ? "library" :
       item === "remote" ? "connections" :
       item === "scheduled" ? "content" : "research";
-    setActiveTool(tool);
-    const targetId =
-      item === "images" ? (current ? "recipe-editor" : "intake") :
-      item === "library" || item === "projects" ? "recent-projects" :
-      item === "remote" ? "social-connections" :
-      item === "scheduled" ? "schedule-preview-title" :
-      (current ? "recipe-editor" : "research-trends");
-    if (item === "images") {
-      setMessage("Image generation is not connected in V1. Existing cooking-trial photo uploads are available inside a recipe draft.");
-      if (!current) setActiveTool("intake");
-    }
-    window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    navigateToTool(tool);
   }
 
   function runQuickTask(task: "plan" | "content" | "links" | "publish" | "download") {
-    closeOverlays();
-    if (task === "plan") openTool("plan");
-    else if (task === "content") openTool("content");
-    else if (task === "links") {
-      openTool("content", "Links upload", "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts.");
-      window.requestAnimationFrame(() => document.getElementById("workspace-command")?.focus());
-    } else if (task === "publish") openTool("publish");
-    else exportWorkspaceBackup();
+    if (task === "plan") navigateToTool("plan");
+    else if (task === "content" || task === "links") {
+      navigateToTool("content");
+      window.requestAnimationFrame(() => document.getElementById("schedule-links")?.focus());
+    } else if (task === "publish") navigateToTool("publish");
+    else {
+      closeOverlays();
+      exportWorkspaceBackup();
+    }
   }
 
   function clearLongPressTimer() {
@@ -822,8 +916,7 @@ export default function Home() {
     setChatMessages([]);
     setCommand("");
     setSchedulePrefill("");
-    setActiveTool("home");
-    closeOverlays();
+    resetToolNavigation();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -831,8 +924,7 @@ export default function Home() {
     setActiveConversationId(conversation.id);
     setChatMessages(conversation.messages);
     setCommand("");
-    setActiveTool("home");
-    closeOverlays();
+    resetToolNavigation();
     window.requestAnimationFrame(() => document.querySelector(".chat-transcript")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
@@ -848,7 +940,7 @@ export default function Home() {
       const nextConversation = remaining[0] || null;
       setActiveConversationId(nextConversation?.id ?? null);
       setChatMessages(nextConversation?.messages ?? []);
-      setActiveTool("home");
+      resetToolNavigation();
       setCommand("");
     }
   }
@@ -902,8 +994,7 @@ export default function Home() {
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
     ensureActiveChat();
-    setActiveTool(tool);
-    closeOverlays();
+    navigateToTool(tool);
     setCommand("");
     setChatMessages((previous) => {
       const base = Date.now().toString(36) + "-" + previous.length;
@@ -913,42 +1004,18 @@ export default function Home() {
         { id: base + "-assistant", role: "assistant" as const, text: customResponse ?? responseForTool(tool), timestamp: new Date().toISOString() },
       ].slice(-MAX_CHAT_HISTORY_MESSAGES);
     });
-    const targetId =
-      tool === "home" ? "chat-transcript" :
-      tool === "plan" ? "daily-plan" :
-      tool === "content" ? "schedule-preview-title" :
-      tool === "research" ? (current ? "research-desk" : "research-trends") :
-      tool === "publish" ? (current ? "publish-queue" : "recipe-editor") :
-      tool === "intake" ? "intake" :
-      tool === "profile" ? "creator-profile" :
-      tool === "library" ? "recent-projects" : "social-connections";
-    window.requestAnimationFrame(() => {
-      document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
   }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
-    closeOverlays();
-    setActiveTool(
-      section === "plan" ? "plan" : section === "research" ? "research" :
-      section === "connections" ? "connections" : section === "publish" ? "publish" :
-      section === "intake" ? "intake" : section === "profile" ? "profile" :
-      section === "library" ? "library" : "intake"
-    );
-    const targetId =
-      section === "plan" ? "daily-plan" :
-      section === "research" ? (current ? "research-desk" : "research-trends") :
-      section === "connections" ? "social-connections" :
-      section === "studio" ? "recipe-editor" :
-      section === "publish" ? (current ? "publish-queue" : "recipe-editor") :
+    const tool: WorkspaceTool =
+      section === "plan" ? "plan" :
+      section === "research" ? "research" :
+      section === "connections" ? "connections" :
+      section === "publish" ? "publish" :
       section === "intake" ? "intake" :
-      section === "profile" ? "creator-profile" : "recent-projects";
-    if (section === "publish" && !current) {
-      setMessage("Create or open a recipe draft first. V1 supports owner-approved text export, not direct social publishing.");
-    } else if (section === "research" && !current) {
-      setMessage("Research notes are saved inside a recipe draft. Create or open a draft to add source references.");
-    }
-    document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      section === "profile" ? "profile" :
+      section === "library" ? "library" : "intake";
+    navigateToTool(tool);
   }
 
   function submitWorkspaceCommand(event: FormEvent<HTMLFormElement>) {
@@ -1489,7 +1556,7 @@ export default function Home() {
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}
         onTouchStart={handleDrawerTouchStart} onTouchEnd={handleDrawerTouchEnd}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); closeOverlays(); setActiveTool("home"); }}>
+          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); resetToolNavigation(); }}>
             <span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span>
             <span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span>
           </a>
@@ -1527,9 +1594,13 @@ export default function Home() {
       </aside>
 
       <section className="main" id="dashboard">
-        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if ((taskMenuOpen || messageActionMenu) || (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger"))) closeOverlays(); }}>
-          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
-          <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
+        <header className={logoMenuOpen ? "top has-logo-menu" : "top"} data-screen={activeTool} onPointerDown={(event) => { if ((taskMenuOpen || messageActionMenu) || (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger"))) closeOverlays(); }}>
+          {activeTool === "home" ? (
+            <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
+          ) : (
+            <button className="menu-trigger screen-back-trigger" type="button" aria-label="Back" title="Back" onClick={goBackFromScreen}><InterfaceIcon name="arrow-left" /></button>
+          )}
+          <span className="top-context"><strong>{WORKSPACE_SCREEN_TITLES[activeTool]}</strong><small>{activeTool === "home" ? "AI Cooking Content App" : "Your private cooking studio"}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <div className="assistant-menu-anchor">
             <button className="assistant-mark" type="button" aria-label="Open settings and account menu" aria-expanded={logoMenuOpen} onClick={toggleLogoMenu}><ChefHatLogo /><i aria-hidden="true" /></button>
