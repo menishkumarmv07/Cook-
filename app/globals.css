@@ -1362,3 +1362,25 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell[data-theme="dark"] .message-edit-box textarea { background: #211914; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-cancel { background: #2C211B; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-send { background: #C9704F; color: #211914; border-color: #C9704F; }
+
+
+/* Dedicated destinations: only Home uses the conversation transcript and composer. */
+.shell:not([data-active-tool="home"]) .content > .chat-transcript {
+  display: none !important;
+}
+.shell:not([data-active-tool="home"]) .command-dock {
+  display: none !important;
+}
+.shell:not([data-active-tool="home"]) .assistant-menu-anchor {
+  display: none !important;
+}
+.screen-back-trigger {
+  align-self: center;
+}
+.screen-back-trigger .interface-icon {
+  width: 22px;
+  height: 22px;
+}
+.shell:not([data-active-tool="home"]) .top-context strong {
+  font-size: 16px;
+}
