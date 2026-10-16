@@ -765,6 +765,14 @@ test("Settings has its own screen and the Back arrow restores the previous desti
   await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
   await expect(page.locator(".chat-transcript")).toBeVisible();
   await expect(page.locator(".command-dock")).toBeVisible();
+
+  // The browser/system Back action must provide the same return-to-previous-screen behavior.
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "profile");
+  await page.goBack();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
