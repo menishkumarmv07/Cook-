@@ -1604,8 +1604,8 @@ export default function Home() {
 
   return (
     <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
-      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
-      {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={closeOverlays} />}
+      {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={() => closeOverlays()} />}
+      {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={() => closeOverlays()} />}
       {messageActionMenu && <div className="message-action-popover" style={{ left: messageActionMenu.x, top: messageActionMenu.y }} role="menu" aria-label="Message actions">
         {messageActionMenu.role === "user" && <button type="button" role="menuitem" onClick={() => beginEditingMessage(messageActionMenu.id)}><InterfaceIcon name="edit" />Edit</button>}
         <button type="button" role="menuitem" onClick={() => void copyChatMessage(messageActionMenu.id)}><InterfaceIcon name="copy" />Copy</button>
