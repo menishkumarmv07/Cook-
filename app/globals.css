@@ -1384,3 +1384,41 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell:not([data-active-tool="home"]) .top-context strong {
   font-size: 16px;
 }
+
+
+/* A tool destination must show its own workspace, not the entire dashboard underneath. */
+.shell:not([data-active-tool="home"]) .content > * {
+  display: none !important;
+}
+.shell[data-active-tool="plan"] .content > #daily-plan,
+.shell[data-active-tool="content"] .content > .schedule-preview,
+.shell[data-active-tool="research"] .content > .research-hub,
+.shell[data-active-tool="connections"] .content > #social-connections,
+.shell[data-active-tool="profile"] .content > #creator-profile,
+.shell[data-active-tool="library"] .content > #recent-projects,
+.shell[data-active-tool="intake"] .content > #intake,
+.shell[data-active-tool="intake"] .content > #recipe-editor,
+.shell[data-active-tool="research"] .content > #recipe-editor,
+.shell[data-active-tool="publish"] .content > #recipe-editor {
+  display: block !important;
+}
+
+/* Research and Publish use only their relevant part of the recipe workspace. */
+.shell[data-active-tool="research"] #recipe-editor > .panel > * {
+  display: none !important;
+}
+.shell[data-active-tool="research"] #recipe-editor > .panel > .draft-head,
+.shell[data-active-tool="research"] #recipe-editor #research-desk {
+  display: block !important;
+}
+.shell[data-active-tool="publish"] #recipe-editor > .panel > * {
+  display: none !important;
+}
+.shell[data-active-tool="publish"] #recipe-editor > .panel > .draft-head,
+.shell[data-active-tool="publish"] #recipe-editor #publish-queue {
+  display: block !important;
+}
+.shell[data-active-tool="research"] #recipe-editor > .section-head,
+.shell[data-active-tool="publish"] #recipe-editor > .section-head {
+  display: block !important;
+}
