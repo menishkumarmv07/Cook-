@@ -900,3 +900,30 @@ test("Library remains a useful dedicated screen when there are no saved recipes"
   await expect(page.locator(".chat-transcript")).toBeHidden();
 });
 
+test("dedicated screens keep Home content hidden and browser Back/Forward follow the screen stack", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Creator profile");
+
+  const shell = page.locator(".shell");
+  await expect(shell).toHaveAttribute("data-active-tool", "profile");
+  await expect(page.locator("#creator-profile")).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toBeVisible();
+
+  // Browser Back and Forward must restore the tool recorded in each history entry.
+  await page.goBack();
+  await expect(shell).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
+  await expect(page.locator(".hero")).toBeVisible();
+
+  await page.goForward();
+  await expect(shell).toHaveAttribute("data-active-tool", "profile");
+  await expect(page.locator("#creator-profile")).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+
+  // The visible in-app arrow must follow the same stack as browser navigation.
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(shell).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
+});
