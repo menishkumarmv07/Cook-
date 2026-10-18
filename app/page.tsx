@@ -118,7 +118,7 @@ function ChefHatLogo() {
   );
 }
 
-type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu" | "arrow-up";
+type InterfaceIconName = "calendar" | "edit" | "link" | "upload" | "download" | "images" | "library" | "folder" | "remote" | "clock" | "explore" | "settings" | "chat" | "copy" | "close" | "menu" | "arrow-up" | "arrow-left";
 
 function InterfaceIcon({ name }: { name: InterfaceIconName }) {
   const common = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -140,6 +140,7 @@ function InterfaceIcon({ name }: { name: InterfaceIconName }) {
       {name === "copy" && <><rect x="8" y="8" width="12" height="13" rx="2" /><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h3" /></>}
       {name === "close" && <><path d="m5 5 14 14M19 5 5 19" /></>}
       {name === "menu" && <><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></>}
+      {name === "arrow-left" && <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>}
       {name === "arrow-up" && <><path d="M12 19V5" /><path d="m5.5 11.5 6.5-6.5 6.5 6.5" /></>}
     </svg>
   );
@@ -1529,8 +1530,12 @@ export default function Home() {
 
       <section className="main" id="dashboard">
         <header className={logoMenuOpen ? "top has-logo-menu" : "top"} onPointerDown={(event) => { if ((taskMenuOpen || messageActionMenu) || (logoMenuOpen && !(event.target as HTMLElement).closest(".assistant-menu-anchor, .menu-trigger"))) closeOverlays(); }}>
-          <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
-          <span className="top-context"><strong>Cooking Creator</strong><small>AI Cooking Content App</small></span>
+          {activeTool === "home" ? (
+            <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
+          ) : (
+            <button className="page-back-trigger" type="button" aria-label="Back to chat home" title="Back" onClick={() => { closeOverlays(); setActiveTool("home"); }}><InterfaceIcon name="arrow-left" /></button>
+          )}
+          <span className="top-context"><strong>{activeTool === "home" ? "Cooking Creator" : WORKSPACE_TOOL_LABELS[activeTool]}</strong><small>{activeTool === "home" ? "AI Cooking Content App" : "Cooking Creator"}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
           <div className="assistant-menu-anchor">
             <button className="assistant-mark" type="button" aria-label="Open settings and account menu" aria-expanded={logoMenuOpen} onClick={toggleLogoMenu}><ChefHatLogo /><i aria-hidden="true" /></button>
@@ -1842,7 +1847,22 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          <section className="recent" id="recent-projects">
+            <div className="section-head">
+              <div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div>
+              {projects.length > 0 && <div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div>}
+            </div>
+            {projects.length > 0 ? (
+              <div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div>
+            ) : (
+              <div className="empty recent-empty">
+                <span aria-hidden="true">▤</span>
+                <h3>No recipe drafts yet</h3>
+                <p>Create a recipe draft and it will appear here. Drafts stay on this device until you export a backup.</p>
+                <button className="primary" type="button" onClick={() => goToSection("intake")}>Start a recipe project →</button>
+              </div>
+            )}
+          </section>
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>

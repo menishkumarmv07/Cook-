@@ -57,6 +57,11 @@ test("long-press message menu copies assistant replies and edits user messages f
   await secondEditBox.fill("Today's Plan");
   await page.getByRole("button", { name: "Send", exact: true }).click();
 
+  // The command opens Today’s Plan as a separate screen; inspect persisted chat from Home.
+  if (await page.locator(".shell").getAttribute("data-active-tool") !== "home") {
+    await page.getByRole("button", { name: "Back to chat home" }).click();
+  }
+
   await expect(page.locator(".chat-message.from-user")).toHaveCount(1);
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today's Plan");
   await expect(page.locator(".chat-message.from-assistant")).toHaveCount(1);
