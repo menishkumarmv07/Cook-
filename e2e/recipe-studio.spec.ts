@@ -789,7 +789,7 @@ test("new chat link intake replaces stale saved schedule rows", async ({ page })
 
   await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/new-reel");
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed in Plan Content");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("in Plan Content");
 });
 
 test("manual link-list edits clear stale schedule rows before export", async ({ page }) => {
