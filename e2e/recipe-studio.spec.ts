@@ -883,7 +883,7 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
     claims: [],
   };
   const restoreDialogPromise = page.waitForEvent("dialog");
-  await page.getByLabel("Restore evidence backup JSON").setInputFiles({
+  const restoreFilePromise = page.getByLabel("Restore evidence backup JSON").setInputFiles({
     name: "replacement-evidence.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(replacementArchive)),
@@ -892,6 +892,7 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   expect(restoreDialog.type()).toBe("confirm");
   expect(restoreDialog.message()).toContain("replaces the current local evidence ledger");
   await restoreDialog.dismiss();
+  await restoreFilePromise;
   await expect(page.getByText("Restore cancelled. Your current evidence was not changed.")).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Replacement source", { exact: true })).toHaveCount(0);
@@ -991,7 +992,7 @@ test("V2 evidence ledger can recover an invalid saved archive from an explicit b
   };
 
   const restoreDialogPromise = page.waitForEvent("dialog");
-  await page.getByLabel("Restore evidence backup JSON").setInputFiles({
+  const restoreFilePromise = page.getByLabel("Restore evidence backup JSON").setInputFiles({
     name: "recovery-evidence.json",
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(validArchive)),
@@ -1000,6 +1001,7 @@ test("V2 evidence ledger can recover an invalid saved archive from an explicit b
   expect(restoreDialog.type()).toBe("confirm");
   expect(restoreDialog.message()).toContain("current evidence ledger could not be loaded");
   await restoreDialog.accept();
+  await restoreFilePromise;
 
   await expect(page.getByText("Evidence backup restored. Review the source records before relying on them.")).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
@@ -1029,17 +1031,19 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   const cancelDialogPromise = page.waitForEvent("dialog");
-  await page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
+  const cancelClickPromise = page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
   const cancelDialog = await cancelDialogPromise;
-  await expect(cancelDialog.message()).toContain("linked claim");
+  expect(cancelDialog.message()).toContain("linked claim");
   await cancelDialog.dismiss();
+  await cancelClickPromise;
   await expect(page.getByText("Source to remove", { exact: true })).toBeVisible();
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   const confirmDialogPromise = page.waitForEvent("dialog");
-  await page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
+  const confirmClickPromise = page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
   const confirmDialog = await confirmDialogPromise;
   await confirmDialog.accept();
+  await confirmClickPromise;
   await expect(page.getByText("Source to remove", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/salt · quantity: 1/)).toHaveCount(0);
   await expect(page.getByText("0 sources")).toBeVisible();
