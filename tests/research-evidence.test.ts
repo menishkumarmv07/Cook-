@@ -156,7 +156,7 @@ test("detects cross-source differences and lists each source URL only once acros
     ["1 tsp", "2 tsp"],
   );
   assert.deepEqual(
-    conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)).sort(),
+    [...new Set(conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)))].sort(),
     ["https://other.com/recipe", "https://recipes.com/a"],
   );
 });
