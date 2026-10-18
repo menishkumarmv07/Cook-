@@ -31,6 +31,17 @@ async function signInOwner(page: import("@playwright/test").Page) {
 }
 
 async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  // Tool screens are separate destinations; return to Home before opening the drawer/task menu.
+  for (let attempts = 0; attempts < 20; attempts += 1) {
+    if (await page.locator(".shell").getAttribute("data-active-tool") === "home") break;
+    const currentTool = await page.locator(".shell").getAttribute("data-active-tool");
+    const backButton = page.getByRole("button", { name: "Back", exact: true });
+    if (!(await backButton.count())) break;
+    await backButton.click();
+    await expect(page.locator(".shell")).not.toHaveAttribute("data-active-tool", currentTool ?? "");
+  }
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+
   if (label === "Today's Plan" || label === "Plan Content") {
     await page.getByRole("button", { name: "Choose a task" }).click();
     const taskLabel = label === "Today's Plan" ? "Today's plan" : "Plan content";
@@ -243,6 +254,8 @@ test("navigation drawer, Settings appearance, and workspace command work and per
   await page.reload();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
   await chooseMenuTool(page, "New recipe");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
   await page.locator("#workspace-command").fill("new recipe");
   await page.getByRole("button", { name: "Send message" }).click();
   await expect(page.locator("#name")).toBeVisible();
@@ -267,6 +280,8 @@ test("social connection center shows honest OAuth readiness without collecting s
   await expect(center.locator('input[type="password"]')).toHaveCount(0);
   await expect(center.getByText(/never asks for social passwords/i)).toBeVisible();
 
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByRole("button", { name: "Remote", exact: true })).toBeVisible();
 });
@@ -687,13 +702,21 @@ test("pasting a supported recipe or video URL into the chat dock prefills intake
   await expect(page.locator("#name")).toBeVisible();
 });
 
-test("chat menu selections are shown in the transcript and pasted links prefill Plan Content", async ({ page }) => {
+test("tool menu opens a dedicated screen and typed links prefill Plan Content", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 
   await chooseMenuTool(page, "Today's Plan");
-  await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "plan");
+  await expect(page.locator(".top-context strong")).toHaveText("Today’s Plan");
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+  await expect(page.locator(".command-dock")).toBeHidden();
+  await expect(page.getByRole("heading", { name: "Your next useful step" })).toBeVisible();
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
+  await expect(page.locator(".command-dock")).toBeVisible();
 
   // Use 11 links here to prove chat intake is not limited to the old seven-link preset.
   const links = Array.from({ length: 11 }, (_, index) => `https://example.com/reel-${index + 1}`);
@@ -713,9 +736,43 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
   await page.reload();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
+  await expect(page.locator(".top-context strong")).toHaveText("Plan Content");
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+  await expect(page.locator(".command-dock")).toBeHidden();
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 11 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+});
+
+test("Settings has its own screen and the Back arrow restores the previous destination", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "profile");
+  await expect(page.locator(".top-context strong")).toHaveText("Settings");
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toBeVisible();
+  await expect(page.locator("#creator-profile")).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+  await expect(page.locator(".command-dock")).toBeHidden();
+
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+  await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeVisible();
+  await expect(page.locator(".command-dock")).toBeVisible();
+
+  // The browser/system Back action must provide the same return-to-previous-screen behavior.
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "profile");
+  await page.goBack();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
@@ -784,6 +841,9 @@ test("new chat link intake replaces stale saved schedule rows", async ({ page })
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
 
   await page.reload();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
   await page.locator("#workspace-command").fill("Plan this new link https://example.com/new-reel");
   await page.getByRole("button", { name: "Send message" }).click();
 
@@ -805,4 +865,65 @@ test("manual link-list edits clear stale schedule rows before export", async ({ 
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Export schedule JSON" })).toHaveCount(0);
   await expect(page.locator(".message")).toContainText("Build a new plan");
+});
+
+test("Plan Content and Research Studio show only their own workspace surfaces", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
+  await expect(page.locator(".schedule-preview")).toBeVisible();
+  await expect(page.locator("#daily-plan")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await page.getByRole("button", { name: "Research Studio", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "research");
+  await expect(page.locator("#research-trends")).toBeVisible();
+  await expect(page.locator("#daily-plan")).toBeHidden();
+  await expect(page.locator(".schedule-preview")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+});
+
+test("Library remains a useful dedicated screen when there are no saved recipes", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.removeItem("cooking-creator-v1-drafts");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Library / recent drafts");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "library");
+  await expect(page.locator("#recent-projects")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No saved recipes yet" })).toBeVisible();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+});
+
+test("dedicated screens keep Home content hidden and browser Back/Forward follow the screen stack", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Creator profile");
+
+  const shell = page.locator(".shell");
+  await expect(shell).toHaveAttribute("data-active-tool", "profile");
+  await expect(page.locator("#creator-profile")).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+  await expect(page.locator(".hero")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Back", exact: true })).toBeVisible();
+
+  // Browser Back and Forward must restore the tool recorded in each history entry.
+  await page.goBack();
+  await expect(shell).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
+  await expect(page.locator(".hero")).toBeVisible();
+
+  await page.goForward();
+  await expect(shell).toHaveAttribute("data-active-tool", "profile");
+  await expect(page.locator("#creator-profile")).toBeVisible();
+  await expect(page.locator(".chat-transcript")).toBeHidden();
+
+  // The visible in-app arrow must follow the same stack as browser navigation.
+  await page.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(shell).toHaveAttribute("data-active-tool", "home");
+  await expect(page.locator(".chat-transcript")).toBeVisible();
 });
