@@ -58,7 +58,7 @@ test("creates and validates an empty versioned archive", () => {
 test("supports optional MM:SS or HH:MM:SS timestamps on evidence claims", () => {
   const archive = {
     ...createEmptyResearchEvidenceArchive(capturedAt),
-    sources: [source("video-source", "https://video.example.com/watch")],
+    sources: [source("video-source", "https://video-site.com/watch")],
     claims: [claim("timestamped-claim", "video-source", "2 tbsp", { mediaTimestamp: "01:23" })],
   };
   assert.deepEqual(parseResearchEvidenceArchive(archive), archive);
