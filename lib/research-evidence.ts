@@ -31,6 +31,8 @@ export type ResearchEvidenceClaim = {
   value: string;
   unit: string;
   excerpt: string;
+  /** Optional source-media timestamp (MM:SS or HH:MM:SS), e.g. 01:23. */
+  mediaTimestamp?: string;
   capturedAt: string;
   reviewStatus: EvidenceReviewStatus;
 };
@@ -134,6 +136,7 @@ function validClaim(value: unknown): value is ResearchEvidenceClaim {
   if (!isBoundedString(value.subject, 1, 240) || !isBoundedString(value.predicate, 1, 120)) return false;
   if (!isBoundedString(value.value, 1, 2_000) || !isBoundedString(value.unit, 0, 80)) return false;
   if (!isBoundedString(value.excerpt, 0, 1_600) || !isTimestamp(value.capturedAt)) return false;
+  if (value.mediaTimestamp !== undefined && (typeof value.mediaTimestamp !== "string" || value.mediaTimestamp.length > 16 || !/^(?:\\d{1,3}:)?[0-5]?\\d:[0-5]\\d(?:\\.\\d{1,3})?$/.test(value.mediaTimestamp))) return false;
   if (typeof value.reviewStatus !== "string" || !REVIEW_STATUSES.includes(value.reviewStatus as EvidenceReviewStatus)) return false;
   return true;
 }
