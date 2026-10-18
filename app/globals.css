@@ -1362,3 +1362,36 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell[data-theme="dark"] .message-edit-box textarea { background: #211914; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-cancel { background: #2C211B; color: #F6EEE7; border-color: #514034; }
 .shell[data-theme="dark"] .message-edit-send { background: #C9704F; color: #211914; border-color: #C9704F; }
+
+
+/* Separate, app-like screens: keep the conversation on Home and give every tool its own focused view. */
+.shell .page-back-trigger {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--chat-terracotta-deep, #4A2A1D);
+  cursor: pointer;
+  transition: background-color 160ms ease, transform 180ms ease;
+}
+.shell .page-back-trigger:hover { background: var(--chat-soft, #F3E7D0); }
+.shell .page-back-trigger:active { transform: translateX(-2px); }
+.shell .page-back-trigger .interface-icon { width: 25px; height: 25px; }
+.shell[data-active-tool]:not([data-active-tool="home"]) .chat-transcript { display: none !important; }
+.shell[data-active-tool]:not([data-active-tool="home"]) .command-dock,
+.shell[data-active-tool]:not([data-active-tool="home"]) .quick-dock { display: none !important; }
+.shell[data-active-tool]:not([data-active-tool="home"]) .content > :not(.chat-transcript):not(footer) {
+  animation: workspace-screen-enter 220ms cubic-bezier(.2,.75,.25,1) both;
+}
+@keyframes workspace-screen-enter {
+  from { opacity: 0; transform: translateX(10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell .page-back-trigger { transition: none; }
+  .shell[data-active-tool]:not([data-active-tool="home"]) .content > :not(.chat-transcript):not(footer) { animation: none; }
+}
