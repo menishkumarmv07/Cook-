@@ -1170,7 +1170,7 @@ html, body { width:100%; max-width:100%; overflow-x:clip; }
 .shell .command-submit .interface-icon { width:24px; height:24px; }
 .shell .command-submit:hover { background:#A65319; }
 .shell .task-popover { position:absolute; z-index:72; left:12px; bottom:calc(100% + 8px); display:flex; flex-direction:column; gap:3px; width:min(286px,calc(100vw - 24px)); padding:7px; border:1px solid #E1C59E; border-top:5px solid #B96322; border-radius:24px; background:#F7E5C5; color:#432A20; box-shadow:0 12px 30px rgba(79,44,23,.18); opacity:0; visibility:hidden; pointer-events:none; transform:translateY(7px) scale(.88); transform-origin:bottom left; transition:opacity .2s ease,transform .2s ease,visibility .2s; }
-.shell .task-popover.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); }
+.shell .task-popover.is-open { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(-1px) scale(1); }
 .shell .task-popover button { display:flex; width:100%; min-height:51px; align-items:center; gap:12px; padding:6px 9px; border:0; border-radius:14px; background:transparent; color:#432A20; text-align:left; font-size:15px; font-weight:650; }
 .shell .task-popover button:hover, .shell .task-popover button:focus-visible { background:rgba(255,252,241,.62); }
 .shell .task-icon { display:grid; flex:0 0 44px; width:44px; height:44px; place-items:center; border-radius:50%; background:#DEC49F; color:#553729; }
