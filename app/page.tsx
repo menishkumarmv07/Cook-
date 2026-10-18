@@ -1117,7 +1117,7 @@ export default function Home() {
       "Transcript text (preserved as supplied):",
       transcript,
       "Review note: this transcript was supplied by the creator; the app has not verified it against the video's audio or frames. Check ingredient quantities, action order, timing, heat, doneness, allergens, and food safety against the original source. Unclear details must remain unconfirmed rather than guessed.",
-    ].join("\\n\\n");
+    ].join("\n\n");
     if (transcriptNotes.length > 4_800) {
       setMessage("This transcript is too long for the recipe-notes limit. Shorten it before adding it.");
       return;
@@ -1127,7 +1127,7 @@ export default function Home() {
       setMessage("The transcript would exceed the 4,800-character recipe-notes limit. Shorten or export the existing notes first.");
       return;
     }
-    setNotes(existingNotes ? `${existingNotes}\\n\\n${transcriptNotes}` : transcriptNotes);
+    setNotes(existingNotes ? `${existingNotes}\n\n${transcriptNotes}` : transcriptNotes);
     setVideoTranscript("");
     setMessage("Creator-provided transcript added with its source URL. It is not verified against the video; review it before use.");
   }
