@@ -55,6 +55,24 @@ test("creates and validates an empty versioned archive", () => {
   assert.equal(parseResearchEvidenceArchive({ ...archive, version: 2 }), null);
 });
 
+test("supports optional MM:SS or HH:MM:SS timestamps on evidence claims", () => {
+  const archive = {
+    ...createEmptyResearchEvidenceArchive(capturedAt),
+    sources: [source("video-source", "https://video.example.com/watch")],
+    claims: [claim("timestamped-claim", "video-source", "2 tbsp", { mediaTimestamp: "01:23" })],
+  };
+  assert.deepEqual(parseResearchEvidenceArchive(archive), archive);
+
+  const invalidTimestamp = {
+    ...archive,
+    claims: [claim("invalid-timestamp", "video-source", "2 tbsp", { mediaTimestamp: "99:99" })],
+  };
+  assert.equal(parseResearchEvidenceArchive(invalidTimestamp), null);
+
+  const legacyClaim = claim("legacy-claim", "video-source", "2 tbsp");
+  assert.equal(parseResearchEvidenceArchive({ ...archive, claims: [legacyClaim] })?.claims[0].mediaTimestamp, undefined);
+});
+
 test("accepts HTTP(S) source links without credentials and rejects unsafe URL forms", () => {
   assert.equal(isHttpSourceUrl("https://recipes.com/dish"), true);
   assert.equal(isHttpSourceUrl("http://recipes.com/dish"), true);
