@@ -752,6 +752,7 @@ export default function Home() {
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
     if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts." };
+    if (/today[’\u0027]s plan|my plan|daily plan|next step/.test(request)) return { tool: "plan", text: responseForTool("plan") };
     if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) return { tool: "content", text: responseForTool("content") };
     if (/connect|accounts?|integration|social|remote/.test(request)) return { tool: "connections", text: responseForTool("connections") };
     if (/new recipe|create recipe|start recipe|add recipe|images/.test(request)) return { tool: "intake", text: responseForTool("intake") };
