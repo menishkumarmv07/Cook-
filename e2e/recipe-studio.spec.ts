@@ -843,8 +843,10 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await page.locator("#evidence-claim-value").fill("1");
   await page.locator("#evidence-claim-unit").fill("tsp");
   await page.locator("#evidence-claim-excerpt").fill("Source A lists one teaspoon.");
+  await page.locator("#evidence-claim-media-timestamp").fill("01:23");
   await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
   await expect(page.getByText(/salt · quantity: 1 tsp/)).toBeVisible();
+  await expect(page.getByText("Video timestamp: 01:23")).toBeVisible();
 
   await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source B" });
   await page.locator("#evidence-claim-subject").fill("salt");
