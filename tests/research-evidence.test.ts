@@ -5,6 +5,7 @@ import {
   findPotentialEvidenceConflicts,
   isHttpSourceUrl,
   mergeResearchEvidence,
+  normalizeEvidenceSourceIdentity,
   normalizeEvidenceText,
   parseResearchEvidenceArchive,
   researchEvidenceArchiveByteSize,
@@ -158,6 +159,21 @@ test("detects cross-source differences and lists each source URL only once acros
   assert.deepEqual(
     [...new Set(conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)))].sort(),
     ["https://other.com/recipe", "https://recipes.com/a"],
+  );
+});
+
+test("canonical source identity normalizes fragments, trailing slashes, host case and default ports without erasing query identity", () => {
+  assert.equal(
+    normalizeEvidenceSourceIdentity("https://RECIPES.com:443/pasta///#ingredients"),
+    "https://recipes.com/pasta",
+  );
+  assert.equal(
+    normalizeEvidenceSourceIdentity("https://recipes.com/pasta?servings=2#ingredients"),
+    "https://recipes.com/pasta?servings=2",
+  );
+  assert.notEqual(
+    normalizeEvidenceSourceIdentity("https://recipes.com/pasta?servings=2"),
+    normalizeEvidenceSourceIdentity("https://recipes.com/pasta?servings=4"),
   );
 });
 

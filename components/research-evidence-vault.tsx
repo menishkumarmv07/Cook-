@@ -7,6 +7,7 @@ import {
   findPotentialEvidenceConflicts,
   isHttpSourceUrl,
   mergeResearchEvidence,
+  normalizeEvidenceSourceIdentity,
   parseResearchEvidenceArchive,
   researchEvidenceArchiveFitsByteLimit,
   type ResearchCaptureMethod,
@@ -231,17 +232,6 @@ async function restoreOverMissingOrInvalidArchive(
   }
 }
 
-function canonicalSourceIdentity(value: string): string {
-  try {
-    const url = new URL(value);
-    url.hash = "";
-    if (url.pathname.length > 1) url.pathname = url.pathname.replace(/\/+$/, "") || "/";
-    return url.href;
-  } catch {
-    return value.trim();
-  }
-}
-
 function makeRecordId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -367,12 +357,12 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
     }
 
     const sourceTitle = (recipe?.name.trim() || inspectedSource.title.trim() || finalUrl).slice(0, 500);
-    const sourceIdentity = canonicalSourceIdentity(finalUrl);
+    const sourceIdentity = normalizeEvidenceSourceIdentity(finalUrl);
     // A re-inspection of one canonical URL updates the existing source record.
     // It must not create a fake "independent" source merely because the title,
     // publisher metadata, or extracted recipe fields changed.
     const existingSource = archive.sources.find((existing) =>
-      canonicalSourceIdentity(existing.url) === sourceIdentity
+      normalizeEvidenceSourceIdentity(existing.url) === sourceIdentity
     );
     const missingCandidates = candidates.filter((candidate) => !(
       existingSource && archive.claims.some((claim) =>
@@ -436,8 +426,8 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
       setError("Enter a valid public-looking HTTP(S) URL without credentials or a custom port. Saving a URL does not inspect or verify its page.");
       return;
     }
-    const canonicalUrl = canonicalSourceIdentity(normalizedUrl);
-    const existingSource = archive.sources.find((source) => canonicalSourceIdentity(source.url) === canonicalUrl);
+    const canonicalUrl = normalizeEvidenceSourceIdentity(normalizedUrl);
+    const existingSource = archive.sources.find((source) => normalizeEvidenceSourceIdentity(source.url) === canonicalUrl);
     if (existingSource) {
       setSelectedSourceId(existingSource.id);
       setError("");

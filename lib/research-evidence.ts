@@ -252,7 +252,7 @@ export function mergeResearchEvidence(
  * Canonical identity for conflict checking. A fragment or trailing slash does
  * not make a page an independent source. Query parameters remain significant.
  */
-function normalizeEvidenceSourceIdentity(value: string): string {
+export function normalizeEvidenceSourceIdentity(value: string): string {
   try {
     const url = new URL(value);
     url.hash = "";
