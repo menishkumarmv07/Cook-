@@ -1397,43 +1397,15 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 }
 
 
-/* Focused workspace screens: render only the active tool, not the dashboard stacked below chat. */
-.shell .page-back-trigger { color: #F4E3C5; }
-.shell[data-active-tool]:not([data-active-tool="home"]) .content > * {
-  display: none !important;
-}
-.shell[data-active-tool="plan"] .content > .plan-card,
-.shell[data-active-tool="content"] .content > .schedule-preview,
-.shell[data-active-tool="research"] .content > .research-hub,
-.shell[data-active-tool="publish"] .content > #recipe-editor,
-.shell[data-active-tool="intake"] .content > #intake,
-.shell[data-active-tool="profile"] .content > .profile-section,
-.shell[data-active-tool="library"] .content > #recent-projects,
-.shell[data-active-tool="connections"] .content > .connection-hub {
-  display: block !important;
-}
-.shell[data-active-tool="research"][data-has-current="true"] .content > #recipe-editor {
-  display: block !important;
-}
-.shell[data-active-tool="publish"][data-has-current="false"] .content > #intake {
-  display: block !important;
-}
-.shell[data-active-tool="library"] .content > #intake {
-  display: block !important;
+/* Dedicated screen framing. Tool visibility is controlled by the established ID-based selectors above. */
+.shell .page-back-trigger {
+  color: inherit;
 }
 .shell[data-active-tool]:not([data-active-tool="home"]) .content {
-  min-height: calc(100dvh - 72px);
+  min-height: calc(100dvh - 74px);
   padding-top: 18px;
   padding-bottom: max(24px, env(safe-area-inset-bottom));
 }
-.shell[data-active-tool]:not([data-active-tool="home"]) .content > :not(footer) {
-  animation: workspace-screen-enter 240ms cubic-bezier(.2,.75,.25,1) both;
-}
 .shell[data-active-tool]:not([data-active-tool="home"]) .content > footer {
   display: none !important;
-}
-@media (prefers-reduced-motion: reduce) {
-  .shell[data-active-tool]:not([data-active-tool="home"]) .content > :not(footer) {
-    animation: none;
-  }
 }
