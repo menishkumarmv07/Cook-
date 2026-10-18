@@ -269,6 +269,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
   const [value, setValue] = useState("");
   const [unit, setUnit] = useState("");
   const [excerpt, setExcerpt] = useState("");
+  const [mediaTimestamp, setMediaTimestamp] = useState("");
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
   const saveLock = useRef(false);
@@ -483,6 +484,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
       value: value.trim(),
       unit: unit.trim(),
       excerpt: excerpt.trim(),
+      mediaTimestamp: mediaTimestamp.trim() || undefined,
       capturedAt: now,
       reviewStatus: "unreviewed",
     };
@@ -497,6 +499,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
       setValue("");
       setUnit("");
       setExcerpt("");
+      setMediaTimestamp("");
     }
   }
 
@@ -679,6 +682,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
               <div><label htmlFor="evidence-claim-predicate">Field</label><input id="evidence-claim-predicate" required maxLength={120} value={predicate} onChange={(event) => setPredicate(event.target.value)} placeholder="e.g. quantity" /></div>
               <div><label htmlFor="evidence-claim-value">Claimed value</label><input id="evidence-claim-value" required maxLength={2000} value={value} onChange={(event) => setValue(event.target.value)} placeholder="e.g. 1" /></div>
               <div><label htmlFor="evidence-claim-unit">Unit (optional)</label><input id="evidence-claim-unit" maxLength={80} value={unit} onChange={(event) => setUnit(event.target.value)} placeholder="e.g. tsp" /></div>
+              <div><label htmlFor="evidence-claim-media-timestamp">Video timestamp (optional)</label><input id="evidence-claim-media-timestamp" value={mediaTimestamp} onChange={(event) => setMediaTimestamp(event.target.value)} maxLength={16} pattern="(?:[0-9]{1,3}:)?[0-5]?[0-9]:[0-5][0-9](?:\\.[0-9]{1,3})?" placeholder="e.g. 01:23 or 00:01:23" title="Use MM:SS or HH:MM:SS, optionally with milliseconds." /></div>
               <div><label htmlFor="evidence-claim-excerpt">Short source excerpt / context (optional)</label><textarea id="evidence-claim-excerpt" rows={2} maxLength={1600} value={excerpt} onChange={(event) => setExcerpt(event.target.value)} placeholder="Brief note or excerpt; avoid copying long passages." /></div>
             </div>
             <button className="primary" type="submit" disabled={busy || saving}>＋ Save unreviewed claim</button>
@@ -704,6 +708,7 @@ export default function ResearchEvidenceVault({ inspectedSource = null, onImport
               return <article className="research-evidence-record" key={claim.id}>
                 <strong>{claim.subject} · {claim.predicate}: {claim.value}{claim.unit ? ` ${claim.unit}` : ""}</strong>
                 <small>Status: {claim.reviewStatus} · Source: {source?.title || source?.url || "missing source"}</small>
+                {claim.mediaTimestamp && <small>Video timestamp: {claim.mediaTimestamp}</small>}
                 {claim.excerpt && <p>{claim.excerpt}</p>}
                 <div className="research-evidence-review-actions">
                   <button className="secondary" type="button" disabled={saving || claim.reviewStatus === "accepted"} onClick={() => setClaimReviewStatus(claim.id, "accepted")}>Mark reviewed</button>
