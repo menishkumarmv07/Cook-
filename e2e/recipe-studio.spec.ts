@@ -31,10 +31,23 @@ async function signInOwner(page: import("@playwright/test").Page) {
 }
 
 async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  // Tools are dedicated screens. Return Home before opening another tool or using chat.
+  const activeTool = await page.locator(".shell").getAttribute("data-active-tool");
+  if (activeTool && activeTool !== "home") {
+    await page.getByRole("button", { name: "Back to chat home" }).click();
+    await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "home");
+  }
+
   if (label === "Today's Plan" || label === "Plan Content") {
     await page.getByRole("button", { name: "Choose a task" }).click();
     const taskLabel = label === "Today's Plan" ? "Today's plan" : "Plan content";
     await page.getByRole("button", { name: taskLabel, exact: true }).click();
+    return;
+  }
+
+  if (label === "Creator profile") {
+    await page.getByRole("button", { name: "Open settings and account menu" }).click();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
     return;
   }
 
@@ -47,12 +60,12 @@ async function chooseMenuTool(page: import("@playwright/test").Page, label: stri
     await page.getByRole("button", { name: "Images", exact: true }).click();
     return;
   }
-  if (label === "Creator profile") {
-    await page.getByRole("button", { name: "Settings", exact: true }).click();
-    return;
-  }
   if (label === "Library / recent drafts") {
     await page.getByRole("button", { name: "Library", exact: true }).click();
+    return;
+  }
+  if (label === "Connect social accounts" || label === "Remote") {
+    await page.getByRole("button", { name: "Remote", exact: true }).click();
     return;
   }
   await page.getByRole("button", { name: label, exact: true }).click();
@@ -243,9 +256,15 @@ test("navigation drawer, Settings appearance, and workspace command work and per
   await page.reload();
   await expect(page.locator(".shell")).toHaveAttribute("data-theme", "dark");
   await chooseMenuTool(page, "New recipe");
+  await expect(page.locator("#name")).toBeVisible();
+
+  // Chat commands are sent from Home; the destination tool opens as its own screen.
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await page.locator("#workspace-command").fill("new recipe");
   await page.getByRole("button", { name: "Send message" }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "intake");
   await expect(page.locator("#name")).toBeVisible();
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await expect(page.locator("#workspace-command")).toHaveValue("");
 });
 
@@ -267,8 +286,11 @@ test("social connection center shows honest OAuth readiness without collecting s
   await expect(center.locator('input[type="password"]')).toHaveCount(0);
   await expect(center.getByText(/never asks for social passwords/i)).toBeVisible();
 
+  // Remote in the drawer opens the same feature as the chat command, on its own screen.
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await page.getByRole("button", { name: "Open navigation menu" }).click();
-  await expect(page.getByRole("button", { name: "Remote", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remote", exact: true }).click();
+  await expect(center.getByRole("heading", { name: "Connect your social accounts" })).toBeVisible();
 });
 
 test("source research desk records references and exports uncertainty honestly", async ({ page }) => {
@@ -692,6 +714,9 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 
   await chooseMenuTool(page, "Today's Plan");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "plan");
+  await expect(page.locator("#daily-plan")).toBeVisible();
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
@@ -701,8 +726,7 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await page.locator("#workspace-command").fill(request);
   await page.getByRole("button", { name: "Send message" }).click();
 
-  await expect(page.locator(".chat-message.from-user").last()).toContainText(`Take these ${links.length} Reels`);
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
@@ -713,9 +737,11 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
   await page.reload();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "content");
+  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 11 Reels");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
-  await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
 test("chat dock rejects non-HTTP(S) links rather than adding them as recipe sources", async ({ page }) => {
@@ -784,6 +810,8 @@ test("new chat link intake replaces stale saved schedule rows", async ({ page })
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
 
   await page.reload();
+  // The active screen is restored after reload; return Home to send a new chat command.
+  await page.getByRole("button", { name: "Back to chat home" }).click();
   await page.locator("#workspace-command").fill("Plan this new link https://example.com/new-reel");
   await page.getByRole("button", { name: "Send message" }).click();
 
