@@ -834,3 +834,16 @@ test("manual link-list edits clear stale schedule rows before export", async ({ 
   await expect(page.getByRole("button", { name: "Export schedule JSON" })).toHaveCount(0);
   await expect(page.locator(".message")).toContainText("Build a new plan");
 });
+test("Library has an empty state and tool screens have a back button", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open navigation menu" }).click();
+  await page.getByRole("button", { name: "Library", exact: true }).click();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "library");
+  await expect(page.getByRole("heading", { name: "No recipe drafts yet" })).toBeVisible();
+  await expect(page.locator("#workspace-command")).toBeHidden();
+  await expect(page.getByRole("button", { name: "Back to chat home" })).toBeVisible();
+  await page.getByRole("button", { name: "Start a recipe project" }).click();
+  await expect(page.locator("#name")).toBeVisible();
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "intake");
+  await page.getByRole("button", { name: "Back to chat home" }).click();
+});
