@@ -96,7 +96,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
   await expect(page.getByLabel("Action / instruction").nth(0)).toHaveValue("Fold in the rice");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("lemon-rice.json");
 });
@@ -465,7 +465,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   await expect(pack).toContainText("Follow this step-by-step Tomato pasta tutorial.");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(download.suggestedFilename()).toBe("tomato-pasta.json");
@@ -757,7 +757,7 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await page.getByRole("button", { name: "Send message" }).click();
 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
@@ -769,7 +769,7 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
 
   await page.reload();
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
@@ -824,8 +824,8 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await page.locator("#name").fill("Evidence ledger test recipe");
   await page.locator("#servings").fill("2");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
-  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
 
   await page.locator("#evidence-source-url").fill("https://example.com/recipe-a");
   await page.locator("#evidence-source-title").fill("Recipe source A");
@@ -861,7 +861,7 @@ test("V2 evidence ledger saves sources and claims locally, flags possible disagr
   await expect(page.getByText("Source B lists two teaspoons.")).toBeVisible();
 
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
   await expect(page.getByText("1 possible disagreements")).toBeVisible();
@@ -903,7 +903,7 @@ test("V2 evidence ledger rejects stale writes from another tab without losing ne
   await page.locator("#name").fill("Cross-tab evidence test");
   await page.locator("#servings").fill("2");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
 
   await page.locator("#evidence-source-url").fill("https://example.com/shared-source-a");
   await page.locator("#evidence-source-title").fill("Shared source A");
@@ -914,7 +914,7 @@ test("V2 evidence ledger rejects stale writes from another tab without losing ne
   const secondPage = await page.context().newPage();
   try {
     await secondPage.goto("/");
-    await expect(secondPage.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
     await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
 
     // The first tab advances the stored archive after the second tab has loaded.
@@ -931,7 +931,7 @@ test("V2 evidence ledger rejects stale writes from another tab without losing ne
     await expect(page.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
 
     await secondPage.reload();
-    await expect(secondPage.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
     await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
     await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
     await expect(secondPage.locator(".research-evidence-list").first().getByText("Stale source C", { exact: true })).toHaveCount(0);
@@ -946,7 +946,7 @@ test("V2 evidence ledger can recover an invalid saved archive from an explicit b
   await page.locator("#name").fill("Evidence recovery test");
   await page.locator("#servings").fill("2");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
 
   // Simulate a malformed archive left by an old build, interrupted migration,
   // or browser-side corruption. The application must not silently overwrite it.
@@ -970,7 +970,7 @@ test("V2 evidence ledger can recover an invalid saved archive from an explicit b
   });
 
   await page.reload();
-  await expect(page.getByRole("alert")).toContainText("saved evidence archive failed validation");
+  await expect(page.locator(".research-evidence-vault .research-evidence-error")).toContainText("saved evidence archive failed validation");
   await expect(page.getByLabel("Restore evidence backup JSON")).toBeEnabled();
 
   const backupTimestamp = new Date().toISOString();
@@ -1006,7 +1006,7 @@ test("V2 evidence ledger can recover an invalid saved archive from an explicit b
 
   // The recovered archive should survive another full component reload.
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Evidence ledger" })).toBeVisible();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
   await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
 });
 
@@ -1016,7 +1016,7 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await page.locator("#name").fill("Evidence deletion test");
   await page.locator("#servings").fill("2");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
 
   await page.locator("#evidence-source-url").fill("https://delete-test.example.com/recipe");
   await page.locator("#evidence-source-title").fill("Source to remove");
@@ -1029,7 +1029,7 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   const cancelDialogPromise = page.waitForEvent("dialog");
-  await page.getByRole("button", { name: "Remove source and linked claims" }).click();
+  await page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
   const cancelDialog = await cancelDialogPromise;
   await expect(cancelDialog.message()).toContain("linked claim");
   await cancelDialog.dismiss();
@@ -1037,7 +1037,7 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   const confirmDialogPromise = page.waitForEvent("dialog");
-  await page.getByRole("button", { name: "Remove source and linked claims" }).click();
+  await page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" }).getByRole("button", { name: "Remove source and linked claims", exact: true }).click();
   const confirmDialog = await confirmDialogPromise;
   await confirmDialog.accept();
   await expect(page.getByText("Source to remove", { exact: true })).toHaveCount(0);
@@ -1054,7 +1054,7 @@ test("US audience scheduling supports multiple time zones and values beyond the 
     "https://example.com/one",
     "https://example.com/two",
     "https://example.com/three",
-  ].join("\\n"));
+  ].join(String.fromCharCode(10)));
 
   await page.locator("#schedule-audience-timezone").selectOption("America/Los_Angeles");
 
@@ -1109,7 +1109,7 @@ test("V2 evidence ledger reuses an existing canonical source instead of duplicat
   await page.locator("#name").fill("Canonical source deduplication test");
   await page.locator("#servings").fill("2");
   await page.getByRole("button", { name: /Create recipe draft/ }).click();
-  await page.getByRole("heading", { name: "Evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
 
   await page.locator("#evidence-source-url").fill("https://example.com/same-recipe#ingredients");
   await page.locator("#evidence-source-title").fill("Original source");
