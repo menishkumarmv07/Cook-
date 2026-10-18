@@ -188,7 +188,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
   await expect(page.getByLabel("Post 2 time")).toHaveValue("13:00");
   await expect(page.getByLabel("Post 5 date")).toHaveValue("2026-10-15");
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-17");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-16");
   await expect(page.getByText("Draft — approval needed").first()).toBeVisible();
 
   await page.getByLabel("Post 1 time").selectOption("13:00");
@@ -196,6 +196,15 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(rows).toHaveCount(11);
   await expect(page.getByLabel("Post 1 time")).toHaveValue("13:00");
   await expect(page.locator("#schedule-links")).toHaveValue(urls.join("\n"));
+  await expect(page.locator("#schedule-links-per-day")).toHaveValue("4");
+  await expect(page.locator("#schedule-days-count")).toHaveValue("3");
+
+  // Too little capacity must keep the last valid plan and explain how to fit every link.
+  await page.locator("#schedule-links-per-day").fill("3");
+  await page.locator("#schedule-days-count").fill("3");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".message")).toContainText("Choose at least 4 days");
+  await expect(rows).toHaveCount(11);
 
   await page.locator("#schedule-links-per-day").fill("2");
   await page.locator("#schedule-days-count").fill("7");
@@ -686,25 +695,26 @@ test("chat menu selections are shown in the transcript and pasted links prefill 
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today’s Plan");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("Today’s Plan is open");
 
-  const links = Array.from({ length: 7 }, (_, index) => `https://example.com/reel-${index + 1}`);
-  const request = `Take these 7 Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
+  // Use 11 links here to prove chat intake is not limited to the old seven-link preset.
+  const links = Array.from({ length: 11 }, (_, index) => `https://example.com/reel-${index + 1}`);
+  const request = `Take these ${links.length} Reels and post over 3 days, morning, afternoon and evening where appropriate:\n${links.join("\n")}`;
   await page.locator("#workspace-command").fill(request);
   await page.getByRole("button", { name: "Send message" }).click();
 
-  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText(`Take these ${links.length} Reels`);
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join(String.fromCharCode(10)));
   await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
   await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
-  await page.locator("#schedule-links-per-day").fill("3");
+  await page.locator("#schedule-links-per-day").fill("4");
   await page.locator("#schedule-days-count").fill("3");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
-  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(7);
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(11);
   await expect(page.locator(".schedule-table")).toContainText("Draft — approval needed");
 
   await page.reload();
-  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 7 Reels");
-  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in the Plan Content list");
+  await expect(page.locator(".chat-message.from-user").last()).toContainText("Take these 11 Reels");
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("placed them in Plan Content");
   await expect(page.locator("#schedule-links")).toHaveValue(links.join("\n"));
 });
 
@@ -750,4 +760,49 @@ test("AUTH: logging out clears the session and protects later workspace requests
   await expect(page).toHaveURL(/\/login$/);
   await page.goto("/");
   await expect(page).toHaveURL(/\/login\?returnTo=/);
+});
+
+
+test("mixed valid and unsupported URL schemes are reported instead of silently omitted", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#workspace-command").fill("Plan these links https://example.com/reel ftp://example.com/recipe");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("1 are not valid HTTP(S) URLs");
+  await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/reel");
+  await expect(page.getByRole("button", { name: "Build my custom plan" })).toBeVisible();
+});
+
+
+test("new chat link intake replaces stale saved schedule rows", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill("https://example.com/old-reel");
+  await page.locator("#schedule-links-per-day").fill("1");
+  await page.locator("#schedule-days-count").fill("1");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
+
+  await page.reload();
+  await page.locator("#workspace-command").fill("Plan this new link https://example.com/new-reel");
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator("#schedule-links")).toHaveValue("https://example.com/new-reel");
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await expect(page.locator(".chat-message.from-assistant").last()).toContainText("in Plan Content");
+});
+
+test("manual link-list edits clear stale schedule rows before export", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill("https://example.com/old-manual-link");
+  await page.locator("#schedule-links-per-day").fill("1");
+  await page.locator("#schedule-days-count").fill("1");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(1);
+
+  await page.locator("#schedule-links").fill("https://example.com/new-manual-link");
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Export schedule JSON" })).toHaveCount(0);
+  await expect(page.locator(".message")).toContainText("Build a new plan");
 });
