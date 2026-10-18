@@ -1847,7 +1847,22 @@ export default function Home() {
             )}
           </section>
 
-          {projects.length > 0 && <section className="recent" id="recent-projects"><div className="section-head"><div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div><div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div></div><div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div></section>}
+          <section className="recent" id="recent-projects">
+            <div className="section-head">
+              <div><p className="eyebrow">YOUR WORK</p><h2>Recent drafts</h2></div>
+              {projects.length > 0 && <div className="backup-actions"><button className="secondary" type="button" onClick={exportWorkspaceBackup}>Export all drafts</button><button className="text-button" type="button" onClick={clearAllDrafts}>Clear all local drafts</button></div>}
+            </div>
+            {projects.length > 0 ? (
+              <div className="recent-list">{projects.map((project) => <button key={project.id} className={project.id === active ? "recent-item selected" : "recent-item"} onClick={() => { setActive(project.id); setShowTutorial(false); }}><span>✦</span><strong>{project.name}</strong><small>{project.trialStatus === "tested" ? "Tested" : "Untested"} · {project.approved ? "Approved" : "Draft"}</small> →</button>)}</div>
+            ) : (
+              <div className="empty recent-empty">
+                <span aria-hidden="true">▤</span>
+                <h3>No recipe drafts yet</h3>
+                <p>Create a recipe draft and it will appear here. Drafts stay on this device until you export a backup.</p>
+                <button className="primary" type="button" onClick={() => goToSection("intake")}>Start a recipe project →</button>
+              </div>
+            )}
+          </section>
 
           <footer>COOKING CREATOR STUDIO · V1 FOUNDATION <span>US audience-first creator workflow · Publishing planned for V6</span></footer>
         </div>
