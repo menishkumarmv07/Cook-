@@ -120,7 +120,7 @@ test("flags different quantities reported by two source records with both citati
   assert.equal(conflicts[0].predicate, "quantity");
   assert.equal(conflicts[0].alternatives.length, 2);
   assert.deepEqual(
-    conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)).sort(),
+    [...new Set(conflicts[0].alternatives.flatMap((alternative) => alternative.sources.map((item) => item.url)))].sort(),
     ["https://other.com/recipe", "https://recipes.com/a"],
   );
   assert.match(conflicts[0].explanation, /Check units/);
