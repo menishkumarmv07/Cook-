@@ -1703,7 +1703,7 @@ export default function Home() {
                 <input id="url" type="url" value={url} disabled={inspectionBusy} onChange={(event) => { setUrl(event.target.value); setSourceInspection(null); }} placeholder="https://example.com/recipe" />
                 <p className="hint">Use “Inspect public recipe page” for accessible HTML recipe pages. Video/Reel audio and frames are not inspected, and some sites block automated page access.</p>
                 <button className="secondary" type="button" onClick={() => void inspectRecipeSource()} disabled={inspectionBusy || !url.trim()}>{inspectionBusy ? "Inspecting public page…" : "Inspect public recipe page"}</button>
-                <div className="panel source-inspection-preview">
+                <div className="panel video-transcript-panel">
                   <h4>Video/Reel transcript evidence</h4>
                   <p className="hint">If you already have a transcript, paste it here to preserve it with the source URL. This does not extract audio or inspect video frames, and the transcript remains unverified.</p>
                   <label htmlFor="video-transcript">Creator-provided transcript <span>OPTIONAL</span></label>
