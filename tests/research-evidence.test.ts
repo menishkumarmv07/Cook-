@@ -138,7 +138,7 @@ test("does not mistake duplicate URL records for independent conflicting sources
   assert.equal(findPotentialEvidenceConflicts(archive).length, 0);
 });
 
-test("detects a cross-source difference even when one source records multiple alternatives", () => {
+test("detects cross-source differences and lists each source URL only once across alternatives", () => {
   const archive = {
     ...createEmptyResearchEvidenceArchive(capturedAt),
     sources: [source("a"), source("b", "https://other.com/recipe")],
