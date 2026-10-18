@@ -696,6 +696,22 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(page.locator('.source-reference textarea[id^="source-notes-"]')).toHaveValue(/recipe details are not independently verified/);
 });
 
+
+test("creator-provided video transcript is saved with source and explicit unverified status", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Transcript evidence test");
+  await page.locator("#url").fill("https://www.youtube.com/watch?v=123456789ab");
+  await page.locator("#video-transcript").fill("[00:00:03] Heat a pan. [00:00:10] Add two tablespoons of oil.");
+  await page.getByRole("button", { name: "Add transcript to recipe notes" }).click();
+
+  await expect(page.locator("#notes")).toHaveValue(/USER-PROVIDED VIDEO\/REEL TRANSCRIPT — NOT INDEPENDENTLY VERIFIED/);
+  await expect(page.locator("#notes")).toHaveValue(/https:\/\/www\.youtube\.com\/watch\?v=123456789ab/);
+  await expect(page.locator("#notes")).toHaveValue(/Add two tablespoons of oil/);
+  await expect(page.locator("#notes")).toHaveValue(/has not verified it against the video's audio or frames/);
+  await expect(page.locator("#video-transcript")).toHaveValue("");
+});
+
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
   await page.goto("/");
   const sourceUrl = "https://www.youtube.com/watch?v=123456789ab";

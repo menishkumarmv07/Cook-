@@ -341,6 +341,7 @@ export default function Home() {
   const [sourceInspection, setSourceInspection] = useState<SourceInspectionResult | null>(null);
   const [inspectionBusy, setInspectionBusy] = useState(false);
   const [notes, setNotes] = useState("");
+  const [videoTranscript, setVideoTranscript] = useState("");
   const [servings, setServings] = useState("4");
   const [projects, setProjects] = useState<RecipeProject[]>([]);
   const [profile, setProfile] = useState<CreatorProfile>(DEFAULT_CREATOR_PROFILE);
@@ -1099,6 +1100,38 @@ export default function Home() {
     }
   }
 
+  function addUserProvidedTranscriptToNotes() {
+    const candidateUrl = url.trim();
+    const transcript = videoTranscript.trim();
+    if (!candidateUrl || !isHttpUrl(candidateUrl)) {
+      setMessage("Enter a valid HTTP(S) video or Reel URL before adding transcript evidence.");
+      return;
+    }
+    if (!transcript) {
+      setMessage("Paste the transcript text you want to preserve first.");
+      return;
+    }
+    const transcriptNotes = [
+      "USER-PROVIDED VIDEO/REEL TRANSCRIPT — NOT INDEPENDENTLY VERIFIED",
+      `Source URL: ${candidateUrl}`,
+      "Transcript text (preserved as supplied):",
+      transcript,
+      "Review note: this transcript was supplied by the creator; the app has not verified it against the video's audio or frames. Check ingredient quantities, action order, timing, heat, doneness, allergens, and food safety against the original source. Unclear details must remain unconfirmed rather than guessed.",
+    ].join("\n\n");
+    if (transcriptNotes.length > 4_800) {
+      setMessage("This transcript is too long for the recipe-notes limit. Shorten it before adding it.");
+      return;
+    }
+    const existingNotes = notes.trim();
+    if (existingNotes && existingNotes.length + transcriptNotes.length + 2 > 4_800) {
+      setMessage("The transcript would exceed the 4,800-character recipe-notes limit. Shorten or export the existing notes first.");
+      return;
+    }
+    setNotes(existingNotes ? `${existingNotes}\n\n${transcriptNotes}` : transcriptNotes);
+    setVideoTranscript("");
+    setMessage("Creator-provided transcript added with its source URL. It is not verified against the video; review it before use.");
+  }
+
   function addInspectedDetailsToNotes() {
     if (!sourceInspection) return;
     const recipe = sourceInspection.structuredRecipe;
@@ -1670,6 +1703,13 @@ export default function Home() {
                 <input id="url" type="url" value={url} disabled={inspectionBusy} onChange={(event) => { setUrl(event.target.value); setSourceInspection(null); }} placeholder="https://example.com/recipe" />
                 <p className="hint">Use “Inspect public recipe page” for accessible HTML recipe pages. Video/Reel audio and frames are not inspected, and some sites block automated page access.</p>
                 <button className="secondary" type="button" onClick={() => void inspectRecipeSource()} disabled={inspectionBusy || !url.trim()}>{inspectionBusy ? "Inspecting public page…" : "Inspect public recipe page"}</button>
+                <div className="panel video-transcript-panel">
+                  <h4>Video/Reel transcript evidence</h4>
+                  <p className="hint">If you already have a transcript, paste it here to preserve it with the source URL. This does not extract audio or inspect video frames, and the transcript remains unverified.</p>
+                  <label htmlFor="video-transcript">Creator-provided transcript <span>OPTIONAL</span></label>
+                  <textarea id="video-transcript" value={videoTranscript} onChange={(event) => setVideoTranscript(event.target.value)} placeholder="Paste transcript text here. Keep uncertain words or quantities marked as unclear." rows={5} maxLength={4_000} />
+                  <button className="secondary" type="button" onClick={addUserProvidedTranscriptToNotes} disabled={!videoTranscript.trim() || !url.trim()}>Add transcript to recipe notes</button>
+                </div>
                 {sourceInspection && <div className="panel source-inspection-preview" role="region" aria-label="Inspected public page preview">
                   <h4>Extracted preview — verify before use</h4>
                   <p><strong>{sourceInspection.title || sourceInspection.finalUrl}</strong></p>

@@ -9,6 +9,7 @@ Private V1 foundation for the AI Cooking Creator App. This repository and its no
 - Installable PWA manifest and SVG app icon. The service worker caches static assets and a generic offline page only; it never caches protected workspace HTML. Offline mode therefore shows an offline notice rather than opening the private workspace.
 - Recipe intake with HTTP(S) source URL, servings/yield, and notes.
 - Owner-authenticated public recipe-page inspection from intake: fetches accessible HTML on explicit request, previews page text and optional Schema.org Recipe fields, and only copies extracted details into notes after the creator chooses to do so. Extracted values are unverified; it does not inspect video frames or transcribe audio.
+- Creator-provided video/Reel transcript capture: preserves pasted transcript text alongside the source URL and an explicit unverified-status warning in recipe notes, with length limits and checks against the existing note budget. This is a manual evidence-capture step only; it does not extract captions, inspect video frames, transcribe audio, or claim AI analysis.
 - Structured ingredient rows: amount, unit, name, preparation note.
 - Ordered cooking-step editor: action, timing, heat/setting, visual/doneness cue, and explicit ingredient-addition mapping. Ingredient timing is never inferred; unassigned ingredients are flagged.
 - Six-scene creator outline that can be edited.
