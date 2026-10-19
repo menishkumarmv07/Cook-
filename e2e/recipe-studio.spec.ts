@@ -440,6 +440,10 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("US-first creator production appendix");
   await expect(pack).toContainText("USD-oriented business tracking");
   await expect(pack).toContainText("Owner sign-off");
+  await expect(pack).toContainText(`Actual cooking-trial date: ${trialDate}`);
+  await expect(pack).toContainText("What changed during the trial: No changes; followed the recipe as written.");
+  await expect(pack).toContainText("Current-version trial photo: revision matches the current recipe");
+  await expect(pack).toContainText("Current-version trial notes: revision matches the current recipe");
   await expect(pack).toContainText("Source links for creator-policy review");
   await expect(pack).toContainText("Originality and differentiation worksheet");
   await expect(pack).toContainText("Platform-specific finishing pass");
