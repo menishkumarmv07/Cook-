@@ -72,13 +72,13 @@ function stepLine(
 function buildSourceClaimLedger(project: RecipeProject): string[] {
   const missing = "[No recorded finding — owner review required]";
   const rows = project.sourceReferences.flatMap((source, index) => [
-    \`#### Source \${index + 1}: \${sourceLabel(source.url)}\`,
-    \`- Owner-entered check note: \${clean(source.checked, 240) || "Not recorded — owner review required"}\`,
-    \`- Ingredient / quantity notes: \${clean(source.ingredientFindings ?? "", 800) || missing}\`,
-    \`- Method / step-order notes: \${clean(source.methodFindings ?? "", 800) || missing}\`,
-    \`- Timing / heat notes: \${clean(source.timingFindings ?? "", 800) || missing}\`,
-    \`- Food-safety / storage notes: \${clean(source.safetyStorageFindings ?? "", 800) || missing}\`,
-    \`- Disagreement / uncertainty notes: \${clean(source.notes, 800) || "No notes recorded — check for conflicts before sharing"}\`,
+    `#### Source ${index + 1}: ${sourceLabel(source.url)}`,
+    `- Owner-entered check note: ${clean(source.checked, 240) || "Not recorded — owner review required"}`,
+    `- Ingredient / quantity notes: ${clean(source.ingredientFindings ?? "", 800) || missing}`,
+    `- Method / step-order notes: ${clean(source.methodFindings ?? "", 800) || missing}`,
+    `- Timing / heat notes: ${clean(source.timingFindings ?? "", 800) || missing}`,
+    `- Food-safety / storage notes: ${clean(source.safetyStorageFindings ?? "", 800) || missing}`,
+    `- Disagreement / uncertainty notes: ${clean(source.notes, 800) || "No notes recorded — check for conflicts before sharing"}`,
     "- Review status: OWNER REVIEW REQUIRED. Recorded or extracted notes are not independent verification.",
     "",
   ]);
@@ -92,7 +92,7 @@ function buildSourceClaimLedger(project: RecipeProject): string[] {
           "[No structured source records exist. Material ingredient, method, timing, nutrition and food-safety claims remain OWNER REVIEW REQUIRED.]",
           "",
         ]),
-    \`**Additional owner-entered source evidence:** \${clean(project.sourceEvidence, 1_200) || "None recorded — source-linked claim review is still required."}\`,
+    `**Additional owner-entered source evidence:** ${clean(project.sourceEvidence, 1_200) || "None recorded — source-linked claim review is still required."}`,
     "",
   ];
 }
@@ -102,7 +102,7 @@ function buildNutritionClaimLedger(
 ): string[] {
   const format = (value: string | undefined, unit: string) => {
     const recorded = clean(value ?? "", 80);
-    return recorded ? \`\${recorded} \${unit}\` : "[not recorded]";
+    return recorded ? `${recorded} ${unit}` : "[not recorded]";
   };
 
   return [
@@ -117,12 +117,12 @@ function buildNutritionClaimLedger(
             ingredient.nutritionFatG,
           ].some((value) => Boolean(value?.trim()));
           return [
-            \`\${index + 1}. \${clean(ingredient.name, 160) || "[ingredient name missing]"} — recorded amount: \${clean(ingredient.amount, 80) || "[amount missing]"} \${clean(ingredient.unit, 80) || "[unit missing]"}\`,
-            \`   Calories: \${format(ingredient.nutritionCalories, "kcal")}; protein: \${format(ingredient.nutritionProteinG, "g")}; carbohydrates: \${format(ingredient.nutritionCarbsG, "g")}; fat: \${format(ingredient.nutritionFatG, "g")}.\`,
-            \`   Recorded nutrition basis: \${clean(ingredient.nutritionBasis ?? "", 240) || "[not recorded — owner review required]"}\`,
-            \`   Nutrition source: \${sourceLabel(ingredient.nutritionSourceUrl ?? "")}\`,
-            \`   Status: \${hasValue ? "MANUAL VALUE — source and quantity match are not independently verified; owner review required." : "NO NUTRITION VALUE RECORDED — do not state a nutrition result for this ingredient."}\`,
-          ].join("\\n");
+            `${index + 1}. ${clean(ingredient.name, 160) || "[ingredient name missing]"} — recorded amount: ${clean(ingredient.amount, 80) || "[amount missing]"} ${clean(ingredient.unit, 80) || "[unit missing]"}`,
+            `   Calories: ${format(ingredient.nutritionCalories, "kcal")}; protein: ${format(ingredient.nutritionProteinG, "g")}; carbohydrates: ${format(ingredient.nutritionCarbsG, "g")}; fat: ${format(ingredient.nutritionFatG, "g")}.`,
+            `   Recorded nutrition basis: ${clean(ingredient.nutritionBasis ?? "", 240) || "[not recorded — owner review required]"}`,
+            `   Nutrition source: ${sourceLabel(ingredient.nutritionSourceUrl ?? "")}`,
+            `   Status: ${hasValue ? "MANUAL VALUE — source and quantity match are not independently verified; owner review required." : "NO NUTRITION VALUE RECORDED — do not state a nutrition result for this ingredient."}`,
+          ].join("\n");
         })
       : ["[No ingredients recorded. Nutrition claims are not supported.]"]),
     ...(ingredients.length === 0
@@ -225,7 +225,7 @@ export function buildUSCreatorPackAppendix(
     ...titles.map((title, index) => `${index + 1}. ${title}`),
     "",
     "### Opening hooks — select one and add your own tested, original detail",
-    ...hooks.map((hook, index) => \`\${index + 1}. \${hook}\`),
+    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
     "",
     "### Originality and differentiation worksheet — owner input required",
     "- Intended US viewer and cooking occasion: [Owner to define; do not assume audience demographics].",
@@ -256,7 +256,7 @@ export function buildUSCreatorPackAppendix(
       ? steps.map((step, index) => {
           const action = clean(step.action, 800) || "[Action missing — owner review required]";
           const timing = clean(step.duration, 120);
-          return \`\${index + 1}. \${action}\${timing ? \` (recorded timing: \${timing})\` : " (timing not recorded — do not guess)"}\`;
+          return `${index + 1}. ${action}${timing ? ` (recorded timing: ${timing})` : " (timing not recorded — do not guess)"}`;
         })
       : ["[No steps recorded. Write and verify the narration after adding the method.]"]),
     "",
@@ -268,7 +268,7 @@ export function buildUSCreatorPackAppendix(
     "",
     "### Ordered method — owner review required",
     ...(steps.length ? steps.map(stepLine) : ["[No cooking steps recorded.]"]),
-    ...(project.steps.length > MAX_LIST_ITEMS ? [\`[Only the first \${MAX_LIST_ITEMS} cooking steps are shown in this export. Review the full recipe in the app.]\`] : []),
+    ...(project.steps.length > MAX_LIST_ITEMS ? [`[Only the first ${MAX_LIST_ITEMS} cooking steps are shown in this export. Review the full recipe in the app.]`] : []),
     "",
     ...buildSourceClaimLedger(project),
     ...buildNutritionClaimLedger(ingredients),
@@ -301,10 +301,10 @@ export function buildUSCreatorPackAppendix(
     "- Review captions, hashtags, subtitles, accessibility, source attribution and music rights manually before sharing.",
     "",
     "### Draft caption",
-    \`\${recipeName}: follow the ingredient list and method, and check the notes before cooking. Save this recipe for later.\`,
+    `${recipeName}: follow the ingredient list and method, and check the notes before cooking. Save this recipe for later.`,
     "",
     "### Pinned-comment idea — personalize before use",
-    \`"Have you tried \${recipeName}? Share what you learned. Check the ingredient and method notes above before cooking."\`,
+    `"Have you tried ${recipeName}? Share what you learned. Check the ingredient and method notes above before cooking."`,
     "Do not present this as a real viewer question, testimonial or endorsement.",
     "",
     "### Hashtag starting points — select only relevant tags",
