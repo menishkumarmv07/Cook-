@@ -1131,18 +1131,23 @@ test("V2 evidence records can be removed safely, including linked claims", async
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   const sourceRecord = page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" });
-  const cancelDialogPromise = page.waitForEvent("dialog");
+  let cancelDialogMessage = "";
+  page.once("dialog", (dialog) => {
+    cancelDialogMessage = dialog.message();
+    void dialog.dismiss();
+  });
   await sourceRecord.getByRole("button", { name: "Remove source and linked claims", exact: true }).click({ noWaitAfter: true });
-  const cancelDialog = await cancelDialogPromise;
-  expect(cancelDialog.message()).toContain("linked claim");
-  await cancelDialog.dismiss();
+  expect(cancelDialogMessage).toContain("linked claim");
   await expect(page.getByText("Source to remove", { exact: true })).toBeVisible();
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
-  const confirmDialogPromise = page.waitForEvent("dialog");
+  let confirmDialogMessage = "";
+  page.once("dialog", (dialog) => {
+    confirmDialogMessage = dialog.message();
+    void dialog.accept();
+  });
   await sourceRecord.getByRole("button", { name: "Remove source and linked claims", exact: true }).click({ noWaitAfter: true });
-  const confirmDialog = await confirmDialogPromise;
-  await confirmDialog.accept();
+  expect(confirmDialogMessage).toContain("linked claim");
   await expect(page.getByText("Source to remove", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/salt · quantity: 1/)).toHaveCount(0);
   await expect(page.getByText("0 sources")).toBeVisible();
