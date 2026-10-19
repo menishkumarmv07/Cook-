@@ -49,6 +49,8 @@ export type RecipeProject = {
   trialRating: string;
   trialNotes: string;
   trialPhotoDataUrl: string;
+  /** Timestamp of an explicit owner source-comparison review; core recipe/source edits clear it. */
+  evidenceReviewedAt?: string;
   approved: boolean;
   approvedAt: string;
   name: string;
@@ -250,6 +252,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
   const p = value as Partial<RecipeProject>;
   return typeof p.id === "number" &&
     typeof p.trialPhotoDataUrl === "string" &&
+    (p.evidenceReviewedAt === undefined || typeof p.evidenceReviewedAt === "string") &&
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
@@ -528,6 +531,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     trialRating: typeof legacy.trialRating === "string" ? legacy.trialRating : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
     trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
+    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && Number.isFinite(Date.parse(legacy.evidenceReviewedAt)) ? legacy.evidenceReviewedAt : "",
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",

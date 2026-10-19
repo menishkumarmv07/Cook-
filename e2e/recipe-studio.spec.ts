@@ -404,6 +404,31 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve pack" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Mark source review complete" })).toBeDisabled();
+
+  await page.getByRole("button", { name: /Add source/ }).click();
+  const sourceCard = page.locator(".source-reference").first();
+  await sourceCard.getByLabel("Reference URL").fill("https://example.com/lemon-rice");
+  await sourceCard.getByLabel("What did you actually check?").fill("Ingredients, quantities, method order, timings and handling notes.");
+  await sourceCard.getByLabel("Differences, uncertainty, or missing details").fill("Exact cooking time is unclear; confirm during the trial.");
+  await sourceCard.getByLabel("Ingredient quantities & differences").fill("One cup cooked rice; quantity recorded in this source.");
+  await sourceCard.getByLabel("Method / step-order findings").fill("Warm the pan before adding the rice.");
+  await sourceCard.getByLabel("Cooking timing & heat findings").fill("Timing not clearly stated; use the trial to record actual timing.");
+  await sourceCard.getByLabel("Food safety & storage notes").fill("Storage information is not provided; check authoritative guidance separately.");
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("cooked rice");
+
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").fill("Warm the cooked rice in the pan");
+  await page.getByLabel("Timing").fill("3 minutes");
+  await page.getByLabel("Heat / setting").fill("medium");
+  await page.getByLabel("Visual / doneness cue").fill("steaming hot");
+  await page.getByLabel("Add cooked rice at step 1").check();
+  await page.getByRole("button", { name: "Mark source review complete" }).click();
+  await expect(page.getByText("READY FOR COOKING TRIAL", { exact: true })).toBeVisible();
 
   await page.locator("#trial-photo").setInputFiles({
     name: "cooked-dish.png",
