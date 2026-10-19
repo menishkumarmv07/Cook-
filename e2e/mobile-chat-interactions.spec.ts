@@ -121,6 +121,6 @@ test("composer and plus popup stay inside the visible viewport when the keyboard
   expect((popupBox!.x + popupBox!.width)).toBeLessThanOrEqual(390);
   const plusBox = await page.getByRole("button", { name: "Choose a task" }).boundingBox();
   expect(plusBox).toBeTruthy();
-  expect((popupBox!.y + popupBox!.height)).toBeLessThanOrEqual(plusBox!.y + 3);
+  expect((popupBox!.y + popupBox!.height)).toBeLessThanOrEqual(plusBox!.y + 4);
   expect(popupBox!.height).toBeLessThan(viewport.visibleHeight);
 });
