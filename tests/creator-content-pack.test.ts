@@ -132,3 +132,39 @@ test("large recipe lists remain explicitly bounded in the exported appendix", ()
   assert.match(output, /first 100 ingredient rows are shown/);
   assert.doesNotMatch(output, /105\. 1 g/);
 });
+
+
+test("source URL export does not truncate links or collapse distinct case-sensitive paths", () => {
+  const mixedCase = recipe({
+    url: "https://example.com/Recipe",
+    sourceReferences: [
+      { id: "lower", url: "https://example.com/recipe", kind: "recipe-page", checked: "page", notes: "" },
+      { id: "duplicate", url: "https://EXAMPLE.com/Recipe/", kind: "recipe-page", checked: "same page", notes: "" },
+    ],
+  });
+  const output = buildUSCreatorPackAppendix(mixedCase, DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /https:\/\/example\.com\/Recipe/);
+  assert.match(output, /https:\/\/example\.com\/recipe/);
+  assert.equal((output.match(/https:\/\/example\.com\/Recipe/g) ?? []).length, 1);
+
+  const longUrl = "https://example.com/" + "a".repeat(2_050);
+  const longOutput = buildUSCreatorPackAppendix(recipe({ url: longUrl }), DEFAULT_CREATOR_PROFILE);
+  assert.match(longOutput, /source URL exceeds 2,000 characters/);
+  assert.doesNotMatch(longOutput, new RegExp(longUrl));
+});
+
+test("source URLs containing embedded credentials or control characters are redacted", () => {
+  const credentialOutput = buildUSCreatorPackAppendix(
+    recipe({ url: "https://user:secret@example.com/recipe" }),
+    DEFAULT_CREATOR_PROFILE,
+  );
+  assert.match(credentialOutput, /embedded credentials/);
+  assert.doesNotMatch(credentialOutput, /user:secret/);
+
+  const controlOutput = buildUSCreatorPackAppendix(
+    recipe({ url: "https://example.com/recipe" + String.fromCharCode(10) + "FAKE-SOURCE" }),
+    DEFAULT_CREATOR_PROFILE,
+  );
+  assert.match(controlOutput, /control characters|invalid source URL/);
+  assert.doesNotMatch(controlOutput, /FAKE-SOURCE/);
+});

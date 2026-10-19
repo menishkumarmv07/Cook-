@@ -443,6 +443,11 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await page.getByRole("button", { name: "Mark as Tested" }).click();
   await expect(page.getByText("TESTED BY YOU")).toBeVisible();
 
+  await page.getByLabel("What happened when you cooked it?").fill("After reviewing the first trial, I cooked it again and recorded the result.");
+  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Mark as Tested" }).click();
+  await expect(page.getByText("TESTED BY YOU")).toBeVisible();
+
   await page.getByRole("button", { name: "Prepare content pack" }).click();
   const pack = page.locator(".approval-panel .tutorial-preview pre");
   await expect(pack).toContainText("HOOK OPTIONS");
