@@ -1138,7 +1138,7 @@ test("V2 evidence records can be removed safely, including linked claims", async
   });
   await sourceRecord.getByRole("button", { name: "Remove source and linked claims", exact: true }).click({ noWaitAfter: true });
   expect(cancelDialogMessage).toContain("linked claim");
-  await expect(page.getByText("Source to remove", { exact: true })).toBeVisible();
+  await expect(sourceRecord.getByText("Source to remove", { exact: true })).toBeVisible();
   await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
 
   let confirmDialogMessage = "";
