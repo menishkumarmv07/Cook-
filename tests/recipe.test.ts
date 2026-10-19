@@ -525,6 +525,30 @@ test("trial date validation accepts real calendar dates only", () => {
   assert.equal(isValidDateOnly(""), false);
 });
 
+test("invalid trial rating and unbounded imported revisions are normalized without discarding a recipe", () => {
+  const imported = parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    trialStatus: "tested",
+    trialRating: "10",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes",
+    trialNotes: "Cooked this recipe and checked the result carefully.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: Number.MAX_SAFE_INTEGER,
+    trialPhotoRevision: Number.MAX_SAFE_INTEGER,
+    trialNotesRevision: Number.MAX_SAFE_INTEGER,
+    approved: true,
+  }));
+  assert.ok(imported);
+  assert.equal(imported.name, base.name);
+  assert.equal(imported.trialRating, "");
+  assert.equal(imported.recipeRevision, 0);
+  assert.equal(imported.trialPhotoRevision, -1);
+  assert.equal(imported.trialNotesRevision, -1);
+  assert.equal(imported.trialStatus, "untested");
+  assert.equal(imported.approved, false);
+});
+
 test("legacy, future-dated and stale trial proof cannot preserve tested or approved state", () => {
   const tested: RecipeProject = {
     ...base,
