@@ -434,7 +434,7 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("Evidence-linked factual-claim ledger");
   await expect(pack).toContainText("OWNER REVIEW REQUIRED");
   await expect(pack).toContainText("Nutrition traceability — manual values only");
-  await expect(pack).toContainText("NO NUTRITION VALUE RECORDED");
+  await expect(pack).toContainText("No ingredients recorded. Nutrition claims are not supported.");
   await expect(pack).toContainText("Pinned-comment idea");
 
   await page.getByRole("button", { name: "Approve pack" }).click();
