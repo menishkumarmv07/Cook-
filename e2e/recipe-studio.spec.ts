@@ -89,8 +89,6 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
   await page.getByLabel("Ingredient 1 unit").fill("cups");
   await page.getByLabel("Ingredient 1 name").fill("cooked rice");
   await page.getByLabel("Ingredient 1 prep").fill("cooled");
-  await expect(page.getByText(/photo is retained for reference but belongs to an earlier recipe version/i)).toBeVisible();
-  await expect(page.getByText(/notes are retained from an earlier recipe version/i)).toBeVisible();
 
   await page.getByRole("button", { name: /Add step/ }).click();
   await page.getByLabel("Action / instruction").nth(0).fill("Warm the pan");
@@ -459,6 +457,8 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await page.getByRole("button", { name: /Add ingredient/ }).click();
   await page.getByLabel("Ingredient 1 name").fill("cooked rice");
   await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  await expect(page.getByText(/photo is retained for reference but belongs to an earlier recipe version/i)).toBeVisible();
+  await expect(page.getByText(/notes are retained from an earlier recipe version/i)).toBeVisible();
   await expect(page.getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
 });
