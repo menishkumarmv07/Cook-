@@ -378,26 +378,52 @@ test("narration script makes empty ingredient and method states explicit", () =>
 test("legacy JSON draft imports with an explicit untested and unapproved default", () => {
   const legacy = {
     ...base,
-    trialStatus: undefined,
+    trialStatus: "tested",
     trialRating: undefined,
+    trialDate: undefined,
+    trialChanges: undefined,
     trialNotes: undefined,
     trialPhotoDataUrl: undefined,
-    approved: undefined,
-    approvedAt: undefined,
+    recipeRevision: undefined,
+    trialPhotoRevision: undefined,
+    trialNotesRevision: undefined,
+    approved: true,
+    approvedAt: "2026-10-19T12:00:00.000Z",
   };
   const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
   assert.ok(restored);
   assert.equal(restored.trialStatus, "untested");
   assert.equal(restored.trialRating, "");
+  assert.equal(restored.trialDate, "");
+  assert.equal(restored.trialChanges, "");
   assert.equal(restored.trialNotes, "");
   assert.equal(restored.trialPhotoDataUrl, "");
+  assert.equal(restored.recipeRevision, 0);
+  assert.equal(restored.trialPhotoRevision, -1);
+  assert.equal(restored.trialNotesRevision, -1);
   assert.equal(restored.approved, false);
   assert.equal(restored.approvedAt, "");
 });
 
 
 test("workspace backup round-trips all drafts and profile, and rejects malformed archives", () => {
-  const second = { ...base, id: 2, name: "Lemon rice", notes: "Second draft" };
+  const second = {
+    ...base,
+    id: 2,
+    name: "Lemon rice",
+    notes: "Second draft",
+    trialStatus: "tested" as const,
+    trialRating: "4",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes; followed the recorded method.",
+    trialNotes: "Cooked at home and checked texture and recorded timing.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 3,
+    trialPhotoRevision: 3,
+    trialNotesRevision: 3,
+    approved: true,
+    approvedAt: "2026-10-19T12:00:00.000Z",
+  };
   const exportedAt = "2026-10-12T00:00:00.000Z";
   const backupJSON = createCreatorWorkspaceBackupJSON(
     [base, second],
@@ -414,6 +440,13 @@ test("workspace backup round-trips all drafts and profile, and rejects malformed
   assert.equal(restored.creatorProfile.units, "US customary");
   assert.deepEqual(restored.projects.map((project) => project.name), ["Tomato pasta", "Lemon rice"]);
   assert.equal(restored.projects[1].notes, "Second draft");
+  assert.equal(restored.projects[1].trialStatus, "tested");
+  assert.equal(restored.projects[1].trialDate, getLocalDateOnly());
+  assert.equal(restored.projects[1].trialChanges, "No changes; followed the recorded method.");
+  assert.equal(restored.projects[1].recipeRevision, 3);
+  assert.equal(restored.projects[1].trialPhotoRevision, 3);
+  assert.equal(restored.projects[1].trialNotesRevision, 3);
+  assert.equal(restored.projects[1].approved, true);
 
   const invalidProjectBackup = JSON.stringify({
     format: "cooking-creator-workspace-backup",
@@ -482,3 +515,57 @@ test("rejects imported source references with non-HTTP(S) URLs", () => {
     }],
   })));
 });
+
+test("trial date validation accepts real calendar dates only", () => {
+  assert.equal(isValidDateOnly("2024-02-29"), true);
+  assert.equal(isValidDateOnly("2023-02-29"), false);
+  assert.equal(isValidDateOnly("2026-02-30"), false);
+  assert.equal(isValidDateOnly("2026-13-01"), false);
+  assert.equal(isValidDateOnly("19-10-2026"), false);
+  assert.equal(isValidDateOnly(""), false);
+});
+
+test("legacy, future-dated and stale trial proof cannot preserve tested or approved state", () => {
+  const tested: RecipeProject = {
+    ...base,
+    trialStatus: "tested",
+    trialRating: "5",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes; followed the recorded method.",
+    trialNotes: "Cooked at home; checked timing and texture carefully.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 4,
+    trialPhotoRevision: 4,
+    trialNotesRevision: 4,
+    approved: true,
+    approvedAt: "2026-10-19T12:00:00.000Z",
+  };
+  const roundTrip = parseRecipeProjectJSON(JSON.stringify(tested));
+  assert.ok(roundTrip);
+  assert.equal(roundTrip.trialStatus, "tested");
+  assert.equal(roundTrip.approved, true);
+
+  const stalePhoto = parseRecipeProjectJSON(JSON.stringify({ ...tested, trialPhotoRevision: 3 }));
+  assert.ok(stalePhoto);
+  assert.equal(stalePhoto.trialStatus, "untested");
+  assert.equal(stalePhoto.approved, false);
+  assert.equal(stalePhoto.approvedAt, "");
+
+  const staleNotes = parseRecipeProjectJSON(JSON.stringify({ ...tested, trialNotesRevision: 3 }));
+  assert.ok(staleNotes);
+  assert.equal(staleNotes.trialStatus, "untested");
+  assert.equal(staleNotes.approved, false);
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const futureTrial = parseRecipeProjectJSON(JSON.stringify({ ...tested, trialDate: getLocalDateOnly(tomorrow) }));
+  assert.ok(futureTrial);
+  assert.equal(futureTrial.trialStatus, "untested");
+  assert.equal(futureTrial.approved, false);
+
+  const impossibleDate = parseRecipeProjectJSON(JSON.stringify({ ...tested, trialDate: "2026-02-30" }));
+  assert.ok(impossibleDate);
+  assert.equal(impossibleDate.trialDate, "");
+  assert.equal(impossibleDate.trialStatus, "untested");
+});
+
