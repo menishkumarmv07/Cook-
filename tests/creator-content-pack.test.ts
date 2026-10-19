@@ -190,3 +190,96 @@ test("creator pack rejects local, private, reserved and non-standard source URLs
   }
 });
 
+test("creator pack includes an originality worksheet and distinct platform adaptations", () => {
+  const output = buildUSCreatorPackAppendix(recipe(), DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /Originality and differentiation worksheet/);
+  assert.match(output, /materially different about this version/);
+  assert.match(output, /YouTube Shorts/);
+  assert.match(output, /Instagram Reels/);
+  assert.match(output, /YouTube long-form/);
+  assert.match(output, /Step-by-step voiceover draft/);
+  assert.match(output, /1\. Boil the pasta \(recorded timing: 10 minutes\)/);
+  assert.match(output, /Pinned-comment idea/);
+  assert.match(output, /Do not present this as a real viewer question/);
+});
+
+test("factual claim ledger attributes structured source notes without calling them verified", () => {
+  const output = buildUSCreatorPackAppendix(recipe({
+    sourceReferences: [
+      {
+        id: "source-1",
+        url: "https://recipes.com/tomato-pasta",
+        kind: "recipe-page",
+        checked: "Compared ingredients and method manually",
+        notes: "Timing still differs between sources",
+        ingredientFindings: "200 g dry pasta",
+        methodFindings: "Boil pasta, then stir in sauce",
+        timingFindings: "10 minutes for pasta",
+        safetyStorageFindings: "Store leftovers chilled",
+      },
+    ],
+  }), DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /Evidence-linked factual-claim ledger/);
+  assert.match(output, /https:\/\/recipes\.com\/tomato-pasta/);
+  assert.match(output, /200 g dry pasta/);
+  assert.match(output, /Boil pasta, then stir in sauce/);
+  assert.match(output, /Timing still differs between sources/);
+  assert.match(output, /OWNER REVIEW REQUIRED/);
+  assert.match(output, /not independently verified by this app/);
+});
+
+test("nutrition ledger preserves entered bases, flags missing values, and redacts unsafe sources", () => {
+  const output = buildUSCreatorPackAppendix(recipe({
+    ingredients: [
+      {
+        id: "i1",
+        amount: "100",
+        unit: "g",
+        name: "dry pasta",
+        prep: "",
+        nutritionCalories: "350",
+        nutritionProteinG: "13",
+        nutritionCarbsG: "70",
+        nutritionFatG: "2",
+        nutritionBasis: "100 g dry pasta; source match manually checked",
+        nutritionSourceUrl: "https://fdc.nal.usda.gov/food-details/example",
+      },
+      {
+        id: "i2",
+        amount: "1",
+        unit: "cup",
+        name: "tomato sauce",
+        prep: "",
+        nutritionSourceUrl: "http://192.168.1.10/nutrition",
+      },
+    ],
+  }), DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /Nutrition traceability — manual values only/);
+  assert.match(output, /350 kcal/);
+  assert.match(output, /100 g dry pasta; source match manually checked/);
+  assert.match(output, /https:\/\/fdc\.nal\.usda\.gov\/food-details\/example/);
+  assert.match(output, /MANUAL VALUE — source and quantity match are not independently verified/);
+  assert.match(output, /NO NUTRITION VALUE RECORDED/);
+  assert.match(output, /invalid source URL/);
+  assert.doesNotMatch(output, /192\.168\.1\.10/);
+});
+
+test("source claim notes remain one-line and unsafe URLs are not presented as evidence links", () => {
+  const output = buildUSCreatorPackAppendix(recipe({
+    sourceReferences: [
+      {
+        id: "bad-source",
+        url: "http://localhost/private",
+        kind: "other",
+        checked: "copied notes",
+        notes: "First line" + String.fromCharCode(10) + "### false verification heading",
+        ingredientFindings: "1 cup rice" + String.fromCharCode(10) + "### VERIFIED",
+      },
+    ],
+  }), DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /invalid source URL/);
+  assert.doesNotMatch(output, /http:\/\/localhost\/private/);
+  assert.match(output, /1 cup rice ### VERIFIED/);
+  assert.doesNotMatch(output, /First line\n### false verification heading/);
+});
+
