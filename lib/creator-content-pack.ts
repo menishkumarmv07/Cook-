@@ -69,6 +69,72 @@ function stepLine(
   return `${index + 1}. ${action} (recorded timing: ${duration})${heat ? `; recorded heat: ${heat}` : "; heat not recorded"}${cue ? `; recorded visual cue: ${cue}` : "; visual/doneness cue not recorded"}`;
 }
 
+function buildSourceClaimLedger(project: RecipeProject): string[] {
+  const missing = "[No recorded finding — owner review required]";
+  const rows = project.sourceReferences.flatMap((source, index) => [
+    \`#### Source \${index + 1}: \${sourceLabel(source.url)}\`,
+    \`- Owner-entered check note: \${clean(source.checked, 240) || "Not recorded — owner review required"}\`,
+    \`- Ingredient / quantity notes: \${clean(source.ingredientFindings ?? "", 800) || missing}\`,
+    \`- Method / step-order notes: \${clean(source.methodFindings ?? "", 800) || missing}\`,
+    \`- Timing / heat notes: \${clean(source.timingFindings ?? "", 800) || missing}\`,
+    \`- Food-safety / storage notes: \${clean(source.safetyStorageFindings ?? "", 800) || missing}\`,
+    \`- Disagreement / uncertainty notes: \${clean(source.notes, 800) || "No notes recorded — check for conflicts before sharing"}\`,
+    "- Review status: OWNER REVIEW REQUIRED. Recorded or extracted notes are not independent verification.",
+    "",
+  ]);
+
+  return [
+    "### Evidence-linked factual-claim ledger",
+    "**Trust rule:** The notes below are attributed to the listed source record but are not independently verified by this app. Do not publish a material cooking, timing, nutrition, allergen, safety or health claim as established fact unless the owner has checked the source and resolved disagreements.",
+    ...(rows.length
+      ? rows
+      : [
+          "[No structured source records exist. Material ingredient, method, timing, nutrition and food-safety claims remain OWNER REVIEW REQUIRED.]",
+          "",
+        ]),
+    \`**Additional owner-entered source evidence:** \${clean(project.sourceEvidence, 1_200) || "None recorded — source-linked claim review is still required."}\`,
+    "",
+  ];
+}
+
+function buildNutritionClaimLedger(
+  ingredients: RecipeProject["ingredients"],
+): string[] {
+  const format = (value: string | undefined, unit: string) => {
+    const recorded = clean(value ?? "", 80);
+    return recorded ? \`\${recorded} \${unit}\` : "[not recorded]";
+  };
+
+  return [
+    "### Nutrition traceability — manual values only",
+    "Nutrition entries below apply to each ingredient's recorded amount, not automatically to 100 g or another serving basis. The app does not fetch or verify nutrition sources and performs no implicit unit conversion. Treat every entered value and source match as an estimate requiring owner review.",
+    ...(ingredients.length
+      ? ingredients.map((ingredient, index) => {
+          const hasValue = [
+            ingredient.nutritionCalories,
+            ingredient.nutritionProteinG,
+            ingredient.nutritionCarbsG,
+            ingredient.nutritionFatG,
+          ].some((value) => Boolean(value?.trim()));
+          return [
+            \`\${index + 1}. \${clean(ingredient.name, 160) || "[ingredient name missing]"} — recorded amount: \${clean(ingredient.amount, 80) || "[amount missing]"} \${clean(ingredient.unit, 80) || "[unit missing]"}\`,
+            \`   Calories: \${format(ingredient.nutritionCalories, "kcal")}; protein: \${format(ingredient.nutritionProteinG, "g")}; carbohydrates: \${format(ingredient.nutritionCarbsG, "g")}; fat: \${format(ingredient.nutritionFatG, "g")}.\`,
+            \`   Recorded nutrition basis: \${clean(ingredient.nutritionBasis ?? "", 240) || "[not recorded — owner review required]"}\`,
+            \`   Nutrition source: \${sourceLabel(ingredient.nutritionSourceUrl ?? "")}\`,
+            \`   Status: \${hasValue ? "MANUAL VALUE — source and quantity match are not independently verified; owner review required." : "NO NUTRITION VALUE RECORDED — do not state a nutrition result for this ingredient."}\`,
+          ].join("\\n");
+        })
+      : ["[No ingredients recorded. Nutrition claims are not supported.]"]),
+    ...(ingredients.length === 0
+      ? []
+      : [
+          "",
+          "Do not state calorie or nutrient totals unless every included ingredient has a matching sourced value for its exact entered quantity, all units and preparation states have been checked, and the serving count is valid. Clearly label any computed result as an estimate.",
+        ]),
+    "",
+  ];
+}
+
 /**
  * Adds a richer US-first production appendix to the existing local content pack.
  * This generator is deterministic: it does not call an AI, infer missing recipe facts,
@@ -159,7 +225,12 @@ export function buildUSCreatorPackAppendix(
     ...titles.map((title, index) => `${index + 1}. ${title}`),
     "",
     "### Opening hooks — select one and add your own tested, original detail",
-    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
+    ...hooks.map((hook, index) => \`\${index + 1}. \${hook}\`),
+    "",
+    "### Originality and differentiation worksheet — owner input required",
+    "- Intended US viewer and cooking occasion: [Owner to define; do not assume audience demographics].",
+    "- What is materially different about this version: [Owner to add a true, specific difference; superficial rewording is not enough].",
+    "- Original creator contribution: [Owner to add a real test result, technique, explanation or cultural context; do not invent experience].",
     "",
     "### Short-form edit outline",
     "1. **Opening:** Show the finished dish only if you have filmed or selected the real final result; introduce the recipe in your own voice.",
@@ -175,6 +246,20 @@ export function buildUSCreatorPackAppendix(
     "4. Explain any substitutions only when they have been researched and tested; disclose what remains uncertain.",
     "5. Show the actual result, summarize practical lessons from the owner’s real cooking trial, and invite respectful comments.",
     "",
+    "### Platform-specific finishing pass — adapt each version, do not copy blindly",
+    "- **YouTube Shorts:** Choose one clear cooking promise, get to the first meaningful action quickly, keep step captions readable, and use the actual filmed result. Add only claims supported by the ledger below.",
+    "- **Instagram Reels:** Make the opening frame understandable with sound off, adapt the caption to the clip, use only relevant hashtags and confirm audio/asset rights and any required partnership disclosures.",
+    "- **YouTube long-form:** Build a fuller explanation around the confirmed ingredients and steps. Add chapter timestamps only after the final edit; never invent timestamps or claim a technique was tested if it was not.",
+    "",
+    "### Step-by-step voiceover draft — owner must review before recording",
+    ...(steps.length
+      ? steps.map((step, index) => {
+          const action = clean(step.action, 800) || "[Action missing — owner review required]";
+          const timing = clean(step.duration, 120);
+          return \`\${index + 1}. \${action}\${timing ? \` (recorded timing: \${timing})\` : " (timing not recorded — do not guess)"}\`;
+        })
+      : ["[No steps recorded. Write and verify the narration after adding the method.]"]),
+    "",
     "### Ingredient card — owner review required",
     `**Recipe:** ${recipeName}`,
     `**Yield:** ${servings} serving(s) as entered; confirm before publication.`,
@@ -183,8 +268,10 @@ export function buildUSCreatorPackAppendix(
     "",
     "### Ordered method — owner review required",
     ...(steps.length ? steps.map(stepLine) : ["[No cooking steps recorded.]"]),
-    ...(project.steps.length > MAX_LIST_ITEMS ? [`[Only the first ${MAX_LIST_ITEMS} cooking steps are shown in this export. Review the full recipe in the app.]`] : []),
+    ...(project.steps.length > MAX_LIST_ITEMS ? [\`[Only the first \${MAX_LIST_ITEMS} cooking steps are shown in this export. Review the full recipe in the app.]\`] : []),
     "",
+    ...buildSourceClaimLedger(project),
+    ...buildNutritionClaimLedger(ingredients),
     "### YouTube description draft",
     `${recipeName} — a step-by-step recipe guide.`,
     "",
@@ -214,7 +301,11 @@ export function buildUSCreatorPackAppendix(
     "- Review captions, hashtags, subtitles, accessibility, source attribution and music rights manually before sharing.",
     "",
     "### Draft caption",
-    `${recipeName}: follow the ingredient list and method, and check the notes before cooking. Save this recipe for later.`,
+    \`\${recipeName}: follow the ingredient list and method, and check the notes before cooking. Save this recipe for later.\`,
+    "",
+    "### Pinned-comment idea — personalize before use",
+    \`"Have you tried \${recipeName}? Share what you learned. Check the ingredient and method notes above before cooking."\`,
+    "Do not present this as a real viewer question, testimonial or endorsement.",
     "",
     "### Hashtag starting points — select only relevant tags",
     "#Cooking #RecipeIdeas #HomeCooking",
