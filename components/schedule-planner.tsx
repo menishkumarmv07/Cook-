@@ -89,9 +89,19 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; timeZone?: unknown; plan?: unknown };
+        const saved = JSON.parse(raw) as { linksText?: unknown; startDate?: unknown; timeZone?: unknown; daysToProcess?: unknown; linksPerDay?: unknown; plan?: unknown };
         const savedTimeZone = isAudienceTimeZone(saved.timeZone) ? saved.timeZone : DEFAULT_AUDIENCE_TIME_ZONE;
         setTimeZone(savedTimeZone);
+        // Restore valid custom-plan settings so a reload does not silently reset
+        // the owner's chosen workload. Invalid legacy values fall back to defaults.
+        if (typeof saved.daysToProcess === "string" && /^\d+$/.test(saved.daysToProcess) &&
+            Number.isSafeInteger(Number(saved.daysToProcess)) && Number(saved.daysToProcess) > 0) {
+          setDaysToProcess(saved.daysToProcess);
+        }
+        if (typeof saved.linksPerDay === "string" && /^\d+$/.test(saved.linksPerDay) &&
+            Number.isSafeInteger(Number(saved.linksPerDay)) && Number(saved.linksPerDay) > 0) {
+          setLinksPerDay(saved.linksPerDay);
+        }
         // Explicit links passed from the chat command must win over an older saved list.
         if (typeof saved.linksText === "string" && !initialPrefillLinksText.current.trim()) setLinksText(saved.linksText);
         if (typeof saved.startDate === "string" && isValidCalendarDate(saved.startDate)) setStartDate(saved.startDate);
@@ -113,7 +123,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, timeZone, plan }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ linksText, startDate, timeZone, daysToProcess, linksPerDay, plan }));
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }

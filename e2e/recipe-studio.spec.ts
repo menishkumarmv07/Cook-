@@ -1075,6 +1075,14 @@ test("US audience scheduling supports multiple time zones and values beyond the 
   await expect(page.locator("#schedule-days-count")).not.toHaveAttribute("max");
   await page.locator("#schedule-links-per-day").fill("1500");
   await page.locator("#schedule-days-count").fill("400");
+  await page.waitForFunction(() => {
+    const saved = localStorage.getItem("cooking-creator-local-schedule-v1");
+    return Boolean(saved && JSON.parse(saved).linksPerDay === "1500" && JSON.parse(saved).daysToProcess === "400");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator("#schedule-links-per-day")).toHaveValue("1500");
+  await expect(page.locator("#schedule-days-count")).toHaveValue("400");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
 
   const rows = page.locator(".schedule-table tbody tr");
