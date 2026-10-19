@@ -563,7 +563,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     ...candidate,
     steps: candidate.steps.map((step) => ({
       ...step,
-      ingredientIds: (step.ingredientIds ?? []).filter((id) => validIngredientIds.has(id)),
+      ingredientIds: (step.ingredientIds ?? []).filter((id: string) => validIngredientIds.has(id)),
     })),
   };
 }
