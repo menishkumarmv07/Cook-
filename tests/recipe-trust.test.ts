@@ -57,7 +57,7 @@ test("evidence review requires each source comparison category and a valid URL",
   project.sourceReferences[0].url = "javascript:alert(1)";
   assessment = getRecipeTrustAssessment(project);
   assert.equal(assessment.canMarkEvidenceReviewed, false);
-  assert.match(assessment.evidenceReviewBlockers.join(" "), /valid HTTP(S)/);
+  assert.match(assessment.evidenceReviewBlockers.join(" "), /valid HTTP/);
 });
 
 test("recipe cannot be ready for trial with missing quantities, method details or mappings", () => {
