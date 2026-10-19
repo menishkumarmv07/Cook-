@@ -1,5 +1,4 @@
 import {
-  buildNarrationScript,
   isHttpUrl,
   type CreatorProfile,
   type RecipeProject,
