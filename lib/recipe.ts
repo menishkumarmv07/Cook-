@@ -274,9 +274,9 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     typeof p.trialChanges === "string" &&
     typeof p.trialNotes === "string" &&
     typeof p.trialPhotoDataUrl === "string" &&
-    Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 &&
-    Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 &&
-    Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 &&
+    Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 && (p.recipeRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
+    Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 && (p.trialPhotoRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
+    Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 && (p.trialNotesRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     typeof p.approved === "boolean" &&
     typeof p.approvedAt === "string" &&
     typeof p.name === "string" &&
@@ -535,6 +535,7 @@ export function buildNarrationScript(project: RecipeProject): string {
 }
 
 const MAX_RECIPE_PROJECT_CHARACTERS = 2_000_000;
+const MAX_RECIPE_REVISION = 1_000_000_000;
 const MAX_RECIPE_INGREDIENTS = 500;
 const MAX_RECIPE_STEPS = 500;
 const MAX_RECIPE_SCENES = 100;
@@ -554,14 +555,14 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
   const candidate = {
     ...legacy,
     trialStatus: legacy.trialStatus === "tested" ? "tested" : "untested",
-    trialRating: typeof legacy.trialRating === "string" ? legacy.trialRating : "",
+    trialRating: typeof legacy.trialRating === "string" && /^[1-5]$/.test(legacy.trialRating) ? legacy.trialRating : "",
     trialDate: typeof legacy.trialDate === "string" && isValidDateOnly(legacy.trialDate) ? legacy.trialDate : "",
     trialChanges: typeof legacy.trialChanges === "string" ? legacy.trialChanges : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
     trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
-    recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 ? legacy.recipeRevision : 0,
-    trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 ? legacy.trialPhotoRevision : -1,
-    trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 ? legacy.trialNotesRevision : -1,
+    recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
+    trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
+    trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
