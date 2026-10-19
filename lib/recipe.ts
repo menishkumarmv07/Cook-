@@ -43,12 +43,31 @@ export type SourceReference = {
   timingFindings?: string;
   safetyStorageFindings?: string;
 };
+export function getLocalDateOnly(date = new Date()): string {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function isValidDateOnly(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 export type RecipeProject = {
   id: number;
   trialStatus: "untested" | "tested";
   trialRating: string;
+  trialDate: string;
+  trialChanges: string;
   trialNotes: string;
   trialPhotoDataUrl: string;
+  // Local revision counters prevent old trial evidence from being reused after recipe edits.
+  recipeRevision: number;
+  trialPhotoRevision: number;
+  trialNotesRevision: number;
   approved: boolean;
   approvedAt: string;
   name: string;
@@ -249,7 +268,17 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
   if (typeof value !== "object" || value === null) return false;
   const p = value as Partial<RecipeProject>;
   return typeof p.id === "number" &&
+    (p.trialStatus === "untested" || p.trialStatus === "tested") &&
+    typeof p.trialRating === "string" && (p.trialRating === "" || /^[1-5]$/.test(p.trialRating)) &&
+    typeof p.trialDate === "string" && (p.trialDate === "" || isValidDateOnly(p.trialDate)) &&
+    typeof p.trialChanges === "string" &&
+    typeof p.trialNotes === "string" &&
     typeof p.trialPhotoDataUrl === "string" &&
+    Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 &&
+    Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 &&
+    Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 &&
+    typeof p.approved === "boolean" &&
+    typeof p.approvedAt === "string" &&
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
@@ -526,8 +555,13 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     ...legacy,
     trialStatus: legacy.trialStatus === "tested" ? "tested" : "untested",
     trialRating: typeof legacy.trialRating === "string" ? legacy.trialRating : "",
+    trialDate: typeof legacy.trialDate === "string" && isValidDateOnly(legacy.trialDate) ? legacy.trialDate : "",
+    trialChanges: typeof legacy.trialChanges === "string" ? legacy.trialChanges : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
     trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
+    recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 ? legacy.recipeRevision : 0,
+    trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 ? legacy.trialPhotoRevision : -1,
+    trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 ? legacy.trialNotesRevision : -1,
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
@@ -555,8 +589,22 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.sourceReferences.length > MAX_RECIPE_SOURCE_REFERENCES
   ) return null;
   const validIngredientIds = new Set(candidate.ingredients.map((ingredient) => ingredient.id));
+  const currentTrialEvidenceIsComplete =
+    candidate.trialStatus === "tested" &&
+    candidate.trialDate !== "" &&
+    candidate.trialDate <= getLocalDateOnly() &&
+    candidate.trialChanges.trim().length >= 3 &&
+    candidate.trialRating !== "" &&
+    candidate.trialNotes.trim().length >= 10 &&
+    candidate.trialPhotoDataUrl !== "" &&
+    candidate.trialPhotoRevision === candidate.recipeRevision &&
+    candidate.trialNotesRevision === candidate.recipeRevision;
+  const trialStatus = currentTrialEvidenceIsComplete ? "tested" : "untested";
   return {
     ...candidate,
+    trialStatus,
+    approved: trialStatus === "tested" && candidate.approved,
+    approvedAt: trialStatus === "tested" && candidate.approved ? candidate.approvedAt : "",
     steps: candidate.steps.map((step) => ({
       ...step,
       ingredientIds: (step.ingredientIds ?? []).filter((id) => validIngredientIds.has(id)),
