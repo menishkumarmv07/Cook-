@@ -83,17 +83,25 @@ test("missing information is exposed, not filled in with fabricated quantities o
   assert.match(output, /timing not recorded/);
   assert.match(output, /Record the serving yield/);
   assert.match(output, /No source URLs recorded/);
-  assert.match(output, /NO — not marked tested/);
+  assert.match(output, /current-version trial proof is incomplete or stale/);
+  assert.match(output, /NOT RECORDED OR INVALID — owner review required/);
   assert.match(output, /approval still required/);
 });
 
 test("a recipe marked tested but not approved remains approval-gated", () => {
   const output = buildUSCreatorPackAppendix(recipe({
     trialStatus: "tested",
-    trialNotes: "Owner recorded a real kitchen trial.",
+    trialRating: "4",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes; followed the instructions as written.",
+    trialNotes: "Owner recorded a real kitchen trial and checked the cooking cues.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 1,
+    trialPhotoRevision: 1,
+    trialNotesRevision: 1,
     approved: false,
   }), DEFAULT_CREATOR_PROFILE);
-  assert.match(output, /marked tested — confirm the notes reflect a real trial/);
+  assert.match(output, /marked tested for the current recipe version/);
   assert.match(output, /Content approved by owner: NO/);
   assert.match(output, /Owner approval is not complete/);
 });
