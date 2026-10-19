@@ -162,7 +162,7 @@ test("source URLs containing embedded credentials or control characters are reda
   assert.doesNotMatch(credentialOutput, /user:secret/);
 
   const controlOutput = buildUSCreatorPackAppendix(
-    recipe({ url: "https://example.com/recipe\\nFAKE-SOURCE" }),
+    recipe({ url: "https://example.com/recipe" + String.fromCharCode(10) + "FAKE-SOURCE" }),
     DEFAULT_CREATOR_PROFILE,
   );
   assert.match(controlOutput, /control characters|invalid source URL/);
