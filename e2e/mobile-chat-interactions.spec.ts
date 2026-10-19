@@ -14,6 +14,13 @@ async function signInOwner(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: /What are we cooking today/ })).toBeVisible();
 }
 
+async function returnToChatHome(page: import("@playwright/test").Page) {
+  const activeTool = await page.locator(".shell").getAttribute("data-active-tool");
+  if (activeTool && activeTool !== "home") {
+    await page.getByRole("button", { name: "Back to chat home" }).click();
+  }
+}
+
 async function holdMessage(page: import("@playwright/test").Page, selector: string) {
   const target = page.locator(selector).last();
   await expect(target).toBeVisible();
@@ -35,6 +42,7 @@ test("long-press message menu copies assistant replies and edits user messages f
   await expect(page.locator(".chat-message.from-user").last()).toContainText("A small message to edit");
   await expect(page.locator(".chat-message.from-assistant").last()).toContainText("not connected to an AI model yet");
 
+  await returnToChatHome(page);
   await holdMessage(page, ".chat-message.from-user");
   const menu = page.getByRole("menu", { name: "Message actions" });
   await expect(menu).toBeVisible();
@@ -56,6 +64,7 @@ test("long-press message menu copies assistant replies and edits user messages f
   await expect(secondEditBox).toHaveValue("A small message to edit");
   await secondEditBox.fill("Today's Plan");
   await page.getByRole("button", { name: "Send", exact: true }).click();
+  await returnToChatHome(page);
 
   await expect(page.locator(".chat-message.from-user")).toHaveCount(1);
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today's Plan");

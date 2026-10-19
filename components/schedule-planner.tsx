@@ -82,7 +82,11 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
   const initialPrefillLinksText = useRef(prefillLinksText);
 
   useEffect(() => {
-    if (prefillLinksText.trim()) setLinksText(prefillLinksText);
+    if (prefillLinksText.trim()) {
+      setLinksText(prefillLinksText);
+      setPlan([]);
+      setMessage("The link list changed. Build a new plan before exporting.");
+    }
   }, [prefillLinksText]);
 
   useEffect(() => {
@@ -127,7 +131,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     } catch {
       setMessage("Browser storage is full or unavailable. Export your plan to keep a copy.");
     }
-  }, [hydrated, linksText, startDate, timeZone, plan]);
+  }, [hydrated, linksText, startDate, timeZone, daysToProcess, linksPerDay, plan]);
 
   const links = useMemo(() => parseLinks(linksText), [linksText]);
   const invalidLinks = useMemo(() => links.filter((link) => !validHttpUrl(link)), [links]);
@@ -155,7 +159,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
     }
     const requiredDays = Math.ceil(links.length / perDay);
     if (requiredDays > dayCount) {
-      setMessage(`You have ${links.length} links. At ${perDay} links per day, they need ${requiredDays} days; increase the days so every link is included.`);
+      setMessage(`Choose at least ${requiredDays} days for all ${links.length} links at ${perDay} per day; increase the days so every link is included.`);
       return;
     }
     if (invalidLinks.length) {
@@ -226,7 +230,7 @@ export default function SchedulePlanner({ prefillLinksText = "" }: { prefillLink
           <textarea
             id="schedule-links"
             value={linksText}
-            onChange={(event) => setLinksText(event.target.value)}
+            onChange={(event) => { setLinksText(event.target.value); if (plan.length > 0) { setPlan([]); setMessage("The link list changed. Build a new plan before exporting."); } }}
             rows={5}
             placeholder={"https://www.instagram.com/reel/...\nhttps://www.youtube.com/shorts/...\nOne URL per line"}
           />

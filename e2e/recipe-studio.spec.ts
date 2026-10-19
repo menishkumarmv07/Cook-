@@ -109,7 +109,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
   await expect(page.getByLabel("Action / instruction").nth(0)).toHaveValue("Fold in the rice");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("lemon-rice.json");
 });
@@ -496,7 +496,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   await expect(pack).toContainText("Follow this step-by-step Tomato pasta tutorial.");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(download.suggestedFilename()).toBe("tomato-pasta.json");
