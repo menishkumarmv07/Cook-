@@ -1,9 +1,9 @@
 import {
-  isHttpUrl,
   normalizeSourceUrlForComparison,
   type CreatorProfile,
   type RecipeProject,
 } from "@/lib/recipe";
+import { isHttpSourceUrl } from "@/lib/research-evidence";
 
 const MAX_LIST_ITEMS = 100;
 const MAX_FIELD_CHARS = 4_000;
@@ -33,7 +33,7 @@ function sourceLabel(url: string): string {
   if (/[\u0000-\u001F\u007F]/.test(raw)) {
     return "[source URL contains control characters — correct it before relying on this source]";
   }
-  if (!isHttpUrl(raw) || !/^https?:\/\//i.test(raw)) {
+  if (!isHttpSourceUrl(raw) || !/^https?:\/\//i.test(raw)) {
     return "[invalid source URL — correct it before relying on this source]";
   }
   try {
@@ -91,7 +91,7 @@ export function buildUSCreatorPackAppendix(
     .filter(Boolean)
     .filter((url) => {
       let key = `raw:${url}`;
-      if (isHttpUrl(url) && /^https?:\/\//i.test(url)) {
+      if (isHttpSourceUrl(url) && /^https?:\/\//i.test(url)) {
         try {
           const parsed = new URL(url);
           if (!parsed.username && !parsed.password) {
