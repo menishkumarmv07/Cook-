@@ -145,7 +145,11 @@ test("source URL export does not truncate links or collapse distinct case-sensit
   const output = buildUSCreatorPackAppendix(mixedCase, DEFAULT_CREATOR_PROFILE);
   assert.match(output, /https:\/\/example\.com\/Recipe/);
   assert.match(output, /https:\/\/example\.com\/recipe/);
-  assert.equal((output.match(/https:\/\/example\.com\/Recipe/g) ?? []).length, 1);
+  // This URL is intentionally repeated in the source-attributed claim ledger; check de-duplication only in the source summary list.
+  const summaryStart = output.indexOf("Source references (verify accuracy, permissions, and attribution before sharing):");
+  const summaryEnd = output.indexOf("### Accessibility", summaryStart);
+  const sourceSummary = output.slice(summaryStart, summaryEnd);
+  assert.equal((sourceSummary.match(/https:\/\/example\.com\/Recipe/g) ?? []).length, 1);
 
   const longUrl = "https://example.com/" + "a".repeat(2_050);
   const longOutput = buildUSCreatorPackAppendix(recipe({ url: longUrl }), DEFAULT_CREATOR_PROFILE);
