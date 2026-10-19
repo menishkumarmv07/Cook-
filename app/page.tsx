@@ -41,6 +41,7 @@ const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_RECIPE_REVISION = 1_000_000_000;
 
 type SourceInspectionResult = {
   requestedUrl: string;
@@ -196,14 +197,14 @@ function migrateProject(value: unknown): RecipeProject | null {
     safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
   })) : [];
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
-  const recipeRevision = typeof old.recipeRevision === "number" && Number.isSafeInteger(old.recipeRevision) && old.recipeRevision >= 0 ? old.recipeRevision : 0;
+  const recipeRevision = typeof old.recipeRevision === "number" && Number.isSafeInteger(old.recipeRevision) && old.recipeRevision >= 0 && old.recipeRevision <= MAX_RECIPE_REVISION ? old.recipeRevision : 0;
   const trialDate = typeof old.trialDate === "string" && isValidDateOnly(old.trialDate) ? old.trialDate : "";
   const trialChanges = typeof old.trialChanges === "string" ? old.trialChanges : "";
-  const trialRating = typeof old.trialRating === "string" ? old.trialRating : "";
+  const trialRating = typeof old.trialRating === "string" && /^[1-5]$/.test(old.trialRating) ? old.trialRating : "";
   const trialNotes = typeof old.trialNotes === "string" ? old.trialNotes : "";
   const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
-  const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 ? old.trialPhotoRevision : -1;
-  const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 ? old.trialNotesRevision : -1;
+  const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
+  const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
   const trialEvidenceComplete = Boolean(
     old.trialStatus === "tested" &&
     trialDate &&
@@ -1251,7 +1252,22 @@ export default function Home() {
       if (changesTrialEvidence) {
         return { ...project, ...patch, trialStatus: "untested" as const, approved: false, approvedAt: "" };
       }
-      return { ...project, ...patch };
+      const updated = { ...project, ...patch };
+      if (updated.trialStatus === "tested") {
+        const currentTrialProofIsComplete =
+          isValidDateOnly(updated.trialDate) &&
+          updated.trialDate <= getLocalDateOnly() &&
+          updated.trialChanges.trim().length >= 3 &&
+          /^[1-5]$/.test(updated.trialRating) &&
+          updated.trialNotes.trim().length >= 10 &&
+          Boolean(updated.trialPhotoDataUrl) &&
+          updated.trialPhotoRevision === updated.recipeRevision &&
+          updated.trialNotesRevision === updated.recipeRevision;
+        if (!currentTrialProofIsComplete) {
+          return { ...updated, trialStatus: "untested" as const, approved: false, approvedAt: "" };
+        }
+      }
+      return updated;
     }));
   }
 
