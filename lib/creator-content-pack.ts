@@ -30,7 +30,7 @@ function sourceLabel(url: string): string {
   if (raw.length > 2_000) {
     return "[source URL exceeds 2,000 characters — review it before export]";
   }
-  if (/[\\u0000-\\u001F\\u007F]/.test(raw)) {
+  if (/[\u0000-\u001F\u007F]/.test(raw)) {
     return "[source URL contains control characters — correct it before relying on this source]";
   }
   try {
@@ -38,7 +38,7 @@ function sourceLabel(url: string): string {
     if (parsed.username || parsed.password) {
       return "[source URL contains embedded credentials — remove them before export]";
     }
-    if (!isHttpSourceUrl(raw) || !/^https?:\\/\\//i.test(raw)) {
+    if (!isHttpSourceUrl(raw) || !/^https?:\/\//i.test(raw)) {
       return "[invalid source URL — correct it before relying on this source]";
     }
     return parsed.toString();
