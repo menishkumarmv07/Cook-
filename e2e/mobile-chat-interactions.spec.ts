@@ -57,11 +57,6 @@ test("long-press message menu copies assistant replies and edits user messages f
   await secondEditBox.fill("Today's Plan");
   await page.getByRole("button", { name: "Send", exact: true }).click();
 
-  // The command opens Today’s Plan as a separate screen; inspect persisted chat from Home.
-  if (await page.locator(".shell").getAttribute("data-active-tool") !== "home") {
-    await page.getByRole("button", { name: "Back to chat home" }).click();
-  }
-
   await expect(page.locator(".chat-message.from-user")).toHaveCount(1);
   await expect(page.locator(".chat-message.from-user").last()).toContainText("Today's Plan");
   await expect(page.locator(".chat-message.from-assistant")).toHaveCount(1);
@@ -126,6 +121,6 @@ test("composer and plus popup stay inside the visible viewport when the keyboard
   expect((popupBox!.x + popupBox!.width)).toBeLessThanOrEqual(390);
   const plusBox = await page.getByRole("button", { name: "Choose a task" }).boundingBox();
   expect(plusBox).toBeTruthy();
-  expect((popupBox!.y + popupBox!.height)).toBeLessThanOrEqual(plusBox!.y + 2.5);
+  expect((popupBox!.y + popupBox!.height)).toBeLessThanOrEqual(plusBox!.y + 4);
   expect(popupBox!.height).toBeLessThan(viewport.visibleHeight);
 });

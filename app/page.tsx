@@ -1,6 +1,7 @@
 "use client";
 
 import SchedulePlanner from "@/components/schedule-planner";
+import ResearchEvidenceVault from "@/components/research-evidence-vault";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
@@ -339,6 +340,7 @@ export default function Home() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [sourceInspection, setSourceInspection] = useState<SourceInspectionResult | null>(null);
+  const [pendingEvidenceCapture, setPendingEvidenceCapture] = useState<SourceInspectionResult | null>(null);
   const [inspectionBusy, setInspectionBusy] = useState(false);
   const [notes, setNotes] = useState("");
   const [servings, setServings] = useState("4");
@@ -742,7 +744,7 @@ export default function Home() {
       const valid = urls.filter(isHttpUrl);
       setSchedulePrefill(valid.join("\n"));
       return { tool: "content", text: valid.length === urls.length
-        ? "I found " + valid.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose your maximum links per day and total number of US Eastern calendar days below. All links will be included when the settings have enough capacity."
+        ? "I found " + valid.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose your maximum links per day and total number of days in your selected US audience timezone below. All links will be included when the settings have enough capacity."
         : "I placed the valid links in Plan Content. Some URLs need correcting before the plan can include every link." };
     }
     if (/^(?:https?|ftp|file|javascript|data):/i.test(rawRequest)) {
@@ -886,7 +888,7 @@ export default function Home() {
     if (tool === "plan") return current
       ? `Today’s Plan is open for “${current.name}”. Review the next step below. Your saved local posting schedule is also shown here when available.`
       : "Today’s Plan is open. Create a local posting draft with Plan Content, then return here to review your plan. Nothing is scheduled or published by this screen.";
-    if (tool === "content") return "Plan Content is open. Paste as many public video/Reel URLs as you need, then choose the maximum links per day and the total number of days. Every valid link is kept in your original order and balanced across the selected US Eastern calendar dates. Suggested time slots are starting points, not audience-analytics predictions. Review the draft before publishing; nothing is automatically scheduled or published.";
+    if (tool === "content") return "Plan Content is open. Paste as many public video/Reel URLs as you need, then choose the maximum links per day and the total number of days. Every valid link is kept in your original order and balanced across the selected US audience timezone's calendar dates. Suggested time slots are starting points, not audience-analytics predictions. Review the draft before publishing; nothing is automatically scheduled or published.";
     if (tool === "research") return current
       ? `Research Studio is open for “${current.name}”. Add source references and record the ingredients, steps, timings, and safety/storage notes you actually checked. Public HTML extraction is not independent verification; video frames and audio are not analyzed.`
       : "Research Studio is open. Start a recipe draft below first, then add source references in its research desk. An accessible public recipe page can be inspected only after you request it; video/Reel frame and audio analysis is not implemented.";
@@ -969,7 +971,7 @@ export default function Home() {
         openTool("content", rawRequest, "I found " + detectedUrls.length + " link(s), but " + invalidLinks.length + " are not valid HTTP(S) URLs. I placed the valid links into Plan Content; correct the invalid ones before building a plan.");
         return;
       }
-      openTool("content", rawRequest, "I found " + validLinks.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose the maximum links per day and the total number of US Eastern calendar days. The planner will include every link when the daily capacity is sufficient. Times are suggestions, not analytics-backed predictions; nothing is automatically scheduled or published.");
+      openTool("content", rawRequest, "I found " + validLinks.length + " valid HTTP(S) link(s) and placed them in Plan Content. Choose the maximum links per day and total number of days in your selected US audience timezone. The planner will include every link when the daily capacity is sufficient. Times are suggestions, not analytics-backed predictions; nothing is automatically scheduled or published.");
       return;
     }
 
@@ -1186,6 +1188,8 @@ export default function Home() {
     };
     setProjects((existing) => [project, ...existing]);
     setActive(project.id);
+    // Keep the inspected public-page payload available for an explicit provenance-ledger import.
+    setPendingEvidenceCapture(sourceInspection);
     setName("");
     setUrl("");
     setSourceInspection(null);
@@ -1775,6 +1779,11 @@ export default function Home() {
                   </>}
                   <p className="warning">Public HTML inspection runs only after an explicit intake action. It does not independently verify sources or analyze video frames/audio. Never mark a recipe verified just because a URL was entered.</p>
                 </section>
+
+                <ResearchEvidenceVault
+                  inspectedSource={pendingEvidenceCapture}
+                  onImportedSource={() => setPendingEvidenceCapture(null)}
+                />
 
                 <div className="subsection-head"><div><h3>Ingredients</h3><p className="muted">Record each ingredient exactly. Amounts are not inferred.</p></div><button className="secondary" type="button" onClick={() => patchCurrent({ ingredients: [...current.ingredients, { id: makeId(), amount: "", unit: "", name: "", prep: "", nutritionCalories: "", nutritionProteinG: "", nutritionCarbsG: "", nutritionFatG: "", nutritionBasis: "", nutritionSourceUrl: "" }] })}>＋ Add ingredient</button></div>
                 {current.ingredients.length === 0 ? <p className="empty-inline">No ingredients yet. Add one row per ingredient.</p> : <div className="ingredient-list">{current.ingredients.map((item, index) => (
