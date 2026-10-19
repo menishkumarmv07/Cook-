@@ -424,6 +424,10 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("1. Here's how to make Lemon rice step by step.");
   await expect(pack).toContainText("#EasyRecipes");
   await expect(pack).toContainText("does not create a video");
+  await expect(pack).toContainText("US-first creator production appendix");
+  await expect(pack).toContainText("USD-oriented business tracking");
+  await expect(pack).toContainText("Owner sign-off");
+  await expect(pack).toContainText("Source links for creator-policy review");
 
   await page.getByRole("button", { name: "Approve pack" }).click();
   await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
@@ -445,6 +449,10 @@ test("content pack export downloads a text file without publishing", async ({ pa
   await page.getByRole("button", { name: "Export pack" }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("lemon-rice.content-pack.txt");
+  const exportedPack = await readFile(await download.path(), "utf8");
+  expect(exportedPack).toContain("US-first creator production appendix");
+  expect(exportedPack).toContain("USD-oriented business tracking");
+  expect(exportedPack).toContain("Source links for creator-policy review");
   await expect(page.getByRole("status")).toContainText("not uploaded or published");
 });
 

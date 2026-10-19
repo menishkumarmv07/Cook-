@@ -1,5 +1,6 @@
 import {
   isHttpUrl,
+  normalizeSourceUrlForComparison,
   type CreatorProfile,
   type RecipeProject,
 } from "@/lib/recipe";
@@ -24,11 +25,26 @@ function longText(value: string, fallback: string): string {
 }
 
 function sourceLabel(url: string): string {
-  const value = clean(url, 2_000);
-  if (!value) return "[source URL not recorded]";
-  return isHttpUrl(value) && /^https?:\/\//i.test(value)
-    ? value
-    : "[invalid source URL — correct it before relying on this source]";
+  const raw = url.trim();
+  if (!raw) return "[source URL not recorded]";
+  if (raw.length > 2_000) {
+    return "[source URL exceeds 2,000 characters — review it before export]";
+  }
+  if (/[\u0000-\u001F\u007F]/.test(raw)) {
+    return "[source URL contains control characters — correct it before relying on this source]";
+  }
+  if (!isHttpUrl(raw) || !/^https?:\/\//i.test(raw)) {
+    return "[invalid source URL — correct it before relying on this source]";
+  }
+  try {
+    const parsed = new URL(raw);
+    if (parsed.username || parsed.password) {
+      return "[source URL contains embedded credentials — remove them before export]";
+    }
+    return parsed.toString();
+  } catch {
+    return "[invalid source URL — correct it before relying on this source]";
+  }
 }
 
 function ingredientLine(
@@ -66,13 +82,29 @@ export function buildUSCreatorPackAppendix(
   const servings = clean(project.servings, 60) || "not recorded";
   const ingredients = project.ingredients.slice(0, MAX_LIST_ITEMS);
   const steps = project.steps.slice(0, MAX_LIST_ITEMS);
+  const seenSourceKeys = new Set<string>();
   const sources = [
     project.url,
     ...project.sourceReferences.map((source) => source.url),
   ]
     .map((url) => url.trim())
     .filter(Boolean)
-    .filter((url, index, all) => all.findIndex((item) => item.toLowerCase() === url.toLowerCase()) === index);
+    .filter((url) => {
+      let key = `raw:${url}`;
+      if (isHttpUrl(url) && /^https?:\/\//i.test(url)) {
+        try {
+          const parsed = new URL(url);
+          if (!parsed.username && !parsed.password) {
+            key = normalizeSourceUrlForComparison(parsed.toString());
+          }
+        } catch {
+          // Keep malformed values separately so that each is visibly rejected below.
+        }
+      }
+      if (seenSourceKeys.has(key)) return false;
+      seenSourceKeys.add(key);
+      return true;
+    });
   const validSources = sources.map(sourceLabel);
   const firstIngredient = ingredients.find((item) => clean(item.name, 160));
   const firstStep = steps.find((item) => clean(item.action, 800));
