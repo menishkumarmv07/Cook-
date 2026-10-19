@@ -99,6 +99,7 @@ function buildSourceClaimLedger(project: RecipeProject): string[] {
 
 function buildNutritionClaimLedger(
   ingredients: RecipeProject["ingredients"],
+  totalIngredientCount = ingredients.length,
 ): string[] {
   const format = (value: string | undefined, unit: string) => {
     const recorded = clean(value ?? "", 80);
@@ -108,6 +109,9 @@ function buildNutritionClaimLedger(
   return [
     "### Nutrition traceability — manual values only",
     "Nutrition entries below apply to each ingredient's recorded amount, not automatically to 100 g or another serving basis. The app does not fetch or verify nutrition sources and performs no implicit unit conversion. Treat every entered value and source match as an estimate requiring owner review.",
+    ...(totalIngredientCount > ingredients.length
+      ? [`[Only ${ingredients.length} of ${totalIngredientCount} ingredient rows are shown in this export. Review the full nutrition worksheet in the app.]`]
+      : []),
     ...(ingredients.length
       ? ingredients.map((ingredient, index) => {
           const hasValue = [
@@ -271,7 +275,7 @@ export function buildUSCreatorPackAppendix(
     ...(project.steps.length > MAX_LIST_ITEMS ? [`[Only the first ${MAX_LIST_ITEMS} cooking steps are shown in this export. Review the full recipe in the app.]`] : []),
     "",
     ...buildSourceClaimLedger(project),
-    ...buildNutritionClaimLedger(ingredients),
+    ...buildNutritionClaimLedger(ingredients, project.ingredients.length),
     "### YouTube description draft",
     `${recipeName} — a step-by-step recipe guide.`,
     "",
