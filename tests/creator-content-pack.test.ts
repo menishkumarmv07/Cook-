@@ -168,3 +168,25 @@ test("source URLs containing embedded credentials or control characters are reda
   assert.match(controlOutput, /control characters|invalid source URL/);
   assert.doesNotMatch(controlOutput, /FAKE-SOURCE/);
 });
+
+test("creator pack rejects local, private, reserved and non-standard source URLs", () => {
+  const rejectedUrls = [
+    "http://localhost/recipe",
+    "http://127.0.0.1/recipe",
+    "http://192.168.1.10/recipe",
+    "http://10.0.0.5/recipe",
+    "http://printer.local/recipe",
+    "http://router.lan/recipe",
+    "https://recipes.example/dish",
+    "https://recipes.com:8443/dish",
+    "http://2130706433/recipe",
+    "http://0x7f000001/recipe",
+  ];
+
+  for (const url of rejectedUrls) {
+    const output = buildUSCreatorPackAppendix(recipe({ url }), DEFAULT_CREATOR_PROFILE);
+    assert.match(output, /invalid source URL/, `URL should be flagged for owner review: ${url}`);
+    assert.equal(output.includes(url), false, `Unsafe or unsupported source URL should not be exported as a valid link: ${url}`);
+  }
+});
+
