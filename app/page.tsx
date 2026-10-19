@@ -14,7 +14,9 @@ import {
   createCreatorWorkspaceBackupJSON,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
+  getLocalDateOnly,
   isHttpUrl,
+  isValidDateOnly,
   parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
@@ -194,15 +196,34 @@ function migrateProject(value: unknown): RecipeProject | null {
     safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
   })) : [];
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
+  const recipeRevision = typeof old.recipeRevision === "number" && Number.isSafeInteger(old.recipeRevision) && old.recipeRevision >= 0 ? old.recipeRevision : 0;
+  const trialDate = typeof old.trialDate === "string" && isValidDateOnly(old.trialDate) ? old.trialDate : "";
+  const trialChanges = typeof old.trialChanges === "string" ? old.trialChanges : "";
+  const trialRating = typeof old.trialRating === "string" ? old.trialRating : "";
+  const trialNotes = typeof old.trialNotes === "string" ? old.trialNotes : "";
+  const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
+  const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 ? old.trialPhotoRevision : -1;
+  const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 ? old.trialNotesRevision : -1;
+  const trialEvidenceComplete = Boolean(
+    old.trialStatus === "tested" &&
+    trialDate &&
+    trialDate <= getLocalDateOnly() &&
+    trialChanges.trim().length >= 3 &&
+    /^[1-5]$/.test(trialRating) &&
+    trialNotes.trim().length >= 10 &&
+    trialPhotoDataUrl &&
+    trialPhotoRevision === recipeRevision &&
+    trialNotesRevision === recipeRevision
+  );
+  const trialStatus = trialEvidenceComplete ? "tested" : "untested";
+  const approved = trialStatus === "tested" && old.approved === true;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
     sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
-    trialStatus: old.trialStatus === "tested" ? "tested" : "untested",
-    trialRating: typeof old.trialRating === "string" ? old.trialRating : "",
-    trialNotes: typeof old.trialNotes === "string" ? old.trialNotes : "",
-    trialPhotoDataUrl: typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "",
-    approved: old.approved === true,
-    approvedAt: typeof old.approvedAt === "string" ? old.approvedAt : "" };
+    trialStatus, trialRating, trialDate, trialChanges, trialNotes, trialPhotoDataUrl,
+    recipeRevision, trialPhotoRevision, trialNotesRevision,
+    approved,
+    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "" };
 }
 
 function makeId() {
@@ -1178,8 +1199,13 @@ export default function Home() {
       }] : [],
       trialStatus: "untested",
       trialRating: "",
+      trialDate: "",
+      trialChanges: "",
       trialNotes: "",
       trialPhotoDataUrl: "",
+      recipeRevision: 0,
+      trialPhotoRevision: -1,
+      trialNotesRevision: -1,
       approved: false,
       approvedAt: "",
       servings: servings.trim(),
@@ -1206,9 +1232,27 @@ export default function Home() {
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
     const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
-    setProjects((existing) => existing.map((project) => project.id === current.id
-      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch || "trialPhotoDataUrl" in patch) ? { approved: false, approvedAt: "" } : {})) }
-      : project));
+    const changesTrialEvidence = ["trialDate", "trialChanges", "trialNotes", "trialRating", "trialPhotoDataUrl"].some((key) => key in patch);
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== current.id) return project;
+      if (changesRecipe) {
+        return {
+          ...project,
+          ...patch,
+          recipeRevision: project.recipeRevision + 1,
+          trialStatus: "untested" as const,
+          trialRating: "",
+          trialDate: "",
+          trialChanges: "",
+          approved: false,
+          approvedAt: "",
+        };
+      }
+      if (changesTrialEvidence) {
+        return { ...project, ...patch, trialStatus: "untested" as const, approved: false, approvedAt: "" };
+      }
+      return { ...project, ...patch };
+    }));
   }
 
   async function saveTrialPhoto(file: File | null) {
@@ -1244,7 +1288,7 @@ export default function Home() {
         setMessage("The compressed photo is still too large for reliable local storage. Choose or crop a smaller photo.");
         return;
       }
-      patchCurrent({ trialPhotoDataUrl: compressed });
+      patchCurrent({ trialPhotoDataUrl: compressed, trialPhotoRevision: current.recipeRevision });
       setMessage("Cooking-trial photo saved locally with the recipe. It is not uploaded.");
     } catch {
       setMessage("Photo could not be processed in this browser. Try a smaller JPG or PNG.");
@@ -1255,20 +1299,28 @@ export default function Home() {
 
   function markRecipeTested() {
     if (!current) return;
-    if (!current.trialPhotoDataUrl) {
-      setMessage("Add a photo of the dish you actually cooked before marking this recipe Tested.");
+    if (!isValidDateOnly(current.trialDate) || current.trialDate > getLocalDateOnly()) {
+      setMessage("Enter the actual date you cooked this recipe. A future date cannot be marked as a completed trial.");
       return;
     }
-    if (!current.trialRating) {
+    if (current.trialChanges.trim().length < 3) {
+      setMessage("Record what changed during the trial, or explicitly write that you followed the recipe as written.");
+      return;
+    }
+    if (!current.trialPhotoDataUrl || current.trialPhotoRevision !== current.recipeRevision) {
+      setMessage("Add a fresh photo of the dish cooked from this recipe version before marking it Tested.");
+      return;
+    }
+    if (!/^[1-5]$/.test(current.trialRating)) {
       setMessage("Rate your real cooking trial before marking this recipe Tested.");
       return;
     }
-    if (current.trialNotes.trim().length < 10) {
-      setMessage("Add at least a short, useful cooking-trial note (10 characters or more) before marking Tested.");
+    if (current.trialNotesRevision !== current.recipeRevision || current.trialNotes.trim().length < 10) {
+      setMessage("Record at least 10 characters of cooking-trial notes for this recipe version before marking Tested.");
       return;
     }
     patchCurrent({ trialStatus: "tested" });
-    setMessage("Recipe marked Tested from your recorded trial. Any later recipe edits will reset approval.");
+    setMessage("Recipe marked Tested using the current version's dated trial evidence. Any recipe or trial-evidence edits reset Tested and approval.");
   }
 
   async function shareContentPack() {
@@ -1318,7 +1370,15 @@ export default function Home() {
         ingredients: project.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item),
         ...(nutritionOnly
           ? { approved: false, approvedAt: "" }
-          : { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" }),
+          : {
+              recipeRevision: project.recipeRevision + 1,
+              trialStatus: "untested" as const,
+              trialRating: "",
+              trialDate: "",
+              trialChanges: "",
+              approved: false,
+              approvedAt: "",
+            }),
       };
     }));
   }
