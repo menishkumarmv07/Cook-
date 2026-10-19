@@ -2,6 +2,7 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import { buildCreatorContentPack } from "@/lib/creator-content-pack";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
@@ -267,61 +268,7 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
 
 
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
-  const slug = project.name.trim();
-  const tone = profile.tone.trim() || DEFAULT_CREATOR_PROFILE.tone;
-  const voiceNotes = [
-    `Tone: ${tone}`,
-    `Language preference: ${profile.language || "English"}`,
-    `Cuisine focus: ${profile.cuisineFocus || "Not specified"}`,
-    `Audience skill level: ${profile.skillLevel || "Not specified"}`,
-    `Equipment: ${profile.equipment || "Not specified"}`,
-    `Budget: ${profile.budget || "Not specified"}`,
-    `Diet/allergy constraints to check: ${profile.dietLimits || "None recorded; ask/check before making suitability claims"}`,
-    `Units: ${profile.units || "Not specified"}`,
-    `Usual cooking-time target: ${profile.usualCookingTime || "Not specified"}`,
-    `Target platforms: ${profile.platforms || "Not specified"}`,
-    `Catchphrases: ${profile.catchphrases || "None recorded"}`,
-    `Never-say list: ${profile.neverSay || "None recorded"}`,
-  ];
-  const hashtags = ["#Cooking", "#EasyRecipes", "#FoodTok", "#HomeCooking", "#RecipeIdeas"];
-  const hooks = [
-    `Here's how to make ${slug} step by step.`,
-    `Save this ${slug} recipe for your next cooking day.`,
-    `Let's make ${slug} with clear steps and no guesswork.`,
-    `Want to try ${slug}? Here's the complete method.`,
-    `From ingredients to the final plate: ${slug}.`,
-  ];
-  return [
-    `RECIPE: ${slug}`,
-    `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
-    `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
-    "",
-    "CREATOR PROFILE GUIDANCE (saved locally; apply while editing; this is not an AI-generated translation)",
-    ...voiceNotes,
-    `Sample captions in creator voice:\n${profile.sampleCaptions.trim() || "No sample captions supplied yet."}`,
-    "",
-    "HOOK OPTIONS",
-    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
-    "",
-    "SHORT-FORM VOICEOVER / SHOT PLAN",
-    buildNarrationScript(project),
-    "",
-    "CAPTION DRAFT",
-    `${tone.toLowerCase().includes("professional") ? "Follow this step-by-step" : tone.toLowerCase().includes("energetic") ? "Let’s make" : "Come cook"} ${slug}${tone.toLowerCase().includes("professional") ? " tutorial" : ""}. Follow the recorded ingredients and steps, and save this post for later.`,
-    "",
-    hashtags.join(" "),
-    "",
-    "CALL TO ACTION",
-    "Save this recipe and tell me what you would serve with it.",
-    "",
-    "REVIEW NOTES",
-    project.trialNotes.trim() || "No cooking-trial notes recorded.",
-    "",
-    "SOURCE",
-    project.url || "No source URL recorded.",
-    "",
-    "IMPORTANT: This is an editable text pack. It does not create a video, add music, upload media, or publish a post. Confirm platform-specific captions, music rights, and disclosures before sharing.",
-  ].join("\n");
+  return buildCreatorContentPack(project, profile);
 }
 
 function downloadFile(name: string, content: string, type: string) {
