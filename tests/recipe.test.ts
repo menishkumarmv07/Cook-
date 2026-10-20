@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  advanceRecipeRevision,
   buildNarrationScript,
   buildTutorialDraft,
   calculateRecipeNutrition,
@@ -539,6 +540,14 @@ test("trial date validation accepts real calendar dates only", () => {
   assert.equal(isValidDateOnly(""), false);
 });
 
+test("bounded recipe revision counter never repeats the ceiling value after an edit", () => {
+  assert.equal(advanceRecipeRevision(0), 1);
+  assert.equal(advanceRecipeRevision(999_999_999), 1_000_000_000);
+  assert.equal(advanceRecipeRevision(1_000_000_000), 0);
+  assert.equal(advanceRecipeRevision(Number.MAX_SAFE_INTEGER), 0);
+  assert.equal(advanceRecipeRevision(-1), 0);
+});
+
 test("invalid trial rating and unbounded imported revisions are normalized without discarding a recipe", () => {
   const imported = parseRecipeProjectJSON(JSON.stringify({
     ...base,
@@ -618,5 +627,14 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
   assert.ok(impossibleDate);
   assert.equal(impossibleDate.trialDate, "");
   assert.equal(impossibleDate.trialStatus, "untested");
+
+  const futureReview = parseRecipeProjectJSON(JSON.stringify({
+    ...tested,
+    evidenceReviewedAt: new Date(Date.now() + 60_000).toISOString(),
+  }));
+  assert.ok(futureReview);
+  assert.equal(futureReview.evidenceReviewedAt, "");
+  assert.equal(futureReview.trialStatus, "untested");
+  assert.equal(futureReview.approved, false);
 });
 
