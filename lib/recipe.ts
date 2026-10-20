@@ -599,8 +599,22 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.sourceReferences.length > MAX_RECIPE_SOURCE_REFERENCES
   ) return null;
   const validIngredientIds = new Set(candidate.ingredients.map((ingredient) => ingredient.id));
+  const sourceReviewComplete = Boolean(
+    candidate.evidenceReviewedAt &&
+    candidate.sourceReferences.length > 0 &&
+    candidate.sourceReferences.every((source) =>
+      Boolean(source.url.trim()) &&
+      isHttpUrl(source.url) &&
+      /^https?:\/\//i.test(source.url.trim()) &&
+      Boolean(source.checked.trim()) &&
+      ["ingredientFindings", "methodFindings", "timingFindings", "safetyStorageFindings"]
+        .every((field) => typeof source[field as keyof typeof source] === "string" &&
+          Boolean((source[field as keyof typeof source] as string).trim()))
+    )
+  );
   const currentTrialEvidenceIsComplete =
     candidate.trialStatus === "tested" &&
+    sourceReviewComplete &&
     candidate.trialDate !== "" &&
     candidate.trialDate <= getLocalDateOnly() &&
     candidate.trialChanges.trim().length >= 3 &&
