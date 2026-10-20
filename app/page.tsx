@@ -2,6 +2,7 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +18,7 @@ import {
   getLocalDateOnly,
   isHttpUrl,
   isValidDateOnly,
+  isValidIsoTimestamp,
   parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
@@ -205,8 +207,10 @@ function migrateProject(value: unknown): RecipeProject | null {
   const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
   const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
   const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
+  const evidenceReviewedAt = typeof old.evidenceReviewedAt === "string" && isValidIsoTimestamp(old.evidenceReviewedAt) ? old.evidenceReviewedAt : "";
   const trialEvidenceComplete = Boolean(
     old.trialStatus === "tested" &&
+    evidenceReviewedAt &&
     trialDate &&
     trialDate <= getLocalDateOnly() &&
     trialChanges.trim().length >= 3 &&
@@ -218,13 +222,22 @@ function migrateProject(value: unknown): RecipeProject | null {
   );
   const trialStatus = trialEvidenceComplete ? "tested" : "untested";
   const approved = trialStatus === "tested" && old.approved === true;
-  return { id: old.id, name: old.name, url: old.url, notes: old.notes,
+  const migrated: RecipeProject = {
+    id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
     sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
     trialStatus, trialRating, trialDate, trialChanges, trialNotes, trialPhotoDataUrl,
-    recipeRevision, trialPhotoRevision, trialNotesRevision,
+    recipeRevision, trialPhotoRevision, trialNotesRevision, evidenceReviewedAt,
     approved,
-    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "" };
+    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "",
+  };
+  const trust = getRecipeTrustAssessment(migrated);
+  return {
+    ...migrated,
+    trialStatus: trust.testedByOwner ? "tested" : "untested",
+    approved: trust.canShare,
+    approvedAt: trust.canShare ? migrated.approvedAt : "",
+  };
 }
 
 function makeId() {
@@ -401,6 +414,7 @@ export default function Home() {
   const copiedToastTimerRef = useRef<number | null>(null);
   const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
+  const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
@@ -1207,6 +1221,7 @@ export default function Home() {
       recipeRevision: 0,
       trialPhotoRevision: -1,
       trialNotesRevision: -1,
+      evidenceReviewedAt: "",
       approved: false,
       approvedAt: "",
       servings: servings.trim(),
@@ -1240,7 +1255,8 @@ export default function Home() {
         return {
           ...project,
           ...patch,
-          recipeRevision: project.recipeRevision + 1,
+          recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+          evidenceReviewedAt: "",
           trialStatus: "untested" as const,
           trialRating: "",
           trialDate: "",
@@ -1385,9 +1401,10 @@ export default function Home() {
         ...project,
         ingredients: project.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item),
         ...(nutritionOnly
-          ? { approved: false, approvedAt: "" }
+          ? { evidenceReviewedAt: "", approved: false, approvedAt: "" }
           : {
-              recipeRevision: project.recipeRevision + 1,
+              recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+              evidenceReviewedAt: "",
               trialStatus: "untested" as const,
               trialRating: "",
               trialDate: "",
