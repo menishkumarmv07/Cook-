@@ -56,6 +56,12 @@ export function isValidDateOnly(value: string): boolean {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+export function isValidIsoTimestamp(value: string): boolean {
+  if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.valueOf()) && parsed.toISOString() === value;
+}
+
 export type RecipeProject = {
   id: number;
   trialStatus: "untested" | "tested";
@@ -68,6 +74,7 @@ export type RecipeProject = {
   recipeRevision: number;
   trialPhotoRevision: number;
   trialNotesRevision: number;
+  evidenceReviewedAt: string;
   approved: boolean;
   approvedAt: string;
   name: string;
@@ -277,6 +284,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 && (p.recipeRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 && (p.trialPhotoRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 && (p.trialNotesRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
+    typeof p.evidenceReviewedAt === "string" &&
     typeof p.approved === "boolean" &&
     typeof p.approvedAt === "string" &&
     typeof p.name === "string" &&
@@ -563,6 +571,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
     trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
     trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
+    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && isValidIsoTimestamp(legacy.evidenceReviewedAt) ? legacy.evidenceReviewedAt : "",
     approved: legacy.approved === true,
     approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
