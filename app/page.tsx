@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
 import type { FormEvent, TouchEvent as ReactTouchEvent } from "react";
 import {
+  advanceRecipeRevision,
   buildNarrationScript,
   buildTutorialDraft,
   calculateRecipeNutrition,
@@ -1258,7 +1259,7 @@ export default function Home() {
         return {
           ...project,
           ...patch,
-          recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+          recipeRevision: advanceRecipeRevision(project.recipeRevision),
           evidenceReviewedAt: "",
           trialStatus: "untested" as const,
           trialRating: "",
@@ -1412,7 +1413,7 @@ export default function Home() {
         ...(nutritionOnly
           ? { evidenceReviewedAt: "", approved: false, approvedAt: "" }
           : {
-              recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+              recipeRevision: advanceRecipeRevision(project.recipeRevision),
               evidenceReviewedAt: "",
               trialStatus: "untested" as const,
               trialRating: "",
