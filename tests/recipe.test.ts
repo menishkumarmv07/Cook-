@@ -30,6 +30,7 @@ const base: RecipeProject = {
   recipeRevision: 0,
   trialPhotoRevision: -1,
   trialNotesRevision: -1,
+  evidenceReviewedAt: "",
   approved: false,
   approvedAt: "",
   name: "Tomato pasta",
