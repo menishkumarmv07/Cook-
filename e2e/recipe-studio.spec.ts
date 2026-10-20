@@ -395,7 +395,7 @@ test("narration script preserves recipe order and flags missing timing before re
 });
 
 
-test("tested recipe must be approved before share; recipe edits reset trust and approval", async ({ page }) => {
+test("recipe lifecycle requires source review and current-version cooking-trial proof before sharing", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("Lemon rice");
@@ -404,21 +404,34 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Approve pack" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+  await expect(page.getByText("DRAFT", { exact: true })).toBeVisible();
 
-  await page.locator("#trial-photo").setInputFiles({
-    name: "cooked-dish.png",
-    mimeType: "image/png",
-    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"),
-  });
-  await expect(page.getByRole("status")).toContainText("Cooking-trial photo saved locally");
-  await expect(page.getByAltText("Your cooking-trial photo for Lemon rice")).toBeVisible();
+  // A source URL alone is not review. Fill all source-comparison categories.
+  await page.getByRole("button", { name: /Add source/ }).click();
+  await page.getByLabel("Reference URL").fill("https://example.com/lemon-rice-recipe");
+  await page.getByLabel("What did you actually check?").fill("Compared the source ingredient list and method order.");
+  await page.getByLabel("Ingredient quantities & differences").fill("One cup cooked rice and one tablespoon lemon juice are listed.");
+  await page.getByLabel("Method / step-order findings").fill("Warm the pan, fold in the rice, then add lemon juice.");
+  await page.getByLabel("Cooking timing & heat findings").fill("This source does not state exact timing or heat settings.");
+  await page.getByLabel("Food safety & storage notes").fill("Storage is not stated by this source; check authoritative guidance separately.");
 
-  await page.getByLabel("Your trial rating").selectOption("5");
-  await page.getByLabel("What happened when you cooked it?").fill("Cooked at home; texture and taste were good.");
-  await page.getByRole("button", { name: "Mark as Tested" }).click();
-  await expect(page.getByRole("status")).toContainText("Enter the actual date you cooked this recipe");
-  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  // Complete the recipe enough to enter the Ready for cooking trial stage.
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("cooked rice");
 
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").fill("Warm the cooked rice in a pan, then add lemon juice.");
+  await page.getByLabel("Timing").fill("3 minutes");
+  await page.getByLabel("Heat / setting").fill("medium");
+  await page.getByLabel("Visual / doneness cue").fill("Rice is steaming hot and evenly coated.");
+  await page.getByRole("checkbox", { name: "Add cooked rice at step 1" }).check();
+
+  await page.getByRole("button", { name: "Mark source review complete" }).click();
+  await expect(page.getByText("READY FOR COOKING TRIAL", { exact: true })).toBeVisible();
+
+  // Enter current-version proof, then confirm a missing date still blocks Tested.
   const trialDate = await page.evaluate(() => {
     const now = new Date();
     const year = String(now.getFullYear()).padStart(4, "0");
@@ -426,8 +439,21 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
     const day = String(now.getDate()).padStart(2, "0");
     return [year, month, day].join("-");
   });
-  await page.getByLabel("Actual cooking-trial date").fill(trialDate);
   await page.getByLabel("What changed (or confirm no changes)").fill("No changes; followed the recipe as written.");
+  await page.getByLabel("What happened when you cooked it?").fill("Cooked at home; texture and taste were checked.");
+  await page.locator("#trial-photo").setInputFiles({
+    name: "cooked-dish.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==", "base64"),
+  });
+  await expect(page.getByRole("status")).toContainText("Cooking-trial photo saved locally");
+  await expect(page.getByAltText("Your cooking-trial photo for Lemon rice")).toBeVisible();
+  await page.getByLabel("Your trial rating").selectOption("5");
+  await page.getByRole("button", { name: "Mark as Tested" }).click();
+  await expect(page.getByRole("status")).toContainText("actual cooking-trial date");
+  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+
+  await page.locator("#trial-date").fill(trialDate);
   await page.getByRole("button", { name: "Mark as Tested" }).click();
   await expect(page.getByText("TESTED BY YOU")).toBeVisible();
 
@@ -444,6 +470,8 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("What changed during the trial: No changes; followed the recipe as written.");
   await expect(pack).toContainText("Current-version trial photo: revision matches the current recipe");
   await expect(pack).toContainText("Current-version trial notes: revision matches the current recipe");
+  await expect(pack).toContainText("Recipe lifecycle stage: Tested by owner");
+  await expect(pack).toContainText("Evidence review timestamp:");
   await expect(pack).toContainText("Source links for creator-policy review");
   await expect(pack).toContainText("Originality and differentiation worksheet");
   await expect(pack).toContainText("Platform-specific finishing pass");
@@ -451,7 +479,6 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("Evidence-linked factual-claim ledger");
   await expect(pack).toContainText("OWNER REVIEW REQUIRED");
   await expect(pack).toContainText("Nutrition traceability — manual values only");
-  await expect(pack).toContainText("No ingredients recorded. Nutrition claims are not supported.");
   await expect(pack).toContainText("Pinned-comment idea");
 
   await page.getByRole("button", { name: "Approve pack" }).click();
@@ -459,14 +486,16 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeEnabled();
 
   await page.getByRole("button", { name: /Add ingredient/ }).click();
-  await page.getByLabel("Ingredient 1 name").fill("cooked rice");
+  await page.getByLabel("Ingredient 2 amount").fill("1");
+  await page.getByLabel("Ingredient 2 unit").fill("tbsp");
+  await page.getByLabel("Ingredient 2 name").fill("lemon juice");
   await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
   await expect(page.getByText(/photo is retained for reference but belongs to an earlier recipe version/i)).toBeVisible();
   await expect(page.getByText(/notes are retained from an earlier recipe version/i)).toBeVisible();
   await expect(page.getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Mark source review complete" })).toBeDisabled();
 });
-
 test("content pack export downloads a text file without publishing", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
