@@ -482,7 +482,7 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
   await expect(pack).toContainText("Pinned-comment idea");
 
   await page.getByRole("button", { name: "Approve pack" }).click();
-  await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
+  await expect(page.locator("#publish-queue").getByText("APPROVED", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeEnabled();
 
   await page.getByRole("button", { name: /Add ingredient/ }).click();
