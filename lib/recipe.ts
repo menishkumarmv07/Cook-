@@ -57,7 +57,7 @@ export function isValidDateOnly(value: string): boolean {
 }
 
 export function isValidIsoTimestamp(value: string): boolean {
-  if (!/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/.test(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
   const parsed = new Date(value);
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString() === value;
 }
