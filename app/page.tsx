@@ -304,6 +304,7 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
 
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
+  const trust = getRecipeTrustAssessment(project);
   const tone = profile.tone.trim() || DEFAULT_CREATOR_PROFILE.tone;
   const voiceNotes = [
     `Tone: ${tone}`,
@@ -329,8 +330,10 @@ function buildSharePack(project: RecipeProject, profile: CreatorProfile): string
   ];
   return [
     `RECIPE: ${slug}`,
-    `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
-    `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
+    `STATUS: ${trust.testedByOwner ? "Marked tested by the creator with current-version proof" : "UNTESTED OR INCOMPLETE — do not publish"}`,
+    `APPROVAL: ${trust.canShare ? "Creator approved for manual sharing" : "Not approved for sharing"}`,
+    `RECIPE LIFECYCLE: ${trust.stageLabel}`,
+    `EVIDENCE REVIEW: ${trust.evidenceReviewed ? `Owner review recorded at ${project.evidenceReviewedAt}; this is not independent verification` : "NOT COMPLETE — review source notes before sharing"}`,
     "",
     "CREATOR PROFILE GUIDANCE (saved locally; apply while editing; this is not an AI-generated translation)",
     ...voiceNotes,
@@ -1821,8 +1824,37 @@ export default function Home() {
             {!current ? <div className="empty"><span>▤</span><h3>Your recipe editor will appear here</h3><p>Create a recipe draft above to add ingredients and ordered cooking steps.</p><a href="#intake">Start a recipe project ↑</a></div> : (
               <div className="panel">
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
+                {trustAssessment && <section className="panel recipe-lifecycle-panel" id="recipe-lifecycle" aria-labelledby="recipe-lifecycle-title">
+                  <div className="subsection-head">
+                    <div><p className="eyebrow">V2 RECIPE TRUST</p><h3 id="recipe-lifecycle-title">Recipe readiness workflow</h3><p className="muted">Complete each stage in order. This records your source review and cooking trial; it is not independent fact-checking or a food-safety certification.</p></div>
+                    <span className={trustAssessment.canShare ? "status" : "status status-warning"}>{trustAssessment.stageLabel.toUpperCase()}</span>
+                  </div>
+                  <ol className="checklist recipe-lifecycle-steps">
+                    {trustAssessment.steps.map((step, index) => <li key={step.id} data-state={step.current ? "current" : step.complete ? "complete" : "pending"}>
+                      <b>{step.complete ? "✓" : String(index + 1).padStart(2, "0")}</b>
+                      <span><strong>{step.label}</strong><small>{step.description}</small></span>
+                    </li>)}
+                  </ol>
+                  {!trustAssessment.evidenceReviewed && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>To record source review:</strong> complete every comparison field for each reference. You may write “not stated by source” when it does not supply a fact.</p>
+                    {trustAssessment.evidenceReviewBlockers.length > 0 && <ul className="issue-list">{trustAssessment.evidenceReviewBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+                  </div>}
+                  {trustAssessment.evidenceReviewed && !trustAssessment.readyForTrial && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>Before the cooking trial:</strong> resolve the checklist items below.</p>
+                    <ul className="issue-list">{trustAssessment.trialReadinessBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </div>}
+                  {trustAssessment.readyForTrial && !trustAssessment.testedByOwner && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>Current trial record:</strong> complete all items below using the version you actually cooked.</p>
+                    <ul className="issue-list">{trustAssessment.trialRecordBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </div>}
+                  {current.trialStatus === "tested" && !trustAssessment.testedByOwner && <p className="warning">This saved draft says “Tested,” but the current version is missing valid source-review or cooking-trial proof. Approval and sharing remain blocked.</p>}
+                  <div className="action-row">
+                    <button className="secondary" type="button" disabled={!trustAssessment.canMarkEvidenceReviewed} onClick={markEvidenceReviewed}>{trustAssessment.evidenceReviewed ? "Source review recorded" : "Mark source review complete"}</button>
+                    <small className="hint">Any recipe, ingredient or source edit clears the review timestamp, so review the changed version again. Notes remain owner-entered and unverified.</small>
+                  </div>
+                </section>}
                 <section className="trial-panel">
-                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
+                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={trustAssessment?.testedByOwner ? "status" : "status status-warning"}>{trustAssessment?.testedByOwner ? "TESTED BY YOU" : current.trialStatus === "tested" ? "TEST RECORD INCOMPLETE" : "UNTESTED"}</span></div>
                   <div className="trial-photo-field"><label htmlFor="trial-photo">Cooking-trial photo <b>*</b></label><input id="trial-photo" type="file" accept="image/*" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void saveTrialPhoto(file); }} /><small className="hint">Resized on your device and saved locally; no upload. Keep the photo of the dish you actually cooked.</small>{current.trialPhotoDataUrl && current.trialPhotoRevision !== current.recipeRevision && <p className="warning">This photo is retained for reference but belongs to an earlier recipe version. Upload a new photo of the current version before marking it Tested.</p>}{current.trialPhotoDataUrl && <div className="trial-photo-preview"><NextImage src={current.trialPhotoDataUrl} alt={`Your cooking-trial photo for ${current.name}`} width={900} height={900} unoptimized style={{ width: "100%", height: "auto", maxWidth: 280, maxHeight: 260, objectFit: "contain" }} /><button className="text-button" type="button" onClick={() => patchCurrent({ trialPhotoDataUrl: "" })}>Remove photo</button></div>}</div>
                   <div className="editor-grid">
                     <div><label htmlFor="trial-date">Actual cooking-trial date <b>*</b></label><input id="trial-date" type="date" value={current.trialDate} max={getLocalDateOnly()} aria-required="true" onChange={(event) => patchCurrent({ trialDate: event.target.value })} /><small className="hint">Enter the date you actually cooked this version. Future dates are not accepted.</small></div>
@@ -1834,14 +1866,14 @@ export default function Home() {
                   <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires an actual non-future date, what changed, current-version photo, rating, and notes. Recipe edits invalidate the old trial proof without deleting the previous photo.</small></div>
                 </section>
                 <section className="approval-panel" id="publish-queue">
-                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
+                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={trustAssessment?.canShare ? "status" : "status status-warning"}>{trustAssessment?.canShare ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
                   <div className="action-row">
                     <button className="primary" type="button" onClick={() => setShowContentPack((show) => !show)}>{showContentPack ? "Hide content pack" : "Prepare content pack"}</button>
-                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested"} onClick={() => { patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Content pack approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
-                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested" || !current.approved} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
+                    <button className="secondary" type="button" disabled={!trustAssessment?.canApprove} onClick={() => { if (!trustAssessment?.canApprove) { setMessage("Complete source review and current-version cooking-trial proof before approval."); return; } patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Current recipe version approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
+                    <button className="secondary" type="button" disabled={!trustAssessment?.canShare} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
                     <button className="secondary" type="button" onClick={exportContentPack}>Export pack</button>
                   </div>
-                  {current.trialStatus !== "tested" && <p className="warning">This recipe is Untested. Complete a real cooking trial before it can be approved or shared from this workflow.</p>}
+                  {!trustAssessment?.canShare && <p className="warning">This recipe version is not cleared for sharing. Complete the recipe lifecycle checklist and approve the current version first.</p>}
                   {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current, profile)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current, profile)}</pre></div>}
                 </section>
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}
