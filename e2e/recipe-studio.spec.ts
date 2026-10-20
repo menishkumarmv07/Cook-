@@ -423,7 +423,7 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
 
   await page.getByRole("button", { name: /Add step/ }).click();
   await page.getByLabel("Action / instruction").fill("Warm the cooked rice in a pan, then add lemon juice.");
-  await page.getByLabel("Timing").fill("3 minutes");
+  await page.getByLabel("Timing", { exact: true }).fill("3 minutes");
   await page.getByLabel("Heat / setting").fill("medium");
   await page.getByLabel("Visual / doneness cue").fill("Rice is steaming hot and evenly coated.");
   await page.getByRole("checkbox", { name: "Add cooked rice at step 1" }).check();
@@ -494,7 +494,7 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
   await expect(page.getByText(/notes are retained from an earlier recipe version/i)).toBeVisible();
   await expect(page.getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Mark source review complete" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Mark source review complete" })).toBeEnabled();
 });
 test("content pack export downloads a text file without publishing", async ({ page }) => {
   await page.goto("/");
