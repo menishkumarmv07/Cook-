@@ -222,7 +222,7 @@ test("validates structured source references and flags invalid or duplicate URLs
   const issues = validateRecipe({
     ...base,
     sourceReferences: [
-      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredients and method", notes: "" },
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "Ingredients and method", notes: "" },
       { id: "r2", url: "https://example.com/recipe/", kind: "video", checked: "", notes: "Timing unclear" },
       { id: "r3", url: "javascript:alert(1)", kind: "other", checked: "", notes: "" },
     ],
@@ -237,7 +237,7 @@ test("exports structured source references without claiming verification", () =>
   const draft = buildTutorialDraft({
     ...base,
     sourceReferences: [
-      { id: "r1", url: "https://example.com/a", kind: "recipe-page", checked: "Ingredient list", notes: "Salt quantity differs" },
+      { id: "r1", url: "https://example.com/a", kind: "recipe-page" as const, checked: "Ingredient list", notes: "Salt quantity differs" },
       { id: "r2", url: "https://example.org/b", kind: "video", checked: "Visible cooking order", notes: "No temperature shown" },
     ],
   });
@@ -251,7 +251,7 @@ test("exports structured source references without claiming verification", () =>
 test("source comparison worksheet validates optional field types and preserves legacy source records", () => {
   const legacy: RecipeProject = {
     ...base,
-    sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page", checked: "ingredients", notes: "" }],
+    sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "ingredients", notes: "" }],
   };
   const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
   assert.ok(restored);
@@ -347,7 +347,7 @@ test("narration script carries manual source uncertainty and keeps voice/video c
     ...base,
     sourceEvidence: "Compared the ingredient lists; oil quantity differs.",
     sourceReferences: [
-      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredient list and timing", notes: "Oil quantity differs" },
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "Ingredient list and timing", notes: "Oil quantity differs" },
       { id: "r2", url: "https://example.org/video", kind: "video", checked: "Visible cooking order", notes: "Exact temperature is unclear" },
     ],
     steps: [
@@ -426,7 +426,7 @@ test("workspace backup round-trips all drafts and profile, and rejects malformed
     sourceReferences: [{
       id: "reviewed-source",
       url: "https://example.com/recipe",
-      kind: "recipe-page",
+      kind: "recipe-page" as const,
       checked: "Compared ingredients and method order.",
       notes: "No other uncertainties recorded.",
       ingredientFindings: "Recorded quantities.",
@@ -579,7 +579,7 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
     sourceReferences: [{
       id: "reviewed-source",
       url: "https://example.com/recipe",
-      kind: "recipe-page",
+      kind: "recipe-page" as const,
       checked: "Compared ingredients and method order.",
       notes: "No other uncertainties recorded.",
       ingredientFindings: "Recorded quantities.",
