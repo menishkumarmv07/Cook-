@@ -544,6 +544,20 @@ export function buildNarrationScript(project: RecipeProject): string {
 
 const MAX_RECIPE_PROJECT_CHARACTERS = 2_000_000;
 const MAX_RECIPE_REVISION = 1_000_000_000;
+
+/**
+ * Advances a bounded recipe revision counter. At the ceiling it wraps to zero,
+ * which is different from the previous ceiling revision and therefore cannot
+ * accidentally make a retained photo/notes revision look current after an edit.
+ * Invalid imported values also normalize to zero.
+ */
+export function advanceRecipeRevision(currentRevision: number): number {
+  return Number.isSafeInteger(currentRevision) &&
+    currentRevision >= 0 &&
+    currentRevision < MAX_RECIPE_REVISION
+    ? currentRevision + 1
+    : 0;
+}
 const MAX_RECIPE_INGREDIENTS = 500;
 const MAX_RECIPE_STEPS = 500;
 const MAX_RECIPE_SCENES = 100;
@@ -571,9 +585,17 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
     trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
     trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
-    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && isValidIsoTimestamp(legacy.evidenceReviewedAt) ? legacy.evidenceReviewedAt : "",
+    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" &&
+      isValidIsoTimestamp(legacy.evidenceReviewedAt) &&
+      Date.parse(legacy.evidenceReviewedAt) <= Date.now()
+      ? legacy.evidenceReviewedAt
+      : "",
     approved: legacy.approved === true,
-    approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
+    approvedAt: typeof legacy.approvedAt === "string" &&
+      isValidIsoTimestamp(legacy.approvedAt) &&
+      Date.parse(legacy.approvedAt) <= Date.now()
+      ? legacy.approvedAt
+      : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
     sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences.map((source) => {
       // Preserve malformed entries long enough for isRecipeProject to reject them; migration must never throw first.
