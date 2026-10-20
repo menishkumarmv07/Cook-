@@ -1329,40 +1329,46 @@ export default function Home() {
     }
   }
 
+  function markEvidenceReviewed() {
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.canMarkEvidenceReviewed) {
+      setMessage("Complete the source URL, what you checked, ingredient quantities, method order, timing/heat and safety/storage comparison fields for each reference first.");
+      return;
+    }
+    patchCurrent({ evidenceReviewedAt: new Date().toISOString() });
+    setMessage("Source comparison review recorded locally. This records your review; it is not independent verification.");
+  }
+
   function markRecipeTested() {
-    if (!current) return;
-    if (!isValidDateOnly(current.trialDate) || current.trialDate > getLocalDateOnly()) {
-      setMessage("Enter the actual date you cooked this recipe. A future date cannot be marked as a completed trial.");
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.evidenceReviewed) {
+      setMessage("Review every structured source and mark the evidence review complete before recording a tested trial.");
       return;
     }
-    if (current.trialChanges.trim().length < 3) {
-      setMessage("Record what changed during the trial, or explicitly write that you followed the recipe as written.");
+    if (!trustAssessment.readyForTrial) {
+      setMessage("This recipe is not ready for a cooking trial: " + trustAssessment.trialReadinessBlockers.join(" "));
       return;
     }
-    if (!current.trialPhotoDataUrl || current.trialPhotoRevision !== current.recipeRevision) {
-      setMessage("Add a fresh photo of the dish cooked from this recipe version before marking it Tested.");
+    if (trustAssessment.trialRecordBlockers.length > 0) {
+      setMessage("Complete the current-version cooking-trial record first: " + trustAssessment.trialRecordBlockers.join(" "));
       return;
     }
-    if (!/^[1-5]$/.test(current.trialRating)) {
-      setMessage("Rate your real cooking trial before marking this recipe Tested.");
-      return;
-    }
-    if (current.trialNotesRevision !== current.recipeRevision || current.trialNotes.trim().length < 10) {
-      setMessage("Record at least 10 characters of cooking-trial notes for this recipe version before marking Tested.");
+    if (current.trialStatus === "tested" && trustAssessment.testedByOwner) {
+      setMessage("This recipe version already has a complete current trial record. Edit the recipe or trial details only if the record must be corrected.");
       return;
     }
     patchCurrent({ trialStatus: "tested" });
-    setMessage("Recipe marked Tested using the current version's dated trial evidence. Any recipe or trial-evidence edits reset Tested and approval.");
+    setMessage("Recipe marked Tested using the current version's reviewed sources and dated trial proof. Recipe, source or trial-evidence edits invalidate downstream approval.");
   }
 
   async function shareContentPack() {
-    if (!current) return;
-    if (current.trialStatus !== "tested") {
-      setMessage("This recipe is still Untested. Record a real cooking trial and mark it Tested before sharing.");
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.testedByOwner) {
+      setMessage("Sharing is blocked because the current recipe version has not passed source review and dated cooking-trial proof.");
       return;
     }
-    if (!current.approved) {
-      setMessage("Approve this content pack first. Nothing is posted automatically.");
+    if (!trustAssessment.canShare) {
+      setMessage("Approve this current tested recipe version before sharing. Nothing is posted automatically.");
       return;
     }
     const text = buildSharePack(current, profile);
