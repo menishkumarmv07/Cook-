@@ -139,3 +139,29 @@ test("future-dated or stale trial evidence cannot advance the lifecycle", () => 
   assert.match(assessment.trialRecordBlockers.join(" "), /earlier recipe version/);
   assert.equal(assessment.canMarkTested, false);
 });
+
+test("future source-review and approval timestamps cannot advance the lifecycle", () => {
+  const project = readyProject();
+  project.evidenceReviewedAt = new Date(Date.now() + 60_000).toISOString();
+  let assessment = getRecipeTrustAssessment(project);
+  assert.equal(assessment.evidenceReviewed, false);
+  assert.equal(assessment.stageId, "draft");
+  assert.equal(assessment.canMarkTested, false);
+
+  project.evidenceReviewedAt = now;
+  project.trialDate = getLocalDateOnly();
+  project.trialChanges = "No changes; followed the recorded recipe.";
+  project.trialPhotoDataUrl = "data:image/jpeg;base64,cGhvdG8=";
+  project.trialPhotoRevision = project.recipeRevision;
+  project.trialRating = "5";
+  project.trialNotes = "I cooked this and checked the texture carefully.";
+  project.trialNotesRevision = project.recipeRevision;
+  project.trialStatus = "tested";
+  project.approved = true;
+  project.approvedAt = new Date(Date.now() + 60_000).toISOString();
+
+  assessment = getRecipeTrustAssessment(project);
+  assert.equal(assessment.testedByOwner, true);
+  assert.equal(assessment.stageId, "tested-by-owner");
+  assert.equal(assessment.canShare, false);
+});
