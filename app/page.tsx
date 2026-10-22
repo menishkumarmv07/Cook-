@@ -19,6 +19,7 @@ import {
   isHttpUrl,
   isValidDateOnly,
   isValidIsoTimestamp,
+  isValidTrialPhotoDataUrl,
   MAX_RECIPE_REVISION,
   nextRecipeRevision,
   parseCreatorWorkspaceBackupJSON,
@@ -205,7 +206,7 @@ function migrateProject(value: unknown): RecipeProject | null {
   const trialChanges = typeof old.trialChanges === "string" ? old.trialChanges : "";
   const trialRating = typeof old.trialRating === "string" && /^[1-5]$/.test(old.trialRating) ? old.trialRating : "";
   const trialNotes = typeof old.trialNotes === "string" ? old.trialNotes : "";
-  const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
+  const trialPhotoDataUrl = isValidTrialPhotoDataUrl(old.trialPhotoDataUrl) ? old.trialPhotoDataUrl : "";
   const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
   const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
   const evidenceReviewedAt = typeof old.evidenceReviewedAt === "string" && isValidIsoTimestamp(old.evidenceReviewedAt) && Date.parse(old.evidenceReviewedAt) <= Date.now() ? old.evidenceReviewedAt : "";
