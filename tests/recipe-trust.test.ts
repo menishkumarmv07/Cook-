@@ -197,3 +197,15 @@ test("future evidence-review and approval timestamps cannot unlock sharing", () 
   assert.equal(assessment.stageId, "draft");
 });
 
+test("an unsafe primary recipe URL cannot be hidden by adding safe references", () => {
+  const project = readyProject();
+  project.url = "http://127.0.0.1/private-recipe";
+  const assessment = getRecipeTrustAssessment(project);
+  assert.equal(assessment.canMarkEvidenceReviewed, false);
+  assert.match(assessment.evidenceReviewBlockers.join(" "), /primary source URL must be a safe public HTTP\(S\) URL/i);
+
+  project.url = "";
+  const withoutPrimaryUrl = getRecipeTrustAssessment(project);
+  assert.equal(withoutPrimaryUrl.canMarkEvidenceReviewed, true);
+});
+
