@@ -287,8 +287,10 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 && (p.trialPhotoRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 && (p.trialNotesRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     typeof p.evidenceReviewedAt === "string" &&
+    (p.evidenceReviewedAt === "" || (isValidIsoTimestamp(p.evidenceReviewedAt) && Date.parse(p.evidenceReviewedAt) <= Date.now())) &&
     typeof p.approved === "boolean" &&
     typeof p.approvedAt === "string" &&
+    (p.approvedAt === "" || (isValidIsoTimestamp(p.approvedAt) && Date.parse(p.approvedAt) <= Date.now())) &&
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
