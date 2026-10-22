@@ -82,8 +82,10 @@ export type GrowthMetricSummary = {
 const MAX_CSV_CHARACTERS = 2_000_000;
 const MAX_CSV_ROWS = 10_000;
 const MAX_WORKSPACE_CHARACTERS = 15_000_000;
-const MAX_WORKSPACE_METRICS = 10_000;
-const MAX_WORKSPACE_EXPERIMENTS = 2_000;
+export const MAX_GROWTH_METRIC_ROWS = 10_000;
+export const MAX_GROWTH_EXPERIMENT_ROWS = 2_000;
+const MAX_WORKSPACE_METRICS = MAX_GROWTH_METRIC_ROWS;
+const MAX_WORKSPACE_EXPERIMENTS = MAX_GROWTH_EXPERIMENT_ROWS;
 const MAX_TEXT_TITLE = 180;
 const MAX_TEXT_CONCEPT = 240;
 const MAX_SAFE_METRIC = 1_000_000_000_000;
@@ -380,7 +382,7 @@ export function parseGrowthMetricsCsv(raw: string, idPrefix = "csv"): GrowthCsvI
 function exportCsvCell(value: string | number | null): string {
   if (value === null || value === undefined) return "";
   let text = String(value);
-  if (typeof value === "string" && /^[=+@\-\t\r]/.test(text)) text = `'${text}`;
+  if (typeof value === "string" && /^(?:\s*[=+@\-]|[\t\r])/.test(text)) text = `'${text}`;
   return `"${text.replace(/"/g, '""')}"`;
 }
 
@@ -473,11 +475,18 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
       parsed.experiments.length > MAX_WORKSPACE_EXPERIMENTS ||
       !parsed.metrics.every(isGrowthMetric) ||
       !parsed.experiments.every(isGrowthExperiment)) return null;
-  const seen = new Set<string>();
+  const seenFingerprints = new Set<string>();
+  const seenMetricIds = new Set<string>();
   for (const metric of parsed.metrics) {
     const fingerprint = growthMetricFingerprint(metric);
-    if (seen.has(fingerprint)) return null;
-    seen.add(fingerprint);
+    if (seenFingerprints.has(fingerprint) || seenMetricIds.has(metric.id)) return null;
+    seenFingerprints.add(fingerprint);
+    seenMetricIds.add(metric.id);
+  }
+  const seenExperimentIds = new Set<string>();
+  for (const experiment of parsed.experiments) {
+    if (seenExperimentIds.has(experiment.id)) return null;
+    seenExperimentIds.add(experiment.id);
   }
   return parsed as GrowthWorkspaceBackup;
 }
@@ -486,19 +495,78 @@ export function mergeGrowthMetrics(
   existing: GrowthMetric[],
   incoming: GrowthMetric[],
 ): { rows: GrowthMetric[]; added: number; duplicates: number } {
-  const seen = new Set(existing.filter(isGrowthMetric).map(growthMetricFingerprint));
   const rows = existing.filter(isGrowthMetric).slice();
+  const seenFingerprints = new Set(rows.map(growthMetricFingerprint));
+  const usedIds = new Set(rows.map((metric) => metric.id));
   let added = 0;
   let duplicates = 0;
+
   for (const metric of incoming) {
     if (!isGrowthMetric(metric)) continue;
-    const key = growthMetricFingerprint(metric);
-    if (seen.has(key)) {
+    const fingerprint = growthMetricFingerprint(metric);
+    if (seenFingerprints.has(fingerprint)) {
       duplicates += 1;
       continue;
     }
-    seen.add(key);
-    rows.push(metric);
+
+    let id = metric.id;
+    if (usedIds.has(id)) {
+      const base = id.slice(0, 130);
+      let suffix = 2;
+      id = `${base}-imported-${suffix}`;
+      while (usedIds.has(id) && suffix < 100_000) {
+        suffix += 1;
+        id = `${base}-imported-${suffix}`;
+      }
+      if (usedIds.has(id)) {
+        duplicates += 1;
+        continue;
+      }
+    }
+
+    const safeMetric = id === metric.id ? metric : { ...metric, id };
+    rows.push(safeMetric);
+    usedIds.add(id);
+    seenFingerprints.add(fingerprint);
+    added += 1;
+  }
+  return { rows, added, duplicates };
+}
+
+export function mergeGrowthExperiments(
+  existing: GrowthExperiment[],
+  incoming: GrowthExperiment[],
+): { rows: GrowthExperiment[]; added: number; duplicates: number } {
+  const rows = existing.filter(isGrowthExperiment).slice();
+  const usedIds = new Set(rows.map((experiment) => experiment.id));
+  let added = 0;
+  let duplicates = 0;
+
+  for (const experiment of incoming) {
+    if (!isGrowthExperiment(experiment)) continue;
+    const currentWithId = rows.find((row) => row.id === experiment.id);
+    if (currentWithId && JSON.stringify(currentWithId) === JSON.stringify(experiment)) {
+      duplicates += 1;
+      continue;
+    }
+
+    let id = experiment.id;
+    if (usedIds.has(id)) {
+      const base = id.slice(0, 130);
+      let suffix = 2;
+      id = `${base}-imported-${suffix}`;
+      while (usedIds.has(id) && suffix < 100_000) {
+        suffix += 1;
+        id = `${base}-imported-${suffix}`;
+      }
+      if (usedIds.has(id)) {
+        duplicates += 1;
+        continue;
+      }
+    }
+
+    rows.push(id === experiment.id ? experiment : { ...experiment, id });
+    usedIds.add(id);
     added += 1;
   }
   return { rows, added, duplicates };
