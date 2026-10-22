@@ -203,14 +203,50 @@ test("CSV export round-trips ordinary rows and neutralizes spreadsheet formula c
   assert.equal(maliciousImport.rows[0].contentTitle.startsWith("'="), true);
 });
 
-test("experiment lifecycle validates dates, required hypothesis and evidence before review", () => {
+test("experiment lifecycle requires evidence and a next action before review", () => {
   assert.equal(isGrowthExperiment(experiment()), true);
   assert.deepEqual(validateGrowthExperiment(experiment()), []);
   assert.ok(validateGrowthExperiment(experiment({ hypothesis: "" })).some((x) => /hypothesis/.test(x)));
-  assert.ok(validateGrowthExperiment(experiment({ resultDate: "2026-09-30", status: "reviewed", outcome: "Did better." })).some((x) => /before the experiment start date/.test(x)));
-  assert.ok(validateGrowthExperiment(experiment({ status: "closed", resultDate: "", outcome: "" })).some((x) => /result date/.test(x)));
-  const reviewed = experiment({ status: "reviewed", resultDate: "2026-10-04", outcome: "The actual view count was recorded, with a small sample." });
+  assert.ok(validateGrowthExperiment(experiment({
+    resultDate: "2026-09-30",
+    status: "reviewed",
+    outcome: "Did better.",
+    nextAction: "Repeat the test.",
+  })).some((x) => /before the experiment start date/.test(x)));
+  assert.ok(validateGrowthExperiment(experiment({ status: "closed", resultDate: "", outcome: "", nextAction: "" })).some((x) => /result date/.test(x)));
+
+  const today = getLocalDateOnly();
+  const noNextAction = experiment({
+    status: "reviewed",
+    startedDate: today,
+    resultDate: today,
+    outcome: "The actual view count was recorded, with a small sample.",
+    nextAction: "",
+  });
+  assert.ok(validateGrowthExperiment(noNextAction).some((x) => /next action before marking/i.test(x)));
+  assert.equal(isGrowthExperiment(noNextAction), false);
+
+  const reviewed = experiment({
+    status: "reviewed",
+    startedDate: today,
+    resultDate: today,
+    outcome: "The actual view count was recorded, with a small sample.",
+    nextAction: "Repeat cautiously and change only one variable.",
+  });
   assert.equal(isGrowthExperiment(reviewed), true);
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const futureDate = getLocalDateOnly(tomorrow);
+  const prematurelyReviewed = experiment({
+    status: "reviewed",
+    startedDate: today,
+    resultDate: futureDate,
+    outcome: "Results are not available yet.",
+    nextAction: "Wait until the platform reports actual values.",
+  });
+  assert.ok(validateGrowthExperiment(prematurelyReviewed).some((x) => /future result date/i.test(x)));
+  assert.equal(isGrowthExperiment(prematurelyReviewed), false);
 });
 
 test("Growth Lab backup round-trips validated metrics and experiments and rejects malformed archives", () => {
