@@ -17,7 +17,6 @@ import {
   type GrowthExperiment,
   type GrowthMetric,
 } from "../lib/growth-lab";
-import { getLocalDateOnly } from "../lib/recipe";
 
 const actualMetric = (overrides: Partial<GrowthMetric> = {}): GrowthMetric => ({
   id: "metric-1",
@@ -59,6 +58,13 @@ const experiment = (overrides: Partial<GrowthExperiment> = {}): GrowthExperiment
   ...overrides,
 });
 
+function getTestDateOnly(date = new Date()): string {
+  const year = String(date.getFullYear()).padStart(4, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function csvFor(rows: string[][]): string {
   return rows.map((row) => row.map((cell) => {
     const value = String(cell);
@@ -85,7 +91,7 @@ test("validates actual and estimated rows without conflating their meaning", () 
   assert.ok(validateGrowthMetric({ ...actualMetric(), publishedDate: "2026-02-30" }).some((x) => /real YYYY-MM-DD/.test(x)));
   const tomorrowDate = new Date();
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
-  const futurePublishDate = getLocalDateOnly(tomorrowDate);
+  const futurePublishDate = getTestDateOnly(tomorrowDate);
   assert.ok(validateGrowthMetric(actualMetric({ publishedDate: futurePublishDate })).some((x) => /future publish date/i.test(x)));
   assert.deepEqual(validateGrowthMetric(estimateMetric({ publishedDate: futurePublishDate })), []);
   assert.ok(validateGrowthMetric({ ...actualMetric(), views: null, reach: null, averageWatchSeconds: null, retentionPercent: null, likes: null, comments: null, shares: null, saves: null, followersGained: null, linkClicks: null }).some((x) => /at least one metric value/.test(x)));
@@ -215,7 +221,7 @@ test("experiment lifecycle requires evidence and a next action before review", (
   })).some((x) => /before the experiment start date/.test(x)));
   assert.ok(validateGrowthExperiment(experiment({ status: "closed", resultDate: "", outcome: "", nextAction: "" })).some((x) => /result date/.test(x)));
 
-  const today = getLocalDateOnly();
+  const today = getTestDateOnly();
   const noNextAction = experiment({
     status: "reviewed",
     startedDate: today,
@@ -237,7 +243,7 @@ test("experiment lifecycle requires evidence and a next action before review", (
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const futureDate = getLocalDateOnly(tomorrow);
+  const futureDate = getTestDateOnly(tomorrow);
   const prematurelyReviewed = experiment({
     status: "reviewed",
     startedDate: today,
@@ -273,7 +279,7 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   assert.equal(legacyV1.version, 2);
   assert.equal(legacyV1.metrics[0].revenueUsd, null);
 
-  const today = getLocalDateOnly();
+  const today = getTestDateOnly();
   const legacyCompletedWithoutNextAction = parseGrowthWorkspaceBackupJSON(JSON.stringify({
     format: "cooking-creator-growth-lab",
     version: 1,
@@ -296,7 +302,7 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
 
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const futureDate = getLocalDateOnly(tomorrow);
+  const futureDate = getTestDateOnly(tomorrow);
   const futureDatedActual = parseGrowthWorkspaceBackupJSON(JSON.stringify({
     format: "cooking-creator-growth-lab",
     version: 2,
