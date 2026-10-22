@@ -531,7 +531,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     // V2.3 introduced a required next action and disallows future-dated completed experiments.
     // Normalize missing legacy fields, then downgrade incomplete completed records instead of
     // discarding an otherwise recoverable owner's workspace.
-    const candidate = {
+    const candidate: Record<string, unknown> = {
       ...value,
       nextAction: value.nextAction === undefined ? "" : value.nextAction,
       outcome: value.outcome === undefined ? "" : value.outcome,
