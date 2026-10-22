@@ -1,4 +1,5 @@
-import { getLocalDateOnly, isHttpUrl, isValidDateOnly, isValidIsoTimestamp, type RecipeProject } from "./recipe";
+import { getLocalDateOnly, isValidDateOnly, isValidIsoTimestamp, type RecipeProject } from "./recipe";
+import { isHttpSourceUrl } from "./research-evidence";
 
 export type RecipeLifecycleStageId =
   | "draft"
@@ -67,7 +68,7 @@ function getEvidenceReviewBlockers(project: RecipeProject): string[] {
 
   project.sourceReferences.forEach((source, index) => {
     const label = `Reference ${index + 1}`;
-    if (!source.url.trim() || !isHttpUrl(source.url) || !/^https?:\/\//i.test(source.url.trim())) {
+    if (!source.url.trim() || !isHttpSourceUrl(source.url)) {
       blockers.push(`${label}: enter a valid HTTP(S) source URL.`);
     }
     if (!source.checked.trim()) blockers.push(`${label}: record what you actually checked.`);
@@ -158,7 +159,11 @@ export function getRecipeTrustAssessment(project: RecipeProject): RecipeTrustAss
   const readyForTrial = evidenceReviewed && trialReadinessBlockers.length === 0;
   const trialRecordBlockers = getTrialRecordBlockers(project);
   const testedByOwner = readyForTrial && project.trialStatus === "tested" && trialRecordBlockers.length === 0;
-  const approved = testedByOwner && project.approved && hasValidTimestamp(project.approvedAt);
+  const approvalFollowsEvidenceReview =
+    hasValidTimestamp(project.evidenceReviewedAt) &&
+    hasValidTimestamp(project.approvedAt) &&
+    Date.parse(project.approvedAt) >= Date.parse(project.evidenceReviewedAt);
+  const approved = testedByOwner && project.approved && approvalFollowsEvidenceReview;
 
   const stageId: RecipeLifecycleStageId = approved
     ? "approved"
