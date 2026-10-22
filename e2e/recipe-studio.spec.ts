@@ -1412,6 +1412,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await expect(card).toBeVisible();
   await card.getByLabel("Result date").fill("2026-10-22");
   await card.getByLabel("Observed outcome (use actual numbers where available)").fill("Recorded 1,200 actual views; the sample remains small.");
+  await card.getByLabel("Next action").fill("Repeat cautiously with one variable changed and compare actual results.");
   await card.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(card.locator(".growth-status-reviewed")).toContainText("reviewed");
 
