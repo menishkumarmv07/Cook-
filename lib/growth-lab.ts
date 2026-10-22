@@ -52,6 +52,8 @@ export type GrowthWorkspaceBackup = {
   exportedAt: string;
   metrics: GrowthMetric[];
   experiments: GrowthExperiment[];
+  // Parser-only warnings: never written into the exported backup file.
+  migrationWarnings?: string[];
 };
 
 export type GrowthCsvRejectedRow = {
@@ -510,7 +512,38 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     if (!isPlainObject(value)) return value;
     return value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
   });
-  if (!metrics.every(isGrowthMetric) || !parsed.experiments.every(isGrowthExperiment)) return null;
+
+  const migrationWarnings: string[] = [];
+  const today = getLocalDateOnly();
+  const experiments = parsed.experiments.map((value, index) => {
+    if (!isPlainObject(value)) return value;
+    // V2.3 introduced a required next action and disallows future-dated completed experiments.
+    // Normalize a missing legacy field, then downgrade incomplete completed records instead of
+    // discarding an otherwise recoverable owner's workspace.
+    const candidate = value.nextAction === undefined ? { ...value, nextAction: "" } : value;
+    if (candidate.status !== "reviewed" && candidate.status !== "closed") return candidate;
+
+    const hasValidDates =
+      typeof candidate.startedDate === "string" &&
+      isValidDateOnly(candidate.startedDate) &&
+      typeof candidate.resultDate === "string" &&
+      isValidDateOnly(candidate.resultDate) &&
+      candidate.resultDate >= candidate.startedDate;
+    if (!hasValidDates) return candidate;
+
+    const hasNextAction = typeof candidate.nextAction === "string" && Boolean(candidate.nextAction.trim());
+    const hasFutureCompletionDate =
+      candidate.startedDate > today || candidate.resultDate > today;
+    if (!hasNextAction || hasFutureCompletionDate) {
+      migrationWarnings.push(
+        `Experiment ${index + 1} was downgraded to Planned because completed experiments require a recorded next action and non-future dates.`,
+      );
+      return { ...candidate, status: "planned" };
+    }
+    return candidate;
+  });
+
+  if (!metrics.every(isGrowthMetric) || !experiments.every(isGrowthExperiment)) return null;
 
   const seenFingerprints = new Set<string>();
   const seenMetricIds = new Set<string>();
@@ -521,7 +554,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     seenMetricIds.add(metric.id);
   }
   const seenExperimentIds = new Set<string>();
-  for (const experiment of parsed.experiments) {
+  for (const experiment of experiments as GrowthExperiment[]) {
     if (seenExperimentIds.has(experiment.id)) return null;
     seenExperimentIds.add(experiment.id);
   }
@@ -530,7 +563,8 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     version: 2,
     exportedAt: parsed.exportedAt,
     metrics: metrics as GrowthMetric[],
-    experiments: parsed.experiments as GrowthExperiment[],
+    experiments: experiments as GrowthExperiment[],
+    ...(migrationWarnings.length ? { migrationWarnings } : {}),
   };
 }
 
