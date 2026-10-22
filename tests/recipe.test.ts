@@ -643,6 +643,14 @@ test("ISO review timestamps require a real canonical UTC timestamp", () => {
   assert.equal(isValidIsoTimestamp("not a date"), false);
 });
 
+test("recipe shape guard rejects malformed or future lifecycle timestamps", () => {
+  assert.equal(isRecipeProject({ ...base, evidenceReviewedAt: "not a timestamp" }), false);
+  assert.equal(isRecipeProject({ ...base, approvedAt: "not a timestamp" }), false);
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  assert.equal(isRecipeProject({ ...base, evidenceReviewedAt: future }), false);
+  assert.equal(isRecipeProject({ ...base, approvedAt: future }), false);
+});
+
 test("unsafe public-source URLs downgrade imported tested and approved drafts", () => {
   const reviewedAndTested: RecipeProject = {
     ...base,
