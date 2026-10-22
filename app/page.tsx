@@ -1970,6 +1970,152 @@ export default function Home() {
             <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Public HTML recipe pages can be inspected after an explicit action during intake. Extraction is not verification; video frames and audio are not analyzed. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
           </section>
 
+          <section id="growth-lab" className="panel growth-lab" aria-labelledby="growth-lab-title">
+            <div className="section-head growth-lab-heading">
+              <div>
+                <p className="eyebrow">V2.3 · PRIVATE PERFORMANCE WORKSPACE</p>
+                <h2 id="growth-lab-title">Growth Lab</h2>
+                <p>Learn from results you actually recorded. There is no analytics API, platform login, “viral score,” revenue forecast, or automatic publishing here.</p>
+              </div>
+              <span className="step">LOCAL · USD-AWARE</span>
+            </div>
+            <p className="growth-lab-local-note">Saved in this browser on this device only. Data is not encrypted or synced. Record actual platform values separately from estimates.</p>
+            {growthStorageBlocked && (
+              <div className="growth-alert" role="alert">
+                <strong>Local storage is blocked.</strong>
+                <p>The currently visible data remains available for export, but it may not persist. Import a known-good backup if needed, export a copy, then explicitly replace the blocked local workspace when you are ready.</p>
+                <button className="secondary" type="button" onClick={replaceBlockedGrowthStorage}>Use current data and replace local storage</button>
+              </div>
+            )}
+            {!growthDataReady ? <p className="empty-inline">Loading this device's Growth Lab…</p> : (
+              <>
+                <div className="growth-summary-grid" aria-label="Growth Lab summary">
+                  <article className="growth-summary-card"><small>Actual metric rows</small><strong>{growthSummary.actualRows}</strong><span>Owner-entered or platform-exported values</span></article>
+                  <article className="growth-summary-card"><small>Estimated rows</small><strong>{growthSummary.estimateRows}</strong><span>Kept separate from real platform data</span></article>
+                  <article className="growth-summary-card"><small>Views recorded · actual</small><strong>{growthSummary.actualViewsTotal === null ? "Not recorded" : growthSummary.actualViewsTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualViewsRows} row(s) include views</span></article>
+                  <article className="growth-summary-card"><small>Reach / impressions · actual</small><strong>{growthSummary.actualReachTotal === null ? "Not recorded" : growthSummary.actualReachTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualReachRows} row(s) include reach</span></article>
+                </div>
+                <div className="growth-warnings" aria-label="Data quality and sample warnings">
+                  {growthSummary.warnings.map((warning, index) => <p className="warning" key={index}>{warning}</p>)}
+                </div>
+
+                <section className="growth-subpanel" aria-labelledby="growth-add-metric-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-add-metric-title">Record a content result</h3><p className="muted">Use the publish date and numbers reported by the platform. Blank metrics stay missing; zero is a real recorded zero.</p></div>
+                  </div>
+                  <form className="growth-form" onSubmit={(event) => { event.preventDefault(); addGrowthMetric(); }}>
+                    <div className="growth-form-grid">
+                      <div><label htmlFor="growth-published-date">Publish date *</label><input id="growth-published-date" type="date" value={growthMetricDraft.publishedDate} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, publishedDate: event.target.value }))} required /></div>
+                      <div><label htmlFor="growth-platform">Platform *</label><select id="growth-platform" value={growthMetricDraft.platform} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
+                      <div><label htmlFor="growth-data-kind">Data type *</label><select id="growth-data-kind" value={growthMetricDraft.dataKind} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, dataKind: event.target.value as "actual" | "estimate" }))}><option value="actual">Actual platform data</option><option value="estimate">Estimate / assumption</option></select></div>
+                      <div><label htmlFor="growth-content-title">Content title *</label><input id="growth-content-title" value={growthMetricDraft.contentTitle} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} required placeholder="Use a recognizable title for comparison" /></div>
+                      <div><label htmlFor="growth-concept">Recipe family / content concept</label><input id="growth-concept" value={growthMetricDraft.concept} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, concept: event.target.value }))} maxLength={240} placeholder="e.g. quick weeknight meals" /></div>
+                    </div>
+                    <div className="growth-form-grid growth-number-grid">
+                      {GROWTH_METRIC_INPUTS.map((field) => (
+                        <div key={field.key}>
+                          <label htmlFor={field.id}>{field.label}</label>
+                          <input id={field.id} type="number" min="0" step={field.step} inputMode="decimal" value={growthMetricDraft[field.key]} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, [field.key]: event.target.value }))} />
+                          {field.hint && <small className="hint">{field.hint}</small>}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="hint">Only supplied values are summarized. Views and reach are not USD earnings. Any future revenue entry must come from a real platform/payment record and be labelled separately.</p>
+                    <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add metric row</button><button className="secondary" type="button" onClick={exportGrowthMetrics}>Export metrics CSV</button><button className="secondary" type="button" onClick={exportGrowthBackup}>Export full backup JSON</button></div>
+                  </form>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-import-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-import-title">Import a platform CSV</h3><p className="muted">Import metrics you lawfully exported from a platform. Invalid rows are reported, not silently converted to zero.</p></div>
+                  </div>
+                  <div className="growth-import-controls">
+                    <div><label htmlFor="growth-csv-file">Metrics CSV (maximum 2 MB)</label><input id="growth-csv-file" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void inspectGrowthCsv(file); }} /></div>
+                    <div><label htmlFor="growth-backup-file">Merge a Growth Lab JSON backup (maximum 15 MB)</label><input id="growth-backup-file" type="file" accept=".json,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void importGrowthBackup(file); }} /></div>
+                  </div>
+                  <p className="hint">Expected CSV columns: published_date, platform, content_title, data_kind, and optional concept/views/reach/watch-duration/retention/engagement columns. The app-generated CSV is the preferred template.</p>
+                  {growthCsvPreview && (
+                    <div className="growth-csv-preview" role="region" aria-label="CSV import preview">
+                      <strong>{growthCsvPreview.fileName}</strong>
+                      <p>{growthCsvPreview.rows.length} valid row(s) ready, {growthCsvPreview.rejectedRows.length} rejected row(s), {growthCsvPreview.duplicateRows} duplicate row(s) within the file.</p>
+                      {growthCsvPreview.errors.map((error, index) => <p className="growth-alert-text" key={index}>{error}</p>)}
+                      {growthCsvPreview.rejectedRows.slice(0, 12).map((row) => <p className="growth-alert-text" key={row.rowNumber}>CSV row {row.rowNumber}: {row.reason}</p>)}
+                      {growthCsvPreview.rejectedRows.length > 12 && <p className="hint">Only the first 12 rejected-row messages are shown here.</p>}
+                      <div className="action-row">
+                        <button className="primary" type="button" disabled={growthCsvPreview.rows.length === 0} onClick={importGrowthCsvPreview}>Import valid CSV rows</button>
+                        <button className="secondary" type="button" onClick={() => setGrowthCsvPreview(null)}>Cancel preview</button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-experiments-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-experiments-title">One-variable experiments</h3><p className="muted">Record a hypothesis before changing one primary variable. Review the observed result later; small samples do not prove causality.</p></div>
+                  </div>
+                  <form className="growth-form" onSubmit={(event) => { event.preventDefault(); addGrowthExperiment(); }}>
+                    <div className="growth-form-grid">
+                      <div className="growth-span-two"><label htmlFor="growth-experiment-hypothesis">Hypothesis *</label><textarea id="growth-experiment-hypothesis" rows={2} value={growthExperimentDraft.hypothesis} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, hypothesis: event.target.value }))} maxLength={500} required placeholder="What do you expect to observe, and why?" /></div>
+                      <div><label htmlFor="growth-experiment-variable">Variable changed *</label><input id="growth-experiment-variable" value={growthExperimentDraft.variableChanged} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, variableChanged: event.target.value }))} maxLength={240} required placeholder="e.g. opening shot only" /></div>
+                      <div><label htmlFor="growth-experiment-platform">Platform *</label><select id="growth-experiment-platform" value={growthExperimentDraft.platform} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
+                      <div><label htmlFor="growth-experiment-title">Content / recipe family</label><input id="growth-experiment-title" value={growthExperimentDraft.contentTitle} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} placeholder="Optional label" /></div>
+                      <div><label htmlFor="growth-experiment-start-date">Start date *</label><input id="growth-experiment-start-date" type="date" value={growthExperimentDraft.startedDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: event.target.value }))} required /></div>
+                    </div>
+                    <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add experiment</button></div>
+                  </form>
+                  {growthExperiments.length === 0 ? <p className="empty-inline">No experiments yet. Start with one specific hypothesis and one changed variable.</p> : (
+                    <div className="growth-experiment-list">
+                      {growthExperiments.map((item) => (
+                        <article className="growth-experiment-card" key={item.id}>
+                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
+                          <p><b>Variable:</b> {item.variableChanged}</p>
+                          <div className="growth-form-grid">
+                            <div><label htmlFor={"growth-result-date-" + item.id}>Result date</label><input id={"growth-result-date-" + item.id} type="date" value={item.resultDate} min={item.startedDate} onChange={(event) => patchGrowthExperiment(item.id, { resultDate: event.target.value })} /></div>
+                            <div className="growth-span-two"><label htmlFor={"growth-outcome-" + item.id}>Observed outcome (use actual numbers where available)</label><textarea id={"growth-outcome-" + item.id} rows={2} maxLength={1200} value={item.outcome} onChange={(event) => patchGrowthExperiment(item.id, { outcome: event.target.value })} /></div>
+                            <div className="growth-span-two"><label htmlFor={"growth-next-action-" + item.id}>Next action</label><textarea id={"growth-next-action-" + item.id} rows={2} maxLength={500} value={item.nextAction} onChange={(event) => patchGrowthExperiment(item.id, { nextAction: event.target.value })} /></div>
+                          </div>
+                          <div className="action-row">
+                            <button className="secondary" type="button" disabled={item.status === "reviewed" || item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "reviewed")}>Mark reviewed</button>
+                            <button className="secondary" type="button" disabled={item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "closed")}>Close experiment</button>
+                            <button className="secondary" type="button" onClick={() => setGrowthExperiments((existing) => existing.filter((candidate) => candidate.id !== item.id))}>Remove</button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-insights-title">
+                  <div className="subsection-head"><div><h3 id="growth-insights-title">Descriptive comparisons</h3><p className="muted">Only actual view counts are considered. Estimates never enter the comparison. The app does not call a result “viral” or infer a causal effect.</p></div></div>
+                  <ul className="growth-insight-list">{growthInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-records-title">
+                  <div className="subsection-head"><div><h3 id="growth-records-title">Saved metric rows</h3><p className="muted">Showing up to 50 recent rows. Export CSV/JSON before cleanup.</p></div><strong>{growthMetrics.length} total</strong></div>
+                  {recentGrowthMetrics.length === 0 ? <p className="empty-inline">No metrics recorded yet. Manual entry or validated CSV import keeps this workspace grounded in your data.</p> : (
+                    <div className="growth-metric-list">
+                      {recentGrowthMetrics.map((metric) => (
+                        <article className="growth-metric-card" key={metric.id}>
+                          <div className="growth-metric-heading"><div><strong>{metric.contentTitle}</strong><small>{metric.publishedDate} · {metric.platform}{metric.concept ? " · " + metric.concept : ""}</small></div><span className={"growth-status growth-status-" + metric.dataKind}>{metric.dataKind === "actual" ? "ACTUAL" : "ESTIMATE"}</span></div>
+                          <div className="growth-metric-values">
+                            <span>Views: <b>{metric.views === null ? "—" : metric.views.toLocaleString("en-US")}</b></span>
+                            <span>Reach: <b>{metric.reach === null ? "—" : metric.reach.toLocaleString("en-US")}</b></span>
+                            <span>Avg watch: <b>{metric.averageWatchSeconds === null ? "—" : metric.averageWatchSeconds + " sec"}</b></span>
+                            <span>Retention: <b>{metric.retentionPercent === null ? "—" : metric.retentionPercent + "%"}</b></span>
+                            <span>Likes: <b>{metric.likes === null ? "—" : metric.likes.toLocaleString("en-US")}</b></span>
+                            <span>Saves: <b>{metric.saves === null ? "—" : metric.saves.toLocaleString("en-US")}</b></span>
+                          </div>
+                          <div className="action-row"><button className="text-button" type="button" aria-label={"Remove metric: " + metric.contentTitle} onClick={() => setGrowthMetrics((existing) => existing.filter((candidate) => candidate.id !== metric.id))}>Remove row</button></div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+                {growthMessage && <p className="message" role="status" aria-live="polite">{growthMessage}</p>}
+              </>
+            )}
+          </section>
+
           <section className="connection-hub panel" id="social-connections">
             <div className="section-head">
               <div>
