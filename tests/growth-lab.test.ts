@@ -297,6 +297,17 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const futureDate = getLocalDateOnly(tomorrow);
+  const futureDatedActual = parseGrowthWorkspaceBackupJSON(JSON.stringify({
+    format: "cooking-creator-growth-lab",
+    version: 2,
+    exportedAt,
+    metrics: [actualMetric({ publishedDate: futureDate })],
+    experiments: [experiment()],
+  }));
+  assert.ok(futureDatedActual);
+  assert.equal(futureDatedActual.metrics[0].dataKind, "estimate");
+  assert.match((futureDatedActual.migrationWarnings ?? []).join(" "), /downgraded to Estimate/);
+
   const futureCompleted = parseGrowthWorkspaceBackupJSON(JSON.stringify({
     format: "cooking-creator-growth-lab",
     version: 2,
