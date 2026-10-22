@@ -485,6 +485,23 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
   await expect(page.locator("#publish-queue").getByText("APPROVED", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeEnabled();
 
+  // Storyboard changes require pack re-approval but do not claim the dish was never cooked.
+  await page.getByLabel("Scene 1 title").fill("New original opening shot");
+  await expect(page.getByText("TESTED BY YOU", { exact: true })).toBeVisible();
+  await expect(page.locator("#publish-queue").getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+  await page.getByRole("button", { name: "Approve pack" }).click();
+  await expect(page.locator("#publish-queue").getByText("APPROVED", { exact: true })).toBeVisible();
+
+  // Profile changes alter generated copy and therefore also require a fresh approval.
+  await page.locator("#creator-profile summary").click();
+  await page.getByLabel("Voice / tone").fill("Warm, practical, and more concise");
+  await expect(page.getByText("TESTED BY YOU", { exact: true })).toBeVisible();
+  await expect(page.locator("#publish-queue").getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
+  await page.getByRole("button", { name: "Approve pack" }).click();
+  await expect(page.locator("#publish-queue").getByText("APPROVED", { exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: /Add ingredient/ }).click();
   await page.getByLabel("Ingredient 2 amount").fill("1");
   await page.getByLabel("Ingredient 2 unit").fill("tbsp");
