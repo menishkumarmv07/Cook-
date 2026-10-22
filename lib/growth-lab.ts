@@ -508,13 +508,24 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
 
   // Version 1 backups predate per-content USD revenue. Migrate the absent field to missing,
   // never to zero; malformed present values still fail validation.
-  const metrics = parsed.metrics.map((value) => {
-    if (!isPlainObject(value)) return value;
-    return value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
-  });
-
   const migrationWarnings: string[] = [];
   const today = getLocalDateOnly();
+  const metrics = parsed.metrics.map((value, index) => {
+    if (!isPlainObject(value)) return value;
+    const migrated = value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
+    if (
+      migrated.dataKind === "actual" &&
+      typeof migrated.publishedDate === "string" &&
+      isValidDateOnly(migrated.publishedDate) &&
+      migrated.publishedDate > today
+    ) {
+      migrationWarnings.push(
+        `Metric row ${index + 1} was downgraded to Estimate because its publish date is in the future; verify the date and reported values.`,
+      );
+      return { ...migrated, dataKind: "estimate" };
+    }
+    return migrated;
+  });
   const experiments = parsed.experiments.map((value, index) => {
     if (!isPlainObject(value)) return value;
     // V2.3 introduced a required next action and disallows future-dated completed experiments.
