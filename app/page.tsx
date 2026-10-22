@@ -1987,7 +1987,7 @@ export default function Home() {
                 <button className="secondary" type="button" onClick={replaceBlockedGrowthStorage}>Use current data and replace local storage</button>
               </div>
             )}
-            {!growthDataReady ? <p className="empty-inline">Loading this device's Growth Lab…</p> : (
+            {!growthDataReady ? <p className="empty-inline">Loading this device&apos;s Growth Lab…</p> : (
               <>
                 <div className="growth-summary-grid" aria-label="Growth Lab summary">
                   <article className="growth-summary-card"><small>Actual metric rows</small><strong>{growthSummary.actualRows}</strong><span>Owner-entered or platform-exported values</span></article>
