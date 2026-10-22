@@ -19,6 +19,8 @@ export type GrowthMetric = {
   contentTitle: string;
   concept: string;
   dataKind: GrowthDataKind;
+  // Only enter a USD amount when the platform reports it for this content. Estimates remain separate.
+  revenueUsd: number | null;
   views: number | null;
   reach: number | null;
   averageWatchSeconds: number | null;
@@ -46,7 +48,7 @@ export type GrowthExperiment = {
 
 export type GrowthWorkspaceBackup = {
   format: "cooking-creator-growth-lab";
-  version: 1;
+  version: 2;
   exportedAt: string;
   metrics: GrowthMetric[];
   experiments: GrowthExperiment[];
@@ -76,6 +78,10 @@ export type GrowthMetricSummary = {
   actualReachRows: number;
   estimateReachTotal: number | null;
   estimateReachRows: number;
+  actualRevenueUsdTotal: number | null;
+  actualRevenueUsdRows: number;
+  estimateRevenueUsdTotal: number | null;
+  estimateRevenueUsdRows: number;
   warnings: string[];
 };
 
@@ -107,6 +113,7 @@ const CSV_HEADERS = [
   "saves",
   "followers_gained",
   "link_clicks",
+  "revenue_usd",
 ] as const;
 
 type NumericGrowthField =
@@ -119,7 +126,8 @@ type NumericGrowthField =
   | "shares"
   | "saves"
   | "followersGained"
-  | "linkClicks";
+  | "linkClicks"
+  | "revenueUsd";
 
 const NUMERIC_FIELDS: Array<{ field: NumericGrowthField; header: string; integer: boolean; max: number }> = [
   { field: "views", header: "views", integer: true, max: MAX_SAFE_METRIC },
@@ -132,6 +140,7 @@ const NUMERIC_FIELDS: Array<{ field: NumericGrowthField; header: string; integer
   { field: "saves", header: "saves", integer: true, max: MAX_SAFE_METRIC },
   { field: "followersGained", header: "followers_gained", integer: true, max: MAX_SAFE_METRIC },
   { field: "linkClicks", header: "link_clicks", integer: true, max: MAX_SAFE_METRIC },
+  { field: "revenueUsd", header: "revenue_usd", integer: false, max: 1_000_000_000 },
 ];
 
 const HEADER_ALIASES: Record<string, string> = {
@@ -351,6 +360,7 @@ export function parseGrowthMetricsCsv(raw: string, idPrefix = "csv"): GrowthCsvI
       saves: null,
       followersGained: null,
       linkClicks: null,
+      revenueUsd: null,
     };
 
     try {
@@ -409,7 +419,7 @@ export function createGrowthWorkspaceBackupJSON(
   const safeExperiments = experiments.filter(isGrowthExperiment);
   const backup: GrowthWorkspaceBackup = {
     format: "cooking-creator-growth-lab",
-    version: 1,
+    version: 2,
     exportedAt,
     metrics: safeMetrics,
     experiments: safeExperiments,
@@ -466,18 +476,25 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   }
   if (!isPlainObject(parsed) ||
       parsed.format !== "cooking-creator-growth-lab" ||
-      parsed.version !== 1 ||
+      (parsed.version !== 1 && parsed.version !== 2) ||
       typeof parsed.exportedAt !== "string" ||
       !isValidIsoTimestamp(parsed.exportedAt) ||
       !Array.isArray(parsed.metrics) ||
       !Array.isArray(parsed.experiments) ||
       parsed.metrics.length > MAX_WORKSPACE_METRICS ||
-      parsed.experiments.length > MAX_WORKSPACE_EXPERIMENTS ||
-      !parsed.metrics.every(isGrowthMetric) ||
-      !parsed.experiments.every(isGrowthExperiment)) return null;
+      parsed.experiments.length > MAX_WORKSPACE_EXPERIMENTS) return null;
+
+  // Version 1 backups predate per-content USD revenue. Migrate the absent field to missing,
+  // never to zero; malformed present values still fail validation.
+  const metrics = parsed.metrics.map((value) => {
+    if (!isPlainObject(value)) return value;
+    return value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
+  });
+  if (!metrics.every(isGrowthMetric) || !parsed.experiments.every(isGrowthExperiment)) return null;
+
   const seenFingerprints = new Set<string>();
   const seenMetricIds = new Set<string>();
-  for (const metric of parsed.metrics) {
+  for (const metric of metrics as GrowthMetric[]) {
     const fingerprint = growthMetricFingerprint(metric);
     if (seenFingerprints.has(fingerprint) || seenMetricIds.has(metric.id)) return null;
     seenFingerprints.add(fingerprint);
@@ -488,7 +505,13 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     if (seenExperimentIds.has(experiment.id)) return null;
     seenExperimentIds.add(experiment.id);
   }
-  return parsed as GrowthWorkspaceBackup;
+  return {
+    format: "cooking-creator-growth-lab",
+    version: 2,
+    exportedAt: parsed.exportedAt,
+    metrics: metrics as GrowthMetric[],
+    experiments: parsed.experiments as GrowthExperiment[],
+  };
 }
 
 export function mergeGrowthMetrics(
@@ -575,7 +598,7 @@ export function mergeGrowthExperiments(
 export function summarizeGrowthMetrics(metrics: GrowthMetric[]): GrowthMetricSummary {
   const actual = metrics.filter((metric) => isGrowthMetric(metric) && metric.dataKind === "actual");
   const estimates = metrics.filter((metric) => isGrowthMetric(metric) && metric.dataKind === "estimate");
-  const sumFor = (rows: GrowthMetric[], field: "views" | "reach") => {
+  const sumFor = (rows: GrowthMetric[], field: "views" | "reach" | "revenueUsd") => {
     const recorded = rows.map((row) => row[field]).filter((value): value is number => value !== null);
     return { total: recorded.length ? recorded.reduce((sum, value) => sum + value, 0) : null, count: recorded.length };
   };
@@ -583,6 +606,8 @@ export function summarizeGrowthMetrics(metrics: GrowthMetric[]): GrowthMetricSum
   const estimateViews = sumFor(estimates, "views");
   const actualReach = sumFor(actual, "reach");
   const estimateReach = sumFor(estimates, "reach");
+  const actualRevenue = sumFor(actual, "revenueUsd");
+  const estimateRevenue = sumFor(estimates, "revenueUsd");
   const warnings: string[] = [
     "These are descriptive records supplied by the owner. They do not prove that a format caused a result or predict future performance.",
   ];
@@ -601,6 +626,10 @@ export function summarizeGrowthMetrics(metrics: GrowthMetric[]): GrowthMetricSum
     actualReachRows: actualReach.count,
     estimateReachTotal: estimateReach.total,
     estimateReachRows: estimateReach.count,
+    actualRevenueUsdTotal: actualRevenue.total,
+    actualRevenueUsdRows: actualRevenue.count,
+    estimateRevenueUsdTotal: estimateRevenue.total,
+    estimateRevenueUsdRows: estimateRevenue.count,
     warnings,
   };
 }
