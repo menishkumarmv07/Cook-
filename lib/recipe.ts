@@ -64,6 +64,12 @@ export function isValidIsoTimestamp(value: string): boolean {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString() === value;
 }
 
+export function isValidTrialPhotoDataUrl(value: unknown): value is string {
+  return typeof value === "string" &&
+    value.length <= 500_000 &&
+    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
 export type RecipeProject = {
   id: number;
   trialStatus: "untested" | "tested";
@@ -282,7 +288,7 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     typeof p.trialDate === "string" && (p.trialDate === "" || isValidDateOnly(p.trialDate)) &&
     typeof p.trialChanges === "string" &&
     typeof p.trialNotes === "string" &&
-    typeof p.trialPhotoDataUrl === "string" &&
+    (p.trialPhotoDataUrl === "" || isValidTrialPhotoDataUrl(p.trialPhotoDataUrl)) &&
     Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 && (p.recipeRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 && (p.trialPhotoRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 && (p.trialNotesRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
@@ -576,7 +582,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     trialDate: typeof legacy.trialDate === "string" && isValidDateOnly(legacy.trialDate) ? legacy.trialDate : "",
     trialChanges: typeof legacy.trialChanges === "string" ? legacy.trialChanges : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
-    trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
+    trialPhotoDataUrl: isValidTrialPhotoDataUrl(legacy.trialPhotoDataUrl) ? legacy.trialPhotoDataUrl : "",
     recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
     trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
     trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
