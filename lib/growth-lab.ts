@@ -518,25 +518,31 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   const experiments = parsed.experiments.map((value, index) => {
     if (!isPlainObject(value)) return value;
     // V2.3 introduced a required next action and disallows future-dated completed experiments.
-    // Normalize a missing legacy field, then downgrade incomplete completed records instead of
+    // Normalize missing legacy fields, then downgrade incomplete completed records instead of
     // discarding an otherwise recoverable owner's workspace.
-    const candidate = value.nextAction === undefined ? { ...value, nextAction: "" } : value;
+    const candidate = {
+      ...value,
+      nextAction: value.nextAction === undefined ? "" : value.nextAction,
+      outcome: value.outcome === undefined ? "" : value.outcome,
+    };
     if (candidate.status !== "reviewed" && candidate.status !== "closed") return candidate;
 
-    const hasValidDates =
-      typeof candidate.startedDate === "string" &&
-      isValidDateOnly(candidate.startedDate) &&
-      typeof candidate.resultDate === "string" &&
-      isValidDateOnly(candidate.resultDate) &&
-      candidate.resultDate >= candidate.startedDate;
-    if (!hasValidDates) return candidate;
+    const startIsValid = typeof candidate.startedDate === "string" && isValidDateOnly(candidate.startedDate);
+    const resultIsValid = typeof candidate.resultDate === "string" &&
+      (candidate.resultDate === "" || isValidDateOnly(candidate.resultDate));
+    if (!startIsValid || !resultIsValid) return candidate;
+
+    const startedDate = candidate.startedDate as string;
+    const resultDate = candidate.resultDate as string;
+    if (resultDate && resultDate < startedDate) return candidate;
 
     const hasNextAction = typeof candidate.nextAction === "string" && Boolean(candidate.nextAction.trim());
-    const hasFutureCompletionDate =
-      candidate.startedDate > today || candidate.resultDate > today;
-    if (!hasNextAction || hasFutureCompletionDate) {
+    const hasOutcome = typeof candidate.outcome === "string" && Boolean(candidate.outcome.trim());
+    const hasMissingResultDate = resultDate === "";
+    const hasFutureCompletionDate = startedDate > today || (resultDate !== "" && resultDate > today);
+    if (!hasNextAction || !hasOutcome || hasMissingResultDate || hasFutureCompletionDate) {
       migrationWarnings.push(
-        `Experiment ${index + 1} was downgraded to Planned because completed experiments require a recorded next action and non-future dates.`,
+        `Experiment ${index + 1} was downgraded to Planned because completed experiments require an outcome, next action, a result date, and non-future dates.`,
       );
       return { ...candidate, status: "planned" };
     }
