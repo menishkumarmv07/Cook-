@@ -1267,6 +1267,9 @@ export default function Home() {
           ...patch,
           recipeRevision: nextRecipeRevision(project.recipeRevision),
           evidenceReviewedAt: "",
+          // Keep old photo/notes for reference but explicitly detach them from the current revision.
+          trialPhotoRevision: -1,
+          trialNotesRevision: -1,
           trialStatus: "untested" as const,
           trialRating: "",
           trialDate: "",
@@ -1425,6 +1428,9 @@ export default function Home() {
           : {
               recipeRevision: nextRecipeRevision(project.recipeRevision),
               evidenceReviewedAt: "",
+              // Preserve the evidence for history, never for the edited recipe version.
+              trialPhotoRevision: -1,
+              trialNotesRevision: -1,
               trialStatus: "untested" as const,
               trialRating: "",
               trialDate: "",
