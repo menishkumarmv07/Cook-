@@ -10,6 +10,7 @@ import {
   getLocalDateOnly,
   isHttpUrl,
   isValidDateOnly,
+  isValidIsoTimestamp,
   isRecipeProject,
   normalizeSourceUrlForComparison,
   parseCreatorWorkspaceBackupJSON,
@@ -618,5 +619,54 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
   assert.ok(impossibleDate);
   assert.equal(impossibleDate.trialDate, "");
   assert.equal(impossibleDate.trialStatus, "untested");
+});
+
+test("ISO review timestamps require a real canonical UTC timestamp", () => {
+  assert.equal(isValidIsoTimestamp("2026-10-20T13:00:00.000Z"), true);
+  assert.equal(isValidIsoTimestamp("2026-02-30T13:00:00.000Z"), false);
+  assert.equal(isValidIsoTimestamp("2026-10-20"), false);
+  assert.equal(isValidIsoTimestamp("2026-10-20T13:00:00Z"), false);
+  assert.equal(isValidIsoTimestamp("not a date"), false);
+});
+
+test("unsafe public-source URLs downgrade imported tested and approved drafts", () => {
+  const reviewedAndTested: RecipeProject = {
+    ...base,
+    trialStatus: "tested",
+    trialRating: "5",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "Followed the reviewed recipe as written.",
+    trialNotes: "Cooked this recipe and checked the timing and texture.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 2,
+    trialPhotoRevision: 2,
+    trialNotesRevision: 2,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    approved: true,
+    approvedAt: "2026-10-20T00:01:00.000Z",
+    sourceReferences: [{
+      id: "source-1",
+      url: "https://example.com/recipe",
+      kind: "recipe-page",
+      checked: "Compared ingredient list and method",
+      notes: "No other differences",
+      ingredientFindings: "One cup rice",
+      methodFindings: "Warm then fold",
+      timingFindings: "Timing noted",
+      safetyStorageFindings: "Storage note recorded",
+    }],
+    steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
+  };
+  const restored = parseRecipeProjectJSON(JSON.stringify({
+    ...reviewedAndTested,
+    sourceReferences: reviewedAndTested.sourceReferences.map((source) => ({
+      ...source,
+      url: "http://localhost/internal-recipe",
+    })),
+  }));
+  assert.ok(restored);
+  assert.equal(restored.trialStatus, "untested");
+  assert.equal(restored.approved, false);
+  assert.equal(restored.approvedAt, "");
 });
 
