@@ -65,9 +65,9 @@ export function isValidIsoTimestamp(value: string): boolean {
 }
 
 export function isValidTrialPhotoDataUrl(value: unknown): value is string {
-  return typeof value === "string" &&
-    value.length <= 500_000 &&
-    /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value);
+  if (typeof value !== "string" || value.length > 500_000) return false;
+  const match = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  return Boolean(match && match[1].length % 4 === 0);
 }
 
 export type RecipeProject = {
