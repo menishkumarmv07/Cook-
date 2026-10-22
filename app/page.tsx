@@ -3,8 +3,9 @@
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
 import {
-  GROWTH_PLATFORMS, buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
-  mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
+  GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
+  buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
+  mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
   serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
   type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
 } from "@/lib/growth-lab";
@@ -1685,6 +1686,10 @@ export default function Home() {
   }
 
   function addGrowthMetric() {
+    if (growthMetrics.length >= MAX_GROWTH_METRIC_ROWS) {
+      setGrowthMessage(`Growth Lab has reached the ${MAX_GROWTH_METRIC_ROWS.toLocaleString("en-US")} row limit. Export a backup and start a separate archive before adding more.`);
+      return;
+    }
     const optionalNumber = (value: string) => value.trim() ? Number(value.trim()) : null;
     const row: GrowthMetric = {
       id: makeId(),
@@ -1749,11 +1754,16 @@ export default function Home() {
     }
     const incoming = growthCsvPreview.rows.map((row) => ({ ...row, id: makeId() }));
     const merged = mergeGrowthMetrics(growthMetrics, incoming);
+    if (merged.rows.length > MAX_GROWTH_METRIC_ROWS) {
+      setGrowthMessage(`Import would exceed the ${MAX_GROWTH_METRIC_ROWS.toLocaleString("en-US")} metric-row limit. Import a smaller CSV batch or export an archive first.`);
+      return;
+    }
     setGrowthMetrics(merged.rows);
+    const duplicateRows = merged.duplicates + growthCsvPreview.duplicateRows;
+    const invalidRows = Math.max(0, growthCsvPreview.rejectedRows.length - growthCsvPreview.duplicateRows);
     setGrowthMessage(
-      "Imported " + merged.added + " new row(s); skipped " +
-      (merged.duplicates + growthCsvPreview.duplicateRows) + " duplicate row(s) and " +
-      growthCsvPreview.rejectedRows.length + " rejected row(s). CSV errors: " +
+      "Imported " + merged.added + " new row(s); skipped " + duplicateRows +
+      " duplicate row(s) and " + invalidRows + " invalid row(s). CSV-level errors: " +
       growthCsvPreview.errors.length + ".",
     );
     setGrowthCsvPreview(null);
@@ -1772,11 +1782,17 @@ export default function Home() {
         return;
       }
       const mergedMetrics = mergeGrowthMetrics(growthMetrics, backup.metrics);
-      const existingIds = new Set(growthExperiments.map((item) => item.id));
-      const freshExperiments = backup.experiments.filter((item) => !existingIds.has(item.id));
+      const mergedExperiments = mergeGrowthExperiments(growthExperiments, backup.experiments);
+      if (mergedMetrics.rows.length > MAX_GROWTH_METRIC_ROWS ||
+          mergedExperiments.rows.length > MAX_GROWTH_EXPERIMENT_ROWS) {
+        setGrowthMessage("This backup would exceed the local Growth Lab row limits. Nothing was imported; export an archive or merge a smaller backup.");
+        return;
+      }
       setGrowthMetrics(mergedMetrics.rows);
-      setGrowthExperiments((existing) => [...existing, ...freshExperiments]);
-      setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + freshExperiments.length + " experiment(s) from the backup. Existing entries were not overwritten.");
+      setGrowthExperiments(mergedExperiments.rows);
+      setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + mergedExperiments.added +
+        " experiment(s); skipped " + mergedMetrics.duplicates + " duplicate metric row(s) and " +
+        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten.");
       setGrowthCsvPreview(null);
     } catch {
       setGrowthMessage("Growth Lab JSON backup could not be read. Nothing was imported.");
@@ -1790,6 +1806,10 @@ export default function Home() {
   }
 
   function addGrowthExperiment() {
+    if (growthExperiments.length >= MAX_GROWTH_EXPERIMENT_ROWS) {
+      setGrowthMessage(`Growth Lab has reached the ${MAX_GROWTH_EXPERIMENT_ROWS.toLocaleString("en-US")} experiment limit. Export a backup and archive this workspace before adding more.`);
+      return;
+    }
     const candidate: GrowthExperiment = {
       id: makeId(),
       ...growthExperimentDraft,
