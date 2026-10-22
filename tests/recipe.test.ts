@@ -11,6 +11,7 @@ import {
   isHttpUrl,
   isValidDateOnly,
   isValidIsoTimestamp,
+  isValidTrialPhotoDataUrl,
   MAX_RECIPE_REVISION,
   nextRecipeRevision,
   isRecipeProject,
@@ -699,5 +700,28 @@ test("recipe revision rollover always changes the revision and rejects invalid c
   assert.equal(nextRecipeRevision(-1), 0);
   assert.equal(nextRecipeRevision(Number.MAX_SAFE_INTEGER), 0);
   assert.equal(nextRecipeRevision(1.5), 0);
+});
+
+test("trial-photo evidence accepts bounded raster base64 only and restores unsafe photos as missing", () => {
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AA=="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/png;base64,iVBORw0KGgo="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/svg+xml;base64,PHN2Zz4="), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,not base64!"), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64," + "A".repeat(500_001)), false);
+  const restored = parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    trialStatus: "tested",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "Followed the recipe.",
+    trialRating: "4",
+    trialNotes: "Cooked this and checked the result.",
+    trialPhotoDataUrl: "data:image/svg+xml;base64,PHN2Zz4=",
+    recipeRevision: 1,
+    trialPhotoRevision: 1,
+    trialNotesRevision: 1,
+  }));
+  assert.ok(restored);
+  assert.equal(restored.trialPhotoDataUrl, "");
+  assert.equal(restored.trialStatus, "untested");
 });
 
