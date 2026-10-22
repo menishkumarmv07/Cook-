@@ -209,6 +209,16 @@ test("growth summaries separate actual metrics from estimates and explain sample
   assert.equal(summarizeGrowthMetrics([]).actualViewsTotal, null);
 });
 
-test("descriptive insights require at least ten actual rows per platform and avoid causal claims", () => {
-  assert.match(buildDescriptiveGrowthInsights(Array.from({ length: 9 }, (_, i) => actualMetric({ id: `m-${i}`, views: i + 1 }))[0], []).join(" "), /dummy/);
+test("descriptive insights require ten actual rows per platform and avoid causal claims", () => {
+  const smallSample = buildDescriptiveGrowthInsights(
+    Array.from({ length: 9 }, (_, i) => actualMetric({ id: `small-${i}`, views: i + 1 })),
+  );
+  assert.match(smallSample.join(" "), /No within-platform comparison is shown yet/);
+  const adequateSample = buildDescriptiveGrowthInsights(
+    Array.from({ length: 10 }, (_, i) => actualMetric({ id: `large-${i}`, contentTitle: `Recipe ${i + 1}`, views: i + 1 })),
+  );
+  assert.equal(adequateSample.length, 1);
+  assert.match(adequateSample[0], /Recipe 10/);
+  assert.match(adequateSample[0], /descriptive only/);
+  assert.match(adequateSample[0], /does not show that a format caused the result/);
 });
