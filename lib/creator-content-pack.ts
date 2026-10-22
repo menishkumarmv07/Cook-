@@ -184,7 +184,6 @@ export function buildUSCreatorPackAppendix(
   const trust = getRecipeTrustAssessment(project);
   const photoMatchesCurrentVersion = Boolean(project.trialPhotoDataUrl) && project.trialPhotoRevision === project.recipeRevision;
   const notesMatchCurrentVersion = project.trialNotes.trim().length >= 10 && project.trialNotesRevision === project.recipeRevision;
-  const trialEvidenceCurrent = trust.testedByOwner;
   const tested = trust.testedByOwner;
   const approved = trust.canShare;
   const unitPreference = clean(profile.units, 80) || "US customary";
