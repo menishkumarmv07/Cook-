@@ -272,6 +272,48 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   assert.ok(legacyV1);
   assert.equal(legacyV1.version, 2);
   assert.equal(legacyV1.metrics[0].revenueUsd, null);
+
+  const today = getLocalDateOnly();
+  const legacyCompletedWithoutNextAction = parseGrowthWorkspaceBackupJSON(JSON.stringify({
+    format: "cooking-creator-growth-lab",
+    version: 1,
+    exportedAt,
+    metrics: [actualMetric()],
+    experiments: [{
+      ...experiment({
+        status: "reviewed",
+        startedDate: today,
+        resultDate: today,
+        outcome: "The old backup recorded a result but did not include a next action.",
+      }),
+      nextAction: undefined,
+    }],
+  }));
+  assert.ok(legacyCompletedWithoutNextAction);
+  assert.equal(legacyCompletedWithoutNextAction.experiments[0].status, "planned");
+  assert.equal(legacyCompletedWithoutNextAction.experiments[0].nextAction, "");
+  assert.match((legacyCompletedWithoutNextAction.migrationWarnings ?? []).join(" "), /downgraded to Planned/);
+
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const futureDate = getLocalDateOnly(tomorrow);
+  const futureCompleted = parseGrowthWorkspaceBackupJSON(JSON.stringify({
+    format: "cooking-creator-growth-lab",
+    version: 2,
+    exportedAt,
+    metrics: [actualMetric()],
+    experiments: [experiment({
+      status: "reviewed",
+      startedDate: today,
+      resultDate: futureDate,
+      outcome: "This date should not count as completed yet.",
+      nextAction: "Wait for actual platform data.",
+    })],
+  }));
+  assert.ok(futureCompleted);
+  assert.equal(futureCompleted.experiments[0].status, "planned");
+  assert.equal(futureCompleted.migrationWarnings?.length, 1);
+
   assert.equal(parseGrowthWorkspaceBackupJSON(createGrowthWorkspaceBackupJSON([
     actualMetric({ id: "same-id", contentTitle: "First title" }),
     actualMetric({ id: "same-id", contentTitle: "Second title" }),
