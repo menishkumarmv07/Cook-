@@ -25,6 +25,7 @@ const actualMetric = (overrides: Partial<GrowthMetric> = {}): GrowthMetric => ({
   contentTitle: "Lemon rice in 30 seconds",
   concept: "Quick weeknight meals",
   dataKind: "actual",
+  revenueUsd: null,
   views: 1200,
   reach: 1000,
   averageWatchSeconds: 18.5,
@@ -78,6 +79,8 @@ test("validates actual and estimated rows without conflating their meaning", () 
   assert.ok(validateGrowthMetric({ ...actualMetric(), views: -1 }).some((x) => /views must be/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), retentionPercent: 100.1 }).some((x) => /retention_percent must be/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), likes: 1.5 }).some((x) => /likes must be/.test(x)));
+  assert.ok(validateGrowthMetric({ ...actualMetric(), revenueUsd: -0.01 }).some((x) => /revenue_usd must be/.test(x)));
+  assert.ok(validateGrowthMetric({ ...actualMetric(), revenueUsd: 1_000_000_001 }).some((x) => /revenue_usd must be/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), publishedDate: "2026-02-30" }).some((x) => /real YYYY-MM-DD/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), views: null, reach: null, averageWatchSeconds: null, retentionPercent: null, likes: null, comments: null, shares: null, saves: null, followersGained: null, linkClicks: null }).some((x) => /at least one metric value/.test(x)));
 });
@@ -96,6 +99,7 @@ test("CSV parser accepts BOM, CRLF, quoted commas, escaped quotes and embedded n
   assert.equal(imported.rows[0].views, 1200);
   assert.equal(imported.rows[0].averageWatchSeconds, 18.5);
   assert.equal(imported.rows[0].dataKind, "actual");
+  assert.equal(imported.rows[0].revenueUsd, null);
 });
 
 test("CSV header aliases are supported but required columns stay mandatory", () => {
@@ -210,13 +214,22 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   const backup = createGrowthWorkspaceBackupJSON(metrics, experiments, exportedAt);
   const restored = parseGrowthWorkspaceBackupJSON(backup);
   assert.ok(restored);
+  assert.equal(restored.version, 2);
   assert.equal(restored.exportedAt, exportedAt);
   assert.deepEqual(restored.metrics, metrics);
   assert.deepEqual(restored.experiments, experiments);
   assert.equal(parseGrowthWorkspaceBackupJSON("not JSON"), null);
-  assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 2, exportedAt, metrics, experiments })), null);
+  assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 3, exportedAt, metrics, experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{ ...metrics[0], views: -1 }], experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt: "not time", metrics, experiments })), null);
+  const legacyV1 = parseGrowthWorkspaceBackupJSON(JSON.stringify({
+    format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{
+      ...actualMetric(), revenueUsd: undefined,
+    }], experiments,
+  }));
+  assert.ok(legacyV1);
+  assert.equal(legacyV1.version, 2);
+  assert.equal(legacyV1.metrics[0].revenueUsd, null);
   assert.equal(parseGrowthWorkspaceBackupJSON(createGrowthWorkspaceBackupJSON([
     actualMetric({ id: "same-id", contentTitle: "First title" }),
     actualMetric({ id: "same-id", contentTitle: "Second title" }),
@@ -237,6 +250,15 @@ test("growth summaries separate actual metrics from estimates and explain sample
   assert.equal(summary.estimateViewsRows, 1);
   assert.ok(summary.warnings.some((x) => /Very small actual-data sample/.test(x)));
   assert.ok(summary.warnings.some((x) => /estimated row/.test(x)));
+  const revenueSummary = summarizeGrowthMetrics([
+    actualMetric({ revenueUsd: 12.5 }),
+    actualMetric({ id: "actual-revenue-2", revenueUsd: 2.25 }),
+    estimateMetric({ revenueUsd: 99 }),
+  ]);
+  assert.equal(revenueSummary.actualRevenueUsdTotal, 14.75);
+  assert.equal(revenueSummary.actualRevenueUsdRows, 2);
+  assert.equal(revenueSummary.estimateRevenueUsdTotal, 99);
+  assert.equal(revenueSummary.estimateRevenueUsdRows, 1);
   assert.equal(summarizeGrowthMetrics([]).actualViewsTotal, null);
 });
 
