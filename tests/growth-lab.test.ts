@@ -83,6 +83,11 @@ test("validates actual and estimated rows without conflating their meaning", () 
   assert.ok(validateGrowthMetric({ ...actualMetric(), revenueUsd: -0.01 }).some((x) => /revenue_usd must be/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), revenueUsd: 1_000_000_001 }).some((x) => /revenue_usd must be/.test(x)));
   assert.ok(validateGrowthMetric({ ...actualMetric(), publishedDate: "2026-02-30" }).some((x) => /real YYYY-MM-DD/.test(x)));
+  const tomorrowDate = new Date();
+  tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+  const futurePublishDate = getLocalDateOnly(tomorrowDate);
+  assert.ok(validateGrowthMetric(actualMetric({ publishedDate: futurePublishDate })).some((x) => /future publish date/i.test(x)));
+  assert.deepEqual(validateGrowthMetric(estimateMetric({ publishedDate: futurePublishDate })), []);
   assert.ok(validateGrowthMetric({ ...actualMetric(), views: null, reach: null, averageWatchSeconds: null, retentionPercent: null, likes: null, comments: null, shares: null, saves: null, followersGained: null, linkClicks: null }).some((x) => /at least one metric value/.test(x)));
 });
 
