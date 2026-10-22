@@ -705,6 +705,9 @@ test("recipe revision rollover always changes the revision and rejects invalid c
 test("trial-photo evidence accepts bounded raster base64 only and restores unsafe photos as missing", () => {
   assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AA=="), true);
   assert.equal(isValidTrialPhotoDataUrl("data:image/png;base64,iVBORw0KGgo="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AAA="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,abc"), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AAAA="), false);
   assert.equal(isValidTrialPhotoDataUrl("data:image/svg+xml;base64,PHN2Zz4="), false);
   assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,not base64!"), false);
   assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64," + "A".repeat(500_001)), false);
