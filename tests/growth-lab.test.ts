@@ -6,6 +6,7 @@ import {
   growthMetricFingerprint,
   isGrowthExperiment,
   isGrowthMetric,
+  mergeGrowthExperiments,
   mergeGrowthMetrics,
   parseGrowthMetricsCsv,
   parseGrowthWorkspaceBackupJSON,
@@ -140,6 +141,24 @@ test("CSV import rejects malformed quoting, wrong cell counts, duplicate headers
   assert.match(parseGrowthMetricsCsv("x".repeat(2_000_001)).errors.join(" "), /2 MB/);
 });
 
+test("backup merges keep records when internal IDs collide across different workspaces", () => {
+  const existingMetric = actualMetric({ id: "shared-id", contentTitle: "Existing title" });
+  const incomingMetric = actualMetric({ id: "shared-id", contentTitle: "Incoming title", publishedDate: "2026-10-02" });
+  const metrics = mergeGrowthMetrics([existingMetric], [incomingMetric]);
+  assert.equal(metrics.added, 1);
+  assert.equal(metrics.rows.length, 2);
+  assert.equal(new Set(metrics.rows.map((row) => row.id)).size, 2);
+  assert.deepEqual(metrics.rows.map((row) => row.contentTitle), ["Existing title", "Incoming title"]);
+
+  const existingExperiment = experiment({ id: "shared-experiment" });
+  const incomingExperiment = experiment({ id: "shared-experiment", hypothesis: "A distinct hypothesis", startedDate: "2026-10-03" });
+  const experiments = mergeGrowthExperiments([existingExperiment], [incomingExperiment]);
+  assert.equal(experiments.added, 1);
+  assert.equal(experiments.rows.length, 2);
+  assert.equal(new Set(experiments.rows.map((row) => row.id)).size, 2);
+  assert.deepEqual(experiments.rows.map((row) => row.hypothesis), [existingExperiment.hypothesis, incomingExperiment.hypothesis]);
+});
+
 test("duplicate CSV rows and repeated imports are deduplicated by stable content identity", () => {
   const rows = [
     headers,
@@ -164,8 +183,12 @@ test("CSV export round-trips ordinary rows and neutralizes spreadsheet formula c
   const imported = parseGrowthMetricsCsv(exported);
   assert.equal(imported.rows.length, 1);
   assert.deepEqual(imported.rows[0], { ...original, id: "csv-row-2" });
-  const malicious = serializeGrowthMetricsCsv([actualMetric({ contentTitle: "=HYPERLINK(\"https://bad.example\",\"click\")" })]);
+  const malicious = serializeGrowthMetricsCsv([actualMetric({ contentTitle: "=HYPERLINK(\\\"https://bad.example\\\",\\\"click\\\")" })]);
   assert.match(malicious, /"'=HYPERLINK/);
+  const leadingSpaceFormula = serializeGrowthMetricsCsv([actualMetric({ contentTitle: "   =1+1" })]);
+  assert.match(leadingSpaceFormula, /"'   =1\+1"/);
+  const tabPrefixFormula = serializeGrowthMetricsCsv([actualMetric({ contentTitle: "\t=1+1" })]);
+  assert.match(tabPrefixFormula, /"'\t=1\+1"/);
   const maliciousImport = parseGrowthMetricsCsv(malicious);
   assert.equal(maliciousImport.rows[0].contentTitle.startsWith("'="), true);
 });
@@ -194,6 +217,14 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 2, exportedAt, metrics, experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{ ...metrics[0], views: -1 }], experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt: "not time", metrics, experiments })), null);
+  assert.equal(parseGrowthWorkspaceBackupJSON(createGrowthWorkspaceBackupJSON([
+    actualMetric({ id: "same-id", contentTitle: "First title" }),
+    actualMetric({ id: "same-id", contentTitle: "Second title" }),
+  ], [])), null);
+  assert.equal(parseGrowthWorkspaceBackupJSON(createGrowthWorkspaceBackupJSON([], [
+    experiment({ id: "same-experiment" }),
+    experiment({ id: "same-experiment", hypothesis: "Another hypothesis with the same ID" }),
+  ])), null);
 });
 
 test("growth summaries separate actual metrics from estimates and explain sample-size limits", () => {
