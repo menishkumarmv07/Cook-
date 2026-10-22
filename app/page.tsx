@@ -208,7 +208,7 @@ function migrateProject(value: unknown): RecipeProject | null {
   const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
   const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
   const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
-  const evidenceReviewedAt = typeof old.evidenceReviewedAt === "string" && isValidIsoTimestamp(old.evidenceReviewedAt) ? old.evidenceReviewedAt : "";
+  const evidenceReviewedAt = typeof old.evidenceReviewedAt === "string" && isValidIsoTimestamp(old.evidenceReviewedAt) && Date.parse(old.evidenceReviewedAt) <= Date.now() ? old.evidenceReviewedAt : "";
   const trialEvidenceComplete = Boolean(
     old.trialStatus === "tested" &&
     evidenceReviewedAt &&
