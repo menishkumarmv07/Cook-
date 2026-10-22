@@ -621,6 +621,18 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
   assert.ok(impossibleDate);
   assert.equal(impossibleDate.trialDate, "");
   assert.equal(impossibleDate.trialStatus, "untested");
+
+  const tomorrowTimestamp = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const futureReview = parseRecipeProjectJSON(JSON.stringify({
+    ...tested,
+    evidenceReviewedAt: tomorrowTimestamp,
+    approvedAt: tomorrowTimestamp,
+  }));
+  assert.ok(futureReview);
+  assert.equal(futureReview.evidenceReviewedAt, "");
+  assert.equal(futureReview.trialStatus, "untested");
+  assert.equal(futureReview.approved, false);
+  assert.equal(futureReview.approvedAt, "");
 });
 
 test("ISO review timestamps require a real canonical UTC timestamp", () => {
