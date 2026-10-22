@@ -206,6 +206,7 @@ test("an unsafe primary recipe URL cannot be hidden by adding safe references", 
 
   project.url = "";
   const withoutPrimaryUrl = getRecipeTrustAssessment(project);
-  assert.equal(withoutPrimaryUrl.canMarkEvidenceReviewed, true);
+  assert.equal(withoutPrimaryUrl.evidenceReviewBlockers.length, 0);
+  assert.equal(withoutPrimaryUrl.evidenceReviewed, true);
 });
 
