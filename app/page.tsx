@@ -88,7 +88,7 @@ type ChatConversation = {
   messages: ChatMessage[];
 };
 
-type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retentionPercent" | "likes" | "comments" | "shares" | "saves" | "followersGained" | "linkClicks";
+type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retentionPercent" | "likes" | "comments" | "shares" | "saves" | "followersGained" | "linkClicks" | "revenueUsd";
 type GrowthMetricDraft = {
   publishedDate: string; platform: GrowthPlatform; contentTitle: string; concept: string; dataKind: "actual" | "estimate";
 } & Record<GrowthNumericDraftKey, string>;
@@ -105,6 +105,7 @@ const GROWTH_METRIC_INPUTS: Array<{ key: GrowthNumericDraftKey; label: string; i
   { key: "saves", label: "Saves", id: "growth-saves", step: "1" },
   { key: "followersGained", label: "Followers / subscribers gained", id: "growth-followers", step: "1" },
   { key: "linkClicks", label: "Link clicks", id: "growth-link-clicks", step: "1" },
+  { key: "revenueUsd", label: "Reported revenue for this content (USD)", id: "growth-revenue-usd", step: "any", hint: "Only record a platform-reported USD amount attributable to this content; estimates are kept separate." },
 ];
 
 type OverlayKind = "drawer" | "tasks" | "logo" | "message";
@@ -445,7 +446,7 @@ export default function Home() {
   const [growthMetricDraft, setGrowthMetricDraft] = useState<GrowthMetricDraft>({
     publishedDate: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
     views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
-    shares: "", saves: "", followersGained: "", linkClicks: "",
+    shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
   });
   const [growthExperimentDraft, setGrowthExperimentDraft] = useState<GrowthExperimentDraft>({
     hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: "",
@@ -1708,6 +1709,7 @@ export default function Home() {
       saves: optionalNumber(growthMetricDraft.saves),
       followersGained: optionalNumber(growthMetricDraft.followersGained),
       linkClicks: optionalNumber(growthMetricDraft.linkClicks),
+      revenueUsd: optionalNumber(growthMetricDraft.revenueUsd),
     };
     const errors = validateGrowthMetric(row);
     if (errors.length) {
@@ -1724,7 +1726,7 @@ export default function Home() {
     setGrowthMetricDraft({
       publishedDate: getLocalDateOnly(), platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
       views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
-      shares: "", saves: "", followersGained: "", linkClicks: "",
+      shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
     });
   }
 
@@ -2014,6 +2016,8 @@ export default function Home() {
                   <article className="growth-summary-card"><small>Estimated rows</small><strong>{growthSummary.estimateRows}</strong><span>Kept separate from real platform data</span></article>
                   <article className="growth-summary-card"><small>Views recorded · actual</small><strong>{growthSummary.actualViewsTotal === null ? "Not recorded" : growthSummary.actualViewsTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualViewsRows} row(s) include views</span></article>
                   <article className="growth-summary-card"><small>Reach / impressions · actual</small><strong>{growthSummary.actualReachTotal === null ? "Not recorded" : growthSummary.actualReachTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualReachRows} row(s) include reach</span></article>
+                  <article className="growth-summary-card"><small>Reported revenue · actual USD</small><strong>{growthSummary.actualRevenueUsdTotal === null ? "Not recorded" : growthSummary.actualRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong><span>{growthSummary.actualRevenueUsdRows} row(s) have platform-reported revenue</span></article>
+                  <article className="growth-summary-card"><small>Revenue · estimates USD</small><strong>{growthSummary.estimateRevenueUsdTotal === null ? "Not recorded" : growthSummary.estimateRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong><span>{growthSummary.estimateRevenueUsdRows} estimated row(s); not actual income</span></article>
                 </div>
                 <div className="growth-warnings" aria-label="Data quality and sample warnings">
                   {growthSummary.warnings.map((warning, index) => <p className="warning" key={index}>{warning}</p>)}
@@ -2040,7 +2044,7 @@ export default function Home() {
                         </div>
                       ))}
                     </div>
-                    <p className="hint">Only supplied values are summarized. Views and reach are not USD earnings. Any future revenue entry must come from a real platform/payment record and be labelled separately.</p>
+                    <p className="hint">Revenue is optional and entered in USD. Record it only when an actual platform statement attributes the amount to this content; never distribute account-wide payout totals across videos without evidence. Estimates remain estimates, are never added to actual income, and do not predict future earnings.</p>
                     <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add metric row</button><button className="secondary" type="button" onClick={exportGrowthMetrics}>Export metrics CSV</button><button className="secondary" type="button" onClick={exportGrowthBackup}>Export full backup JSON</button></div>
                   </form>
                 </section>
@@ -2053,7 +2057,7 @@ export default function Home() {
                     <div><label htmlFor="growth-csv-file">Metrics CSV (maximum 2 MB)</label><input id="growth-csv-file" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void inspectGrowthCsv(file); }} /></div>
                     <div><label htmlFor="growth-backup-file">Merge a Growth Lab JSON backup (maximum 15 MB)</label><input id="growth-backup-file" type="file" accept=".json,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void importGrowthBackup(file); }} /></div>
                   </div>
-                  <p className="hint">Expected CSV columns: published_date, platform, content_title, data_kind, and optional concept/views/reach/watch-duration/retention/engagement columns. The app-generated CSV is the preferred template.</p>
+                  <p className="hint">Expected CSV columns: published_date, platform, content_title, data_kind, and optional concept/views/reach/watch-duration/retention/engagement columns plus revenue_usd when a platform reports content-level USD revenue. The app-generated CSV is the preferred template; estimates remain separate from actual data.</p>
                   {growthCsvPreview && (
                     <div className="growth-csv-preview" role="region" aria-label="CSV import preview">
                       <strong>{growthCsvPreview.fileName}</strong>
@@ -2124,6 +2128,7 @@ export default function Home() {
                             <span>Retention: <b>{metric.retentionPercent === null ? "—" : metric.retentionPercent + "%"}</b></span>
                             <span>Likes: <b>{metric.likes === null ? "—" : metric.likes.toLocaleString("en-US")}</b></span>
                             <span>Saves: <b>{metric.saves === null ? "—" : metric.saves.toLocaleString("en-US")}</b></span>
+                            <span>Revenue USD: <b>{metric.revenueUsd === null ? "—" : metric.revenueUsd.toLocaleString("en-US", { style: "currency", currency: "USD" })}</b></span>
                           </div>
                           <div className="action-row"><button className="text-button" type="button" aria-label={"Remove metric: " + metric.contentTitle} onClick={() => setGrowthMetrics((existing) => existing.filter((candidate) => candidate.id !== metric.id))}>Remove row</button></div>
                         </article>
