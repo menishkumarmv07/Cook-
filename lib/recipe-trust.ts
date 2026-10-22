@@ -56,7 +56,9 @@ const LIFECYCLE: Array<{ id: RecipeLifecycleStageId; label: string; description:
 ];
 
 function hasValidTimestamp(value: string | undefined): boolean {
-  return typeof value === "string" && isValidIsoTimestamp(value);
+  return typeof value === "string" &&
+    isValidIsoTimestamp(value) &&
+    Date.parse(value) <= Date.now();
 }
 
 function getEvidenceReviewBlockers(project: RecipeProject): string[] {
