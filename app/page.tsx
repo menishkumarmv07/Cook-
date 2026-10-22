@@ -1721,7 +1721,7 @@ export default function Home() {
     }
     const merged = mergeGrowthMetrics(growthMetrics, [row]);
     if (!merged.added) {
-      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Edit or remove the existing row instead of double-counting it.");
+      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Remove the old row before importing replacement values; existing rows are never silently overwritten.");
       return;
     }
     setGrowthMetrics(merged.rows);
