@@ -545,7 +545,12 @@ export function buildNarrationScript(project: RecipeProject): string {
 }
 
 const MAX_RECIPE_PROJECT_CHARACTERS = 2_000_000;
-const MAX_RECIPE_REVISION = 1_000_000_000;
+export const MAX_RECIPE_REVISION = 1_000_000_000;
+
+export function nextRecipeRevision(revision: number): number {
+  if (!Number.isSafeInteger(revision) || revision < 0 || revision > MAX_RECIPE_REVISION) return 0;
+  return revision >= MAX_RECIPE_REVISION ? 0 : revision + 1;
+}
 const MAX_RECIPE_INGREDIENTS = 500;
 const MAX_RECIPE_STEPS = 500;
 const MAX_RECIPE_SCENES = 100;
