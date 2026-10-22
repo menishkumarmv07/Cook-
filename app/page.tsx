@@ -2,6 +2,12 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import {
+  GROWTH_PLATFORMS, buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
+  mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
+  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
+  type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
+} from "@/lib/growth-lab";
 import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
 
@@ -36,6 +42,7 @@ import {
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
+const GROWTH_STORAGE_KEY = "cooking-creator-growth-lab-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
 const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1"; // Legacy flat history key; used only for migration.
@@ -43,7 +50,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -70,7 +77,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -80,12 +87,32 @@ type ChatConversation = {
   messages: ChatMessage[];
 };
 
+type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retentionPercent" | "likes" | "comments" | "shares" | "saves" | "followersGained" | "linkClicks";
+type GrowthMetricDraft = {
+  publishedDate: string; platform: GrowthPlatform; contentTitle: string; concept: string; dataKind: "actual" | "estimate";
+} & Record<GrowthNumericDraftKey, string>;
+type GrowthExperimentDraft = { hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string; startedDate: string };
+type GrowthCsvPreview = GrowthCsvImportResult & { fileName: string };
+const GROWTH_METRIC_INPUTS: Array<{ key: GrowthNumericDraftKey; label: string; id: string; step: string; hint?: string }> = [
+  { key: "views", label: "Views", id: "growth-views", step: "1" },
+  { key: "reach", label: "Reach / impressions", id: "growth-reach", step: "1" },
+  { key: "averageWatchSeconds", label: "Average watch duration (seconds)", id: "growth-average-watch", step: "any" },
+  { key: "retentionPercent", label: "Retention (%)", id: "growth-retention", step: "any", hint: "0–100, when available" },
+  { key: "likes", label: "Likes", id: "growth-likes", step: "1" },
+  { key: "comments", label: "Comments", id: "growth-comments", step: "1" },
+  { key: "shares", label: "Shares", id: "growth-shares", step: "1" },
+  { key: "saves", label: "Saves", id: "growth-saves", step: "1" },
+  { key: "followersGained", label: "Followers / subscribers gained", id: "growth-followers", step: "1" },
+  { key: "linkClicks", label: "Link clicks", id: "growth-link-clicks", step: "1" },
+];
+
 type OverlayKind = "drawer" | "tasks" | "logo" | "message";
 type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y: number };
 
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
+  growth: "Growth Lab",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -408,6 +435,20 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatHistoryReady, setChatHistoryReady] = useState(false);
   const [schedulePrefill, setSchedulePrefill] = useState("");
+  const [growthMetrics, setGrowthMetrics] = useState<GrowthMetric[]>([]);
+  const [growthExperiments, setGrowthExperiments] = useState<GrowthExperiment[]>([]);
+  const [growthDataReady, setGrowthDataReady] = useState(false);
+  const [growthStorageBlocked, setGrowthStorageBlocked] = useState(false);
+  const [growthMessage, setGrowthMessage] = useState("");
+  const [growthCsvPreview, setGrowthCsvPreview] = useState<GrowthCsvPreview | null>(null);
+  const [growthMetricDraft, setGrowthMetricDraft] = useState<GrowthMetricDraft>({
+    publishedDate: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
+    views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
+    shares: "", saves: "", followersGained: "", linkClicks: "",
+  });
+  const [growthExperimentDraft, setGrowthExperimentDraft] = useState<GrowthExperimentDraft>({
+    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: "",
+  });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -420,6 +461,9 @@ export default function Home() {
   const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
   const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
+  const growthSummary = useMemo(() => summarizeGrowthMetrics(growthMetrics), [growthMetrics]);
+  const growthInsights = useMemo(() => buildDescriptiveGrowthInsights(growthMetrics), [growthMetrics]);
+  const recentGrowthMetrics = useMemo(() => growthMetrics.slice().sort((a, b) => b.publishedDate.localeCompare(a.publishedDate)).slice(0, 50), [growthMetrics]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
@@ -667,15 +711,17 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth") {
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "growth" ? "growth" :
       item === "images" ? "intake" :
       item === "library" || item === "projects" ? "library" :
       item === "remote" ? "connections" :
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "growth" ? "growth-lab" :
       item === "images" ? (current ? "recipe-editor" : "intake") :
       item === "library" || item === "projects" ? "recent-projects" :
       item === "remote" ? "social-connections" :
@@ -942,7 +988,8 @@ export default function Home() {
     if (tool === "intake") return "Recipe intake is open. Enter a recipe name and optionally add a source URL. The draft is stored in this browser on this device; save an export backup for important work.";
     if (tool === "profile") return "Your creator profile settings are open. Preferences save in this browser. This screen is not connected to an AI model and does not automatically enforce every wording rule.";
     if (tool === "library") return projects.length ? `Your local library is open with ${projects.length} recipe draft(s). Select a draft to continue editing. Drafts are saved on this device only.` : "Your local library is open, but there are no recipe drafts saved in this browser yet.";
-    return "Social connections are open. Official account authorization is not configured yet, so every platform remains disconnected and nothing can be posted from this screen.";
+    if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
+    return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
@@ -967,7 +1014,8 @@ export default function Home() {
       tool === "publish" ? (current ? "publish-queue" : "recipe-editor") :
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
-      tool === "library" ? "recent-projects" : "social-connections";
+      tool === "library" ? "recent-projects" :
+      tool === "growth" ? "growth-lab" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1113,6 +1161,39 @@ export default function Home() {
       setMessage("Browser storage is unavailable or full. Export your draft before leaving this page.");
     }
   }, [projects, hydrated]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(GROWTH_STORAGE_KEY);
+      if (raw) {
+        const restored = parseGrowthWorkspaceBackupJSON(raw);
+        if (!restored) {
+          setGrowthStorageBlocked(true);
+          setGrowthMessage("The saved Growth Lab workspace did not pass validation and has not been overwritten. Import a known-good JSON backup, export any visible data, then explicitly replace the local copy.");
+        } else {
+          setGrowthMetrics(restored.metrics);
+          setGrowthExperiments(restored.experiments);
+        }
+      }
+    } catch {
+      setGrowthStorageBlocked(true);
+      setGrowthMessage("Growth Lab browser storage could not be read. Imported/exported data may not persist until storage is repaired.");
+    } finally {
+      setGrowthMetricDraft((previous) => ({ ...previous, publishedDate: previous.publishedDate || getLocalDateOnly() }));
+      setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: previous.startedDate || getLocalDateOnly() }));
+      setGrowthDataReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!growthDataReady || growthStorageBlocked) return;
+    try {
+      window.localStorage.setItem(GROWTH_STORAGE_KEY, createGrowthWorkspaceBackupJSON(growthMetrics, growthExperiments));
+    } catch {
+      setGrowthStorageBlocked(true);
+      setGrowthMessage("Growth Lab changes could not be saved in this browser. Export the visible workspace as JSON before clearing storage or leaving this page.");
+    }
+  }, [growthMetrics, growthExperiments, growthDataReady, growthStorageBlocked]);
 
   async function inspectRecipeSource() {
     const candidate = url.trim();
@@ -1628,6 +1709,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("remote")}><span className="nav-icon"><InterfaceIcon name="remote" /></span>Remote</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("scheduled")}><span className="nav-icon"><InterfaceIcon name="clock" /></span>Scheduled</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
