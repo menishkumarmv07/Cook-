@@ -127,7 +127,7 @@ test("CSV import reports bad rows independently and never treats blank metrics a
   assert.equal(imported.rows[0].reach, null);
   assert.equal(imported.rejectedRows.length, 3);
   assert.match(imported.rejectedRows[0].reason, /real YYYY-MM-DD/);
-  assert.match(imported.rejectedRows[1].reason, /whole number/);
+  assert.match(imported.rejectedRows[1].reason, /non-negative number/);
   assert.match(imported.rejectedRows[2].reason, /at least one metric value/);
 });
 
