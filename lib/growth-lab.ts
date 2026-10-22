@@ -1,4 +1,4 @@
-import { isValidDateOnly, isValidIsoTimestamp } from "./recipe";
+import { getLocalDateOnly, isValidDateOnly, isValidIsoTimestamp } from "./recipe";
 
 export const GROWTH_PLATFORMS = [
   "YouTube Shorts",
@@ -197,7 +197,11 @@ export function validateGrowthMetric(value: unknown): string[] {
   if (!isPlainObject(value)) return ["Metric row must be a plain object."];
   const errors: string[] = [];
   if (typeof value.id !== "string" || !value.id.trim() || value.id.length > 160) errors.push("Metric ID is missing or too long.");
-  if (typeof value.publishedDate !== "string" || !isValidDateOnly(value.publishedDate)) errors.push("Published date must be a real YYYY-MM-DD date.");
+  if (typeof value.publishedDate !== "string" || !isValidDateOnly(value.publishedDate)) {
+    errors.push("Published date must be a real YYYY-MM-DD date.");
+  } else if (value.dataKind === "actual" && value.publishedDate > getLocalDateOnly()) {
+    errors.push("Actual platform metrics cannot be recorded for content with a future publish date. Use Estimate until it is published.");
+  }
   if (!isGrowthPlatform(value.platform)) errors.push("Choose a supported platform.");
   if (!validText(value.contentTitle, MAX_TEXT_TITLE, true)) errors.push("Content title is required and must be 180 characters or fewer.");
   if (!validText(value.concept, MAX_TEXT_CONCEPT, false)) errors.push("Content concept must be 240 characters or fewer.");
@@ -437,7 +441,9 @@ export function isGrowthExperiment(value: unknown): value is GrowthExperiment {
   if (value.resultDate && value.resultDate < value.startedDate) return false;
   if (!validText(value.outcome, 1200, false) || !validText(value.nextAction, 500, false)) return false;
   if (!isGrowthExperimentStatus(value.status)) return false;
-  if (value.status !== "planned" && (!value.resultDate || !value.outcome.trim())) return false;
+  if (value.status !== "planned" && (!value.resultDate || !value.outcome.trim() || !value.nextAction.trim())) return false;
+  if (value.status !== "planned" &&
+      (value.startedDate > getLocalDateOnly() || value.resultDate > getLocalDateOnly())) return false;
   return true;
 }
 
@@ -462,6 +468,20 @@ export function validateGrowthExperiment(value: unknown): string[] {
   }
   if ((value.status === "reviewed" || value.status === "closed") && (typeof value.outcome !== "string" || value.outcome.trim().length === 0)) {
     errors.push("Record an outcome before marking this experiment reviewed or closed.");
+  }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      (typeof value.nextAction !== "string" || value.nextAction.trim().length === 0)) {
+    errors.push("Record the next action before marking this experiment reviewed or closed.");
+  }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) &&
+      value.startedDate > getLocalDateOnly()) {
+    errors.push("A future-dated experiment cannot be marked reviewed or closed.");
+  }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      typeof value.resultDate === "string" && isValidDateOnly(value.resultDate) &&
+      value.resultDate > getLocalDateOnly()) {
+    errors.push("A future result date cannot be marked reviewed or closed.");
   }
   return errors;
 }
