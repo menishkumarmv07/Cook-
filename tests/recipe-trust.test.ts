@@ -176,3 +176,24 @@ test("an approval timestamp earlier than the current evidence review is stale", 
   assert.notEqual(assessment.stageId, "approved");
 });
 
+test("future evidence-review and approval timestamps cannot unlock sharing", () => {
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const project = readyProject();
+  project.evidenceReviewedAt = future;
+  project.trialDate = getLocalDateOnly();
+  project.trialChanges = "Followed the reviewed recipe as written.";
+  project.trialPhotoDataUrl = "data:image/jpeg;base64,cGhvdG8=";
+  project.trialPhotoRevision = project.recipeRevision;
+  project.trialRating = "5";
+  project.trialNotes = "I cooked this recipe and checked the texture.";
+  project.trialNotesRevision = project.recipeRevision;
+  project.trialStatus = "tested";
+  project.approved = true;
+  project.approvedAt = future;
+  const assessment = getRecipeTrustAssessment(project);
+  assert.equal(assessment.evidenceReviewed, false);
+  assert.equal(assessment.testedByOwner, false);
+  assert.equal(assessment.canShare, false);
+  assert.equal(assessment.stageId, "draft");
+});
+
