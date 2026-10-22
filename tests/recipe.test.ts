@@ -11,6 +11,8 @@ import {
   isHttpUrl,
   isValidDateOnly,
   isValidIsoTimestamp,
+  MAX_RECIPE_REVISION,
+  nextRecipeRevision,
   isRecipeProject,
   normalizeSourceUrlForComparison,
   parseCreatorWorkspaceBackupJSON,
@@ -668,5 +670,14 @@ test("unsafe public-source URLs downgrade imported tested and approved drafts", 
   assert.equal(restored.trialStatus, "untested");
   assert.equal(restored.approved, false);
   assert.equal(restored.approvedAt, "");
+});
+
+test("recipe revision rollover always changes the revision and rejects invalid counters", () => {
+  assert.equal(nextRecipeRevision(0), 1);
+  assert.equal(nextRecipeRevision(MAX_RECIPE_REVISION - 1), MAX_RECIPE_REVISION);
+  assert.equal(nextRecipeRevision(MAX_RECIPE_REVISION), 0);
+  assert.equal(nextRecipeRevision(-1), 0);
+  assert.equal(nextRecipeRevision(Number.MAX_SAFE_INTEGER), 0);
+  assert.equal(nextRecipeRevision(1.5), 0);
 });
 
