@@ -1175,6 +1175,9 @@ export default function Home() {
         } else {
           setGrowthMetrics(restored.metrics);
           setGrowthExperiments(restored.experiments);
+          if (restored.migrationWarnings?.length) {
+            setGrowthMessage(restored.migrationWarnings.join(" "));
+          }
         }
       }
     } catch {
@@ -1792,9 +1795,13 @@ export default function Home() {
       }
       setGrowthMetrics(mergedMetrics.rows);
       setGrowthExperiments(mergedExperiments.rows);
+      const migrationNote = backup.migrationWarnings?.length
+        ? " Compatibility note: " + backup.migrationWarnings.join(" ")
+        : "";
       setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + mergedExperiments.added +
         " experiment(s); skipped " + mergedMetrics.duplicates + " duplicate metric row(s) and " +
-        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten.");
+        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten." +
+        migrationNote);
       setGrowthCsvPreview(null);
     } catch {
       setGrowthMessage("Growth Lab JSON backup could not be read. Nothing was imported.");
