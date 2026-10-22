@@ -44,6 +44,9 @@ const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "r
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_RECIPE_REVISION = 1_000_000_000;
+function nextRecipeRevision(revision: number): number {
+  return revision >= MAX_RECIPE_REVISION ? 0 : revision + 1;
+}
 
 type SourceInspectionResult = {
   requestedUrl: string;
@@ -1258,7 +1261,7 @@ export default function Home() {
         return {
           ...project,
           ...patch,
-          recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+          recipeRevision: nextRecipeRevision(project.recipeRevision),
           evidenceReviewedAt: "",
           trialStatus: "untested" as const,
           trialRating: "",
@@ -1412,7 +1415,7 @@ export default function Home() {
         ...(nutritionOnly
           ? { evidenceReviewedAt: "", approved: false, approvedAt: "" }
           : {
-              recipeRevision: Math.min(project.recipeRevision + 1, MAX_RECIPE_REVISION),
+              recipeRevision: nextRecipeRevision(project.recipeRevision),
               evidenceReviewedAt: "",
               trialStatus: "untested" as const,
               trialRating: "",
