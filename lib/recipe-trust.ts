@@ -1,4 +1,4 @@
-import { getLocalDateOnly, isValidDateOnly, isValidIsoTimestamp, type RecipeProject } from "./recipe";
+import { getLocalDateOnly, isValidDateOnly, isValidIsoTimestamp, isValidTrialPhotoDataUrl, type RecipeProject } from "./recipe";
 import { isHttpSourceUrl } from "./research-evidence";
 
 export type RecipeLifecycleStageId =
@@ -134,7 +134,7 @@ function getTrialRecordBlockers(project: RecipeProject): string[] {
   if (project.trialChanges.trim().length < 3) {
     blockers.push("Record what changed, or explicitly state that you followed the recipe as written.");
   }
-  if (!/^data:image\//i.test(project.trialPhotoDataUrl)) {
+  if (!isValidTrialPhotoDataUrl(project.trialPhotoDataUrl)) {
     blockers.push("Save a photo of the dish you actually cooked.");
   }
   if (project.trialPhotoRevision !== project.recipeRevision) {
