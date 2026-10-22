@@ -4,7 +4,6 @@ import {
   buildDescriptiveGrowthInsights,
   createGrowthWorkspaceBackupJSON,
   growthMetricFingerprint,
-  getLocalDateOnly,
   isGrowthExperiment,
   isGrowthMetric,
   mergeGrowthExperiments,
@@ -18,6 +17,7 @@ import {
   type GrowthExperiment,
   type GrowthMetric,
 } from "../lib/growth-lab";
+import { getLocalDateOnly } from "../lib/recipe";
 
 const actualMetric = (overrides: Partial<GrowthMetric> = {}): GrowthMetric => ({
   id: "metric-1",
