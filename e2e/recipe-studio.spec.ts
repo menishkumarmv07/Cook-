@@ -1403,7 +1403,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
 
   await page.getByLabel("Hypothesis").fill("A clearer close-up will improve viewer retention.");
   await page.getByLabel("Variable changed").fill("Opening shot");
-  await page.getByLabel("Start date").fill("2026-10-20");
+  await page.locator("#growth-experiment-start-date").fill("2026-10-20");
   await page.getByRole("button", { name: "Add experiment" }).click();
   const card = page.locator(".growth-experiment-card").filter({ hasText: "A clearer close-up will improve viewer retention." });
   await expect(card).toBeVisible();
