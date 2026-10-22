@@ -338,7 +338,7 @@ test("creator appendix reports trial date, changes and current-version proof wit
       safetyStorageFindings: "Safety and storage are recorded or noted as absent.",
     }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   });
   const output = buildUSCreatorPackAppendix(currentProof, DEFAULT_CREATOR_PROFILE);
   assert.match(output, /marked tested for the current recipe version/);
