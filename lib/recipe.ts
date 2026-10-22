@@ -578,9 +578,9 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
     trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
     trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
-    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && isValidIsoTimestamp(legacy.evidenceReviewedAt) ? legacy.evidenceReviewedAt : "",
+    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && isValidIsoTimestamp(legacy.evidenceReviewedAt) && Date.parse(legacy.evidenceReviewedAt) <= Date.now() ? legacy.evidenceReviewedAt : "",
     approved: legacy.approved === true,
-    approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
+    approvedAt: typeof legacy.approvedAt === "string" && isValidIsoTimestamp(legacy.approvedAt) && Date.parse(legacy.approvedAt) <= Date.now() ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
     sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences.map((source) => {
       // Preserve malformed entries long enough for isRecipeProject to reject them; migration must never throw first.
@@ -629,11 +629,18 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.trialPhotoRevision === candidate.recipeRevision &&
     candidate.trialNotesRevision === candidate.recipeRevision;
   const trialStatus = currentTrialEvidenceIsComplete ? "tested" : "untested";
+  const approvalIsCurrent = Boolean(
+    trialStatus === "tested" &&
+    candidate.approved &&
+    candidate.evidenceReviewedAt &&
+    candidate.approvedAt &&
+    candidate.approvedAt >= candidate.evidenceReviewedAt
+  );
   return {
     ...candidate,
     trialStatus,
-    approved: trialStatus === "tested" && candidate.approved,
-    approvedAt: trialStatus === "tested" && candidate.approved ? candidate.approvedAt : "",
+    approved: approvalIsCurrent,
+    approvedAt: approvalIsCurrent ? candidate.approvedAt : "",
     steps: candidate.steps.map((step) => ({
       ...step,
       ingredientIds: (step.ingredientIds ?? []).filter((id) => validIngredientIds.has(id)),
