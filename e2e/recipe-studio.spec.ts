@@ -495,7 +495,8 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
 
   // Profile is a dedicated Settings screen; changing generated copy must renew pack approval.
   await chooseMenuTool(page, "Creator profile");
-  await page.locator("#creator-profile summary").click();
+  // openSettingsView expands this details panel as part of screen navigation.
+  await expect(page.getByLabel("Voice / tone")).toBeVisible();
   await page.getByLabel("Voice / tone").fill("Warm, practical, and more concise");
   await chooseMenuTool(page, "New recipe");
   await expect(page.getByText("TESTED BY YOU", { exact: true })).toBeVisible();
