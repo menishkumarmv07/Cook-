@@ -139,3 +139,40 @@ test("future-dated or stale trial evidence cannot advance the lifecycle", () => 
   assert.match(assessment.trialRecordBlockers.join(" "), /earlier recipe version/);
   assert.equal(assessment.canMarkTested, false);
 });
+
+test("recipe evidence review rejects local/private/reserved URLs and nonstandard ports", () => {
+  const unsafeUrls = [
+    "http://localhost/recipe",
+    "http://127.0.0.1/recipe",
+    "http://192.168.1.12/recipe",
+    "https://recipes.example/recipe",
+    "https://recipes.com:8443/recipe",
+    "http://router.lan/recipe",
+  ];
+  for (const url of unsafeUrls) {
+    const project = readyProject();
+    project.sourceReferences[0].url = url;
+    const assessment = getRecipeTrustAssessment(project);
+    assert.equal(assessment.canMarkEvidenceReviewed, false, url);
+    assert.match(assessment.evidenceReviewBlockers.join(" "), /valid HTTP\(S\) source URL/i, url);
+  }
+});
+
+test("an approval timestamp earlier than the current evidence review is stale", () => {
+  const project = readyProject();
+  project.trialDate = getLocalDateOnly();
+  project.trialChanges = "Followed the reviewed recipe as written.";
+  project.trialPhotoDataUrl = "data:image/jpeg;base64,cGhvdG8=";
+  project.trialPhotoRevision = project.recipeRevision;
+  project.trialRating = "5";
+  project.trialNotes = "I cooked this recipe and checked its texture.";
+  project.trialNotesRevision = project.recipeRevision;
+  project.trialStatus = "tested";
+  project.approved = true;
+  project.approvedAt = "2026-10-19T00:00:00.000Z";
+  const assessment = getRecipeTrustAssessment(project);
+  assert.equal(assessment.testedByOwner, true);
+  assert.equal(assessment.canShare, false);
+  assert.notEqual(assessment.stageId, "approved");
+});
+
