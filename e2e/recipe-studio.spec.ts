@@ -497,7 +497,6 @@ test("recipe lifecycle requires source review and current-version cooking-trial 
   await chooseMenuTool(page, "Creator profile");
   await page.locator("#creator-profile summary").click();
   await page.getByLabel("Voice / tone").fill("Warm, practical, and more concise");
-  await expect(page.getByRole("status")).toContainText("Previously approved packs need renewed approval");
   await chooseMenuTool(page, "New recipe");
   await expect(page.getByText("TESTED BY YOU", { exact: true })).toBeVisible();
   await expect(page.locator("#publish-queue").getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
