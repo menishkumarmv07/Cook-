@@ -392,7 +392,7 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
     trialPhotoRevision: undefined,
     trialNotesRevision: undefined,
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
   assert.ok(restored);
@@ -439,7 +439,7 @@ test("workspace backup round-trips all drafts and profile, and rejects malformed
     }],
     steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const exportedAt = "2026-10-12T00:00:00.000Z";
   const backupJSON = createCreatorWorkspaceBackupJSON(
@@ -592,7 +592,7 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
     }],
     steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const roundTrip = parseRecipeProjectJSON(JSON.stringify(tested));
   assert.ok(roundTrip);
