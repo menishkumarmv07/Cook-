@@ -63,6 +63,9 @@ function hasValidTimestamp(value: string | undefined): boolean {
 
 function getEvidenceReviewBlockers(project: RecipeProject): string[] {
   const blockers: string[] = [];
+  if (project.url.trim() && !isHttpSourceUrl(project.url)) {
+    blockers.push("The recipe's primary source URL must be a safe public HTTP(S) URL, or it must be cleared if it is not used as a source.");
+  }
   if (project.sourceReferences.length === 0) {
     blockers.push("Add at least one structured source reference; typing a URL alone is not a source review.");
     return blockers;
