@@ -1684,6 +1684,164 @@ export default function Home() {
     setMessage("All local recipe drafts were removed from this browser.");
   }
 
+  function addGrowthMetric() {
+    const optionalNumber = (value: string) => value.trim() ? Number(value.trim()) : null;
+    const row: GrowthMetric = {
+      id: makeId(),
+      publishedDate: growthMetricDraft.publishedDate,
+      platform: growthMetricDraft.platform,
+      contentTitle: growthMetricDraft.contentTitle.trim(),
+      concept: growthMetricDraft.concept.trim(),
+      dataKind: growthMetricDraft.dataKind,
+      views: optionalNumber(growthMetricDraft.views),
+      reach: optionalNumber(growthMetricDraft.reach),
+      averageWatchSeconds: optionalNumber(growthMetricDraft.averageWatchSeconds),
+      retentionPercent: optionalNumber(growthMetricDraft.retentionPercent),
+      likes: optionalNumber(growthMetricDraft.likes),
+      comments: optionalNumber(growthMetricDraft.comments),
+      shares: optionalNumber(growthMetricDraft.shares),
+      saves: optionalNumber(growthMetricDraft.saves),
+      followersGained: optionalNumber(growthMetricDraft.followersGained),
+      linkClicks: optionalNumber(growthMetricDraft.linkClicks),
+    };
+    const errors = validateGrowthMetric(row);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    const merged = mergeGrowthMetrics(growthMetrics, [row]);
+    if (!merged.added) {
+      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Edit or remove the existing row instead of double-counting it.");
+      return;
+    }
+    setGrowthMetrics(merged.rows);
+    setGrowthMessage("Metric row saved locally. Actual platform data and estimates stay in separate totals.");
+    setGrowthMetricDraft({
+      publishedDate: getLocalDateOnly(), platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
+      views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
+      shares: "", saves: "", followersGained: "", linkClicks: "",
+    });
+  }
+
+  async function inspectGrowthCsv(file: File | null) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setGrowthMessage("CSV exceeds 2 MB. Export a smaller date range and try again.");
+      setGrowthCsvPreview(null);
+      return;
+    }
+    try {
+      const result = parseGrowthMetricsCsv(await file.text(), "csv-" + makeId());
+      setGrowthCsvPreview({ ...result, fileName: file.name });
+      setGrowthMessage(result.errors.length
+        ? result.errors.join(" ")
+        : "CSV preview ready. Check rejected-row messages before importing the valid rows.");
+    } catch {
+      setGrowthCsvPreview(null);
+      setGrowthMessage("CSV could not be read by this browser. Nothing was imported.");
+    }
+  }
+
+  function importGrowthCsvPreview() {
+    if (!growthCsvPreview || growthCsvPreview.rows.length === 0) {
+      setGrowthMessage("There are no valid CSV rows to import.");
+      return;
+    }
+    const incoming = growthCsvPreview.rows.map((row) => ({ ...row, id: makeId() }));
+    const merged = mergeGrowthMetrics(growthMetrics, incoming);
+    setGrowthMetrics(merged.rows);
+    setGrowthMessage(
+      "Imported " + merged.added + " new row(s); skipped " +
+      (merged.duplicates + growthCsvPreview.duplicateRows) + " duplicate row(s) and " +
+      growthCsvPreview.rejectedRows.length + " rejected row(s). CSV errors: " +
+      growthCsvPreview.errors.length + ".",
+    );
+    setGrowthCsvPreview(null);
+  }
+
+  async function importGrowthBackup(file: File | null) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setGrowthMessage("Growth Lab JSON backup exceeds 15 MB. Nothing was imported.");
+      return;
+    }
+    try {
+      const backup = parseGrowthWorkspaceBackupJSON(await file.text());
+      if (!backup) {
+        setGrowthMessage("This is not a valid Growth Lab backup, or its rows/timestamps are invalid. Nothing was imported.");
+        return;
+      }
+      const mergedMetrics = mergeGrowthMetrics(growthMetrics, backup.metrics);
+      const existingIds = new Set(growthExperiments.map((item) => item.id));
+      const freshExperiments = backup.experiments.filter((item) => !existingIds.has(item.id));
+      setGrowthMetrics(mergedMetrics.rows);
+      setGrowthExperiments((existing) => [...existing, ...freshExperiments]);
+      setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + freshExperiments.length + " experiment(s) from the backup. Existing entries were not overwritten.");
+      setGrowthCsvPreview(null);
+    } catch {
+      setGrowthMessage("Growth Lab JSON backup could not be read. Nothing was imported.");
+    }
+  }
+
+  function replaceBlockedGrowthStorage() {
+    if (!window.confirm("Replace this browser's blocked Growth Lab storage with the data currently visible here? Export a backup first if you may need the original copy.")) return;
+    setGrowthStorageBlocked(false);
+    setGrowthMessage("Using the currently visible Growth Lab data and attempting to save a new local copy.");
+  }
+
+  function addGrowthExperiment() {
+    const candidate: GrowthExperiment = {
+      id: makeId(),
+      ...growthExperimentDraft,
+      resultDate: "",
+      outcome: "",
+      nextAction: "",
+      status: "planned",
+    };
+    const errors = validateGrowthExperiment(candidate);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    setGrowthExperiments((existing) => [candidate, ...existing]);
+    setGrowthExperimentDraft({
+      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: getLocalDateOnly(),
+    });
+    setGrowthMessage("Experiment added locally. Record one main variable and review actual platform data when available.");
+  }
+
+  function patchGrowthExperiment(id: string, patch: Partial<GrowthExperiment>) {
+    setGrowthExperiments((existing) => existing.map((item) => {
+      if (item.id !== id) return item;
+      const updated = { ...item, ...patch };
+      if (updated.status !== "planned" && validateGrowthExperiment(updated).length) updated.status = "planned";
+      return updated;
+    }));
+  }
+
+  function updateGrowthExperimentStatus(id: string, status: "reviewed" | "closed") {
+    const experiment = growthExperiments.find((item) => item.id === id);
+    if (!experiment) return;
+    const updated = { ...experiment, status };
+    const errors = validateGrowthExperiment(updated);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    setGrowthExperiments((existing) => existing.map((item) => item.id === id ? updated : item));
+    setGrowthMessage(status === "reviewed" ? "Experiment review saved. The result is descriptive, not proof of causality." : "Experiment closed. Keep the outcome tied to actual recorded data.");
+  }
+
+  function exportGrowthMetrics() {
+    downloadFile("cooking-creator-growth-metrics.csv", serializeGrowthMetricsCsv(growthMetrics), "text/csv;charset=utf-8");
+    setGrowthMessage("Growth metrics exported as CSV. Estimates remain labelled and are not combined with actual results.");
+  }
+
+  function exportGrowthBackup() {
+    downloadFile("cooking-creator-growth-lab-backup.json", createGrowthWorkspaceBackupJSON(growthMetrics, growthExperiments), "application/json;charset=utf-8");
+    setGrowthMessage("Growth Lab metrics and experiments exported as JSON. Store the backup privately.");
+  }
+
   return (
     <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
