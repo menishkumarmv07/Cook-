@@ -19,6 +19,8 @@ import {
   isHttpUrl,
   isValidDateOnly,
   isValidIsoTimestamp,
+  MAX_RECIPE_REVISION,
+  nextRecipeRevision,
   parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
@@ -43,10 +45,6 @@ const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
-const MAX_RECIPE_REVISION = 1_000_000_000;
-function nextRecipeRevision(revision: number): number {
-  return revision >= MAX_RECIPE_REVISION ? 0 : revision + 1;
-}
 
 type SourceInspectionResult = {
   requestedUrl: string;
