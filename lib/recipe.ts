@@ -1,3 +1,5 @@
+import { isHttpSourceUrl } from "./research-evidence";
+
 export type Ingredient = {
   id: string;
   amount: string;
@@ -603,9 +605,7 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.evidenceReviewedAt &&
     candidate.sourceReferences.length > 0 &&
     candidate.sourceReferences.every((source) =>
-      Boolean(source.url.trim()) &&
-      isHttpUrl(source.url) &&
-      /^https?:\/\//i.test(source.url.trim()) &&
+      isHttpSourceUrl(source.url) &&
       Boolean(source.checked.trim()) &&
       ["ingredientFindings", "methodFindings", "timingFindings", "safetyStorageFindings"]
         .every((field) => typeof source[field as keyof typeof source] === "string" &&
