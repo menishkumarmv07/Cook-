@@ -1247,11 +1247,16 @@ export default function Home() {
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function patchProfile(patch: Partial<CreatorProfile>) { setProfile((existing) => ({ ...existing, ...patch })); }
+  function patchProfile(patch: Partial<CreatorProfile>) {
+    setProfile((existing) => ({ ...existing, ...patch }));
+    // The generated captions/briefs depend on this profile, so approval must be renewed.
+    setProjects((existing) => existing.map((project) => ({ ...project, approved: false, approvedAt: "" })));
+  }
 
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
-    const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
+    const changesRecipe = ["name", "url", "notes", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps"].some((key) => key in patch);
+    const changesContent = "scenes" in patch;
     const changesTrialEvidence = ["trialDate", "trialChanges", "trialNotes", "trialRating", "trialPhotoDataUrl"].some((key) => key in patch);
     setProjects((existing) => existing.map((project) => {
       if (project.id !== current.id) return project;
@@ -1268,6 +1273,10 @@ export default function Home() {
           approved: false,
           approvedAt: "",
         };
+      }
+      if (changesContent) {
+        // Storyboard edits change the pack, not the physical recipe or its cooking-trial proof.
+        return { ...project, ...patch, approved: false, approvedAt: "" };
       }
       if (changesTrialEvidence) {
         return { ...project, ...patch, trialStatus: "untested" as const, approved: false, approvedAt: "" };
@@ -1411,7 +1420,7 @@ export default function Home() {
         ...project,
         ingredients: project.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item),
         ...(nutritionOnly
-          ? { evidenceReviewedAt: "", approved: false, approvedAt: "" }
+          ? { approved: false, approvedAt: "" }
           : {
               recipeRevision: nextRecipeRevision(project.recipeRevision),
               evidenceReviewedAt: "",
@@ -1763,7 +1772,7 @@ export default function Home() {
                 <div className="profile-wide"><label htmlFor="profile-samples">3–5 sample captions in your real voice</label><textarea id="profile-samples" rows={4} value={profile.sampleCaptions} onChange={(event) => patchProfile({ sampleCaptions: event.target.value })} maxLength={2500} placeholder="Paste a few captions you wrote. Separate each caption with a new line." /></div>
               </div>
               <p className="hint">Profile saves locally in this browser and is not encrypted or synced. Avoid entering sensitive personal details. The current text generator includes profile guidance in the pack; it does not guarantee every wording rule is automatically enforced.</p>
-              <button className="secondary" type="button" onClick={() => { setProfile(DEFAULT_CREATOR_PROFILE); setMessage("Creator profile reset to defaults."); }}>Reset profile defaults</button>
+              <button className="secondary" type="button" onClick={() => { patchProfile(DEFAULT_CREATOR_PROFILE); setMessage("Creator profile reset to defaults. Previously approved packs need renewed approval."); }}>Reset profile defaults</button>
             </details>
           </section>
 
