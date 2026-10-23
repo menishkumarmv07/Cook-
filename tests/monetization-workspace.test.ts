@@ -77,6 +77,7 @@ const affiliate = (overrides: Partial<AffiliateRecord> = {}): AffiliateRecord =>
   disclosureText: "I may earn a commission from qualifying purchases.",
   disclosureReviewed: false,
   rightsReviewed: false,
+  ageEligibilityReviewed: false,
   commissionUsd: null,
   commissionKind: "none",
   commissionAsOfDate: "",
@@ -150,18 +151,19 @@ test("cash partnerships count as received income only after a recorded payment",
   assert.equal(estimatedPartnerUsd([paid, contracted, estimate, offered]), 1000);
 });
 
-test("affiliate activation requires a safe URL, reviewed disclosure, rights, and age/guardian gates", () => {
+test("affiliate activation requires disclosure, rights, platform eligibility, and age/guardian gates", () => {
   const incompleteActive = affiliate({ status: "active" });
   assert.ok(validateAffiliateRecord(incompleteActive, safeProfile()).some((error) => /disclosure text/.test(error)));
   assert.ok(validateAffiliateRecord(incompleteActive, safeProfile()).some((error) => /product\/media rights/.test(error)));
-  const reviewedActive = affiliate({ status: "active", disclosureReviewed: true, rightsReviewed: true });
+  assert.ok(validateAffiliateRecord(incompleteActive, safeProfile()).some((error) => /platform age, eligibility and payment rules/.test(error)));
+  const reviewedActive = affiliate({ status: "active", disclosureReviewed: true, rightsReviewed: true, ageEligibilityReviewed: true });
   assert.deepEqual(validateAffiliateRecord(reviewedActive, safeProfile()), []);
   assert.ok(validateAffiliateRecord(reviewedActive, safeProfile({ ageBand: "under18" })).some((error) => /parent\/legal guardian/.test(error)));
   assert.ok(validateAffiliateRecord(reviewedActive, safeProfile({ ageBand: "not-set" })).some((error) => /Record the creator age band/.test(error)));
   assert.deepEqual(validateAffiliateRecord(affiliate({
-    status: "active", disclosureReviewed: true, rightsReviewed: true,
+    status: "active", disclosureReviewed: true, rightsReviewed: true, ageEligibilityReviewed: true,
   }), safeProfile({ ageBand: "under18", guardianInvolved: true })), []);
-  assert.ok(validateAffiliateRecord(affiliate({ status: "active", destinationUrl: "https://recipes.example/pan", disclosureReviewed: true, rightsReviewed: true }), safeProfile()).some((error) => /safe public HTTP\(S\) destination/.test(error)));
+  assert.ok(validateAffiliateRecord(affiliate({ status: "active", destinationUrl: "https://recipes.example/pan", disclosureReviewed: true, rightsReviewed: true, ageEligibilityReviewed: true }), safeProfile()).some((error) => /safe public HTTP\(S\) destination/.test(error)));
 
   const received = affiliate({ commissionUsd: 31.2, commissionKind: "received", commissionAsOfDate: yesterday, commissionEvidenceNote: "Actual commission shown by the affiliate program dashboard." });
   const estimate = affiliate({ id: "affiliate-2", commissionUsd: 75, commissionKind: "estimate", commissionAsOfDate: today, commissionEvidenceNote: "Planning estimate; not received income." });
