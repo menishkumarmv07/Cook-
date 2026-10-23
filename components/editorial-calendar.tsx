@@ -40,6 +40,7 @@ function emptyIdea(): EditorialIdea {
     scheduledDate: "",
     audiencePromise: "",
     originalContribution: "",
+    unresolvedQuestions: "",
     hypothesis: "",
     evidenceKind: "hypothesis",
     sourceUrl: "",
@@ -102,6 +103,7 @@ export default function EditorialCalendar() {
         } else {
           setIdeas(saved.ideas);
           setWeights(saved.weights);
+          if (saved.migrationWarnings?.length) setMessage(saved.migrationWarnings.join(" "));
         }
       }
     } catch {
@@ -166,6 +168,7 @@ export default function EditorialCalendar() {
       recipeOrSeries: draft.recipeOrSeries.trim(),
       audiencePromise: draft.audiencePromise.trim(),
       originalContribution: draft.originalContribution.trim(),
+      unresolvedQuestions: draft.unresolvedQuestions.trim(),
       hypothesis: draft.hypothesis.trim(),
       sourceUrl: draft.sourceUrl.trim(),
       observationNotes: draft.observationNotes.trim(),
@@ -266,7 +269,8 @@ export default function EditorialCalendar() {
       setIdeas(merged.ideas);
       if (storageBlocked || ideas.length === 0) setWeights(parsed.weights);
       setStorageBlocked(false);
-      setMessage(`Backup checked. Added ${merged.added} idea(s); skipped ${merged.duplicates} duplicate or invalid record(s). Existing distinct records were preserved.`);
+      const warnings = parsed.migrationWarnings?.length ? ` Migration: ${parsed.migrationWarnings.join(" ")}` : "";
+      setMessage(`Backup checked. Added ${merged.added} idea(s); skipped ${merged.duplicates} duplicate or invalid record(s). Existing distinct records were preserved.${warnings}`);
     } catch {
       setMessage("The backup could not be read by this browser. Nothing was imported.");
     }
@@ -335,6 +339,7 @@ export default function EditorialCalendar() {
             <div><label htmlFor="editorial-date">Planned publish date</label><input id="editorial-date" type="date" min={getLocalDateOnly()} value={draft.scheduledDate} onChange={(event) => patchDraft({ scheduledDate: event.target.value })} /><small className="hint">A plan only. The app will not schedule this with a social platform.</small></div>
             <div className="editorial-wide"><label htmlFor="editorial-promise">Audience promise *</label><textarea id="editorial-promise" value={draft.audiencePromise} onChange={(event) => patchDraft({ audiencePromise: event.target.value })} rows={2} maxLength={500} required placeholder="What useful outcome will a viewer get?" /></div>
             <div className="editorial-wide"><label htmlFor="editorial-original">Your original contribution *</label><textarea id="editorial-original" value={draft.originalContribution} onChange={(event) => patchDraft({ originalContribution: event.target.value })} rows={3} maxLength={1000} required placeholder="Your real test, explanation, comparison, technique, story, or other meaningful addition." /></div>
+            <div className="editorial-wide"><label htmlFor="editorial-unresolved-questions">Open questions / do-not-publish blockers</label><textarea id="editorial-unresolved-questions" value={draft.unresolvedQuestions} onChange={(event) => patchDraft({ unresolvedQuestions: event.target.value })} rows={2} maxLength={1000} placeholder="Record unresolved recipe steps, safety, rights, nutrition or disclosure questions. Required before putting this item on Hold." /><small className="hint">A Hold status must include a specific blocker so the reason is clear to your future self.</small></div>
             <div className="editorial-wide"><label htmlFor="editorial-hypothesis">Hypothesis to test</label><textarea id="editorial-hypothesis" value={draft.hypothesis} onChange={(event) => patchDraft({ hypothesis: event.target.value })} rows={2} maxLength={1000} placeholder="What do you want to learn from real results?" /></div>
           </div>
 
@@ -407,7 +412,7 @@ export default function EditorialCalendar() {
                 <p className="editorial-card-copy"><strong>Original contribution:</strong> {idea.originalContribution}</p>
                 {idea.evidenceKind === "dated-observation" && <p className="editorial-card-copy"><strong>Observation:</strong> {idea.observationNotes} · <a href={idea.sourceUrl} target="_blank" rel="noreferrer">Open recorded source</a></p>}
                 {idea.hypothesis && <p className="editorial-card-copy"><strong>Hypothesis:</strong> {idea.hypothesis}</p>}
-                {idea.status === "hold" && <p className="editorial-warning">This idea is explicitly on hold. Resolve the identified question and review again before using the idea.</p>}
+                {idea.status === "hold" && <div className="editorial-warning"><strong>Do not publish yet.</strong><p>This idea is on hold because of the following unresolved question(s):</p><p>{idea.unresolvedQuestions}</p>Resolve the blocker and review the relevant evidence before changing the status.</div>}
                 <div className="editorial-card-controls">
                   <label htmlFor={`editorial-status-${idea.id}`}>Status<select id={`editorial-status-${idea.id}`} value={idea.status} onChange={(event) => changeStatus(idea, event.target.value as EditorialStatus)} disabled={storageBlocked}>{STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
                   <button className="secondary" type="button" onClick={() => beginEdit(idea)} disabled={storageBlocked}>Edit</button>
