@@ -179,7 +179,7 @@ export default function MonetizationWorkspace() {
 
   function patchProfile(patch: Partial<CreatorMediaKitProfile>) {
     const candidate = { ...profile, ...patch };
-    const errors = validateMediaKitProfile(candidate);
+    const errors = validateMediaKitProfile(candidate, false);
     if (errors.length) {
       setMessage(errors.join(" "));
       return;
@@ -286,10 +286,13 @@ export default function MonetizationWorkspace() {
   function updateReadiness(category: ReadinessCategory, patch: Partial<MonetizationReadinessCheck>) {
     const current = readinessChecks.find((item) => item.category === category);
     if (!current) return;
-    const candidate = { ...current, ...patch };
+    let candidate = { ...current, ...patch };
     const errors = validateReadinessCheck(candidate);
-    if (errors.length && patch.status && patch.status !== "not-reviewed") return setMessage(errors.join(" "));
-    if (patch.status === "reviewed" && errors.length) return setMessage(errors.join(" "));
+    if (patch.status && patch.status !== "not-reviewed" && errors.length) return setMessage(errors.join(" "));
+    if (!patch.status && current.status === "reviewed" && errors.length) {
+      candidate = { ...candidate, status: "not-reviewed" };
+      setMessage("Readiness evidence changed, so its status returned to Not reviewed. Re-check the source/date/notes before marking Reviewed again.");
+    }
     setReadinessChecks((items) => items.map((item) => item.category === category ? candidate : item));
     if (patch.status === "reviewed") setMessage("Readiness item recorded as reviewed by you. The app does not certify policy, legal, tax or payment compliance.");
   }
@@ -352,7 +355,7 @@ export default function MonetizationWorkspace() {
   }
 
   function createMediaKit() {
-    const errors = validateMediaKitProfile(profile);
+    const errors = validateMediaKitProfile(profile, true);
     if (errors.length) return setMessage(errors.join(" "));
     const markdown = buildMediaKitMarkdown(profile, metrics);
     setMediaKitPreview(markdown);
