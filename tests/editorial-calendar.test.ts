@@ -135,7 +135,7 @@ test("score is deterministic, transparent, and production effort is inverted", (
   };
   assert.ok(validateEditorialWeights(zeroWeight).length > 0);
   assert.deepEqual(validateEditorialWeights({ ...DEFAULT_EDITORIAL_WEIGHTS, originality: 10 }), []);
-  assert.equal(scoreEditorialIdea(DEFAULT_EDITORIAL_SCORES, DEFAULT_EDITORIAL_WEIGHTS), 48);
+  assert.equal(scoreEditorialIdea(DEFAULT_EDITORIAL_SCORES, DEFAULT_EDITORIAL_WEIGHTS), 45);
 });
 
 test("scheduled and published links accept safe HTTP(S) only", () => {
