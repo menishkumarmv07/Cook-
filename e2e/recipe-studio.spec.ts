@@ -109,7 +109,7 @@ test("recipe draft can be created, edited, reordered, saved, and exported", asyn
   await expect(page.getByLabel("Action / instruction").nth(0)).toHaveValue("Fold in the rice");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe("lemon-rice.json");
 });
@@ -222,7 +222,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await page.locator("#schedule-links-per-day").fill("2");
   await page.locator("#schedule-days-count").fill("7");
   await page.getByRole("button", { name: "Build my custom plan" }).click();
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-20");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-10-19");
   await expect(page.getByLabel("Post 11 time")).toHaveValue("09:00");
 
   // Calendar-day planning must stay correct across the US daylight-saving transition.
@@ -233,7 +233,7 @@ test("schedule planner accepts unlimited links and builds, edits, saves, and exp
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-31");
   await expect(page.getByLabel("Post 2 date")).toHaveValue("2026-10-31");
   await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-11-01");
-  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-06");
+  await expect(page.getByLabel("Post 11 date")).toHaveValue("2026-11-05");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export schedule JSON" }).click();
@@ -496,7 +496,7 @@ test("creator profile saves locally, shapes content-pack guidance, and travels w
   await expect(pack).toContainText("Follow this step-by-step Tomato pasta tutorial.");
 
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export JSON" }).click();
+  await page.locator(".action-row").getByRole("button", { name: "Export JSON", exact: true }).click();
   const download = await downloadPromise;
   const path = await download.path();
   expect(download.suggestedFilename()).toBe("tomato-pasta.json");
@@ -641,7 +641,7 @@ test("ingredient additions are explicitly mapped to cooking steps and spoken in 
 
 
 test("public recipe-page inspection previews extracted facts and copies them to notes only on request", async ({ page }) => {
-  const sourceUrl = "https://recipes.example/lemon-rice";
+  const sourceUrl = "https://recipes.example.com/lemon-rice";
   await page.route("**/api/sources/inspect", async (route) => {
     await route.fulfill({
       status: 200,
@@ -694,6 +694,30 @@ test("public recipe-page inspection previews extracted facts and copies them to 
   await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/Public HTML fetched by the app/);
   await expect(page.locator('.source-reference textarea[id^="source-checked-"]')).toHaveValue(/not independently verified/);
   await expect(page.locator('.source-reference textarea[id^="source-notes-"]')).toHaveValue(/recipe details are not independently verified/);
+
+  // The inspected payload must remain available after draft creation and be
+  // explicitly imported to the separate V2 evidence ledger, with claims still unreviewed.
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toBeVisible();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+  await expect(page.getByText(/Saved the inspected page and \d+ extracted field/)).toBeVisible();
+  await expect(page.getByText(/Lemon Rice · recipe name: Lemon Rice/)).toBeVisible();
+  await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toBeVisible();
+  await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toHaveCount(0);
+
+  // Re-inspecting the same canonical URL must update the existing source rather
+  // than fabricate a second independent source or duplicate unchanged claims.
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Lemon rice re-inspection");
+  await page.locator("#url").fill(sourceUrl);
+  await page.getByRole("button", { name: "Inspect public recipe page" }).click();
+  await expect(page.locator(".source-inspection-preview")).toBeVisible();
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "Import inspected page into the evidence ledger" })).toBeVisible();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+  await expect(page.getByText("Updated the existing source details. No duplicate facts were added.")).toBeVisible();
+  await expect(page.locator(".research-evidence-counts span").nth(0)).toContainText("1");
+  await expect(page.getByText(/Lemon Rice · ingredient 1: 2 cups cooked rice/)).toHaveCount(1);
 });
 
 test("pasting a supported recipe or video URL into the chat dock prefills intake and explains the inspection limits", async ({ page }) => {
@@ -846,4 +870,410 @@ test("Library has an empty state and tool screens have a back button", async ({ 
   await expect(page.locator("#name")).toBeVisible();
   await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "intake");
   await page.getByRole("button", { name: "Back to chat home" }).click();
+});
+
+
+test("V2 evidence import preserves the bounded page excerpt when structured recipe data is absent", async ({ page }) => {
+  const sourceUrl = "https://recipes.example.com/story-without-recipe-markup";
+  await page.route("**/api/sources/inspect", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        source: {
+          requestedUrl: sourceUrl,
+          finalUrl: sourceUrl,
+          contentType: "text/html",
+          redirectCount: 0,
+          limitation: "Readable public page text only; no structured recipe and no video/audio analysis.",
+          title: "A cooking story",
+          description: "",
+          siteName: "Example Kitchen",
+          textExcerpt: "The author describes a simmered tomato sauce and says to cook until thick. No ingredient quantities are present in this excerpt.",
+          structuredRecipe: null,
+        },
+      }),
+    });
+  });
+
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Story excerpt evidence");
+  await page.locator("#url").fill(sourceUrl);
+  await page.getByRole("button", { name: "Inspect public recipe page" }).click();
+  await expect(page.locator(".source-inspection-preview")).toContainText("A cooking story");
+  await expect(page.locator(".source-inspection-preview")).toContainText("No ingredient quantities are present");
+
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.getByRole("heading", { name: "Import inspected page into the evidence ledger" }).scrollIntoViewIfNeeded();
+  await page.getByRole("button", { name: "Save inspected facts to evidence ledger" }).click();
+
+  await expect(page.getByText(/Saved the inspected page and 1 extracted field/)).toBeVisible();
+  await expect(page.getByText(/A cooking story · page text excerpt:/)).toBeVisible();
+  await expect(page.locator(".research-evidence-list").nth(1).getByText(/No ingredient quantities are present in this excerpt/).first()).toBeVisible();
+  await expect(page.getByText(/Status: unreviewed/).first()).toBeVisible();
+});
+
+
+test("V2 evidence ledger saves sources and claims locally, flags possible disagreements, and survives reload", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence ledger test recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/recipe-a");
+  await page.locator("#evidence-source-title").fill("Recipe source A");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
+
+  await page.locator("#evidence-source-url").fill("https://example.org/recipe-b");
+  await page.locator("#evidence-source-title").fill("Recipe source B");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
+
+  await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source A" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("1");
+  await page.locator("#evidence-claim-unit").fill("tsp");
+  await page.locator("#evidence-claim-excerpt").fill("Source A lists one teaspoon.");
+  await page.locator("#evidence-claim-media-timestamp").fill("01:23");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText(/salt · quantity: 1 tsp/)).toBeVisible();
+  await expect(page.getByText("Video timestamp: 01:23")).toBeVisible();
+
+  await page.locator("#evidence-claim-source").selectOption({ label: "Recipe source B" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("2");
+  await page.locator("#evidence-claim-unit").fill("tsp");
+  await page.locator("#evidence-claim-excerpt").fill("Source B lists two teaspoons.");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText("2 possible disagreements")).toHaveCount(0);
+  await expect(page.getByText("1 possible disagreements")).toBeVisible();
+  await expect(page.getByText("Source A lists one teaspoon.")).toBeVisible();
+  await expect(page.getByText("Source B lists two teaspoons.")).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source B", { exact: true })).toBeVisible();
+  await expect(page.getByText("1 possible disagreements")).toBeVisible();
+
+  const backupTimestamp = new Date().toISOString();
+  const replacementArchive = {
+    version: 1,
+    updatedAt: backupTimestamp,
+    sources: [{
+      id: "source-replacement-restore-test",
+      url: "https://replacement.com/recipe",
+      title: "Replacement source",
+      publisher: "Playwright test",
+      capturedAt: backupTimestamp,
+      captureMethod: "manual",
+      status: "needs-input",
+      warnings: ["Test-only source; not independently verified."],
+    }],
+    claims: [],
+  };
+  const restoreDialogPromise = page.waitForEvent("dialog");
+  const restoreFilePromise = page.getByLabel("Restore evidence backup JSON").setInputFiles({
+    name: "replacement-evidence.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(replacementArchive)),
+  });
+  const restoreDialog = await restoreDialogPromise;
+  expect(restoreDialog.type()).toBe("confirm");
+  expect(restoreDialog.message()).toContain("replaces the current local evidence ledger");
+  await restoreDialog.dismiss();
+  await restoreFilePromise;
+  await expect(page.getByText("Restore cancelled. Your current evidence was not changed.")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recipe source A", { exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Replacement source", { exact: true })).toHaveCount(0);
+});
+
+
+test("V2 evidence ledger rejects stale writes from another tab without losing newer records", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Cross-tab evidence test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/shared-source-a");
+  await page.locator("#evidence-source-title").fill("Shared source A");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+
+  // Open a second tab after source A has been saved so it has the same baseline.
+  const secondPage = await page.context().newPage();
+  try {
+    await secondPage.goto("/");
+    await expect(secondPage.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+
+    // The first tab advances the stored archive after the second tab has loaded.
+    await page.locator("#evidence-source-url").fill("https://example.org/shared-source-b");
+    await page.locator("#evidence-source-title").fill("Shared source B");
+    await page.getByRole("button", { name: /Save source/ }).click();
+    await expect(page.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+
+    // The stale second tab must refuse to replace the newer archive with A + C.
+    await secondPage.locator("#evidence-source-url").fill("https://example.net/stale-source-c");
+    await secondPage.locator("#evidence-source-title").fill("Stale source C");
+    await secondPage.getByRole("button", { name: /Save source/ }).click();
+    await expect(secondPage.getByText(/evidence ledger changed in another tab/i)).toBeVisible();
+    await expect(page.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+
+    await secondPage.reload();
+    await expect(secondPage.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source A", { exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Shared source B", { exact: true })).toBeVisible();
+    await expect(secondPage.locator(".research-evidence-list").first().getByText("Stale source C", { exact: true })).toHaveCount(0);
+  } finally {
+    await secondPage.close();
+  }
+});
+
+
+test("V2 evidence ledger can recover an invalid saved archive from an explicit backup", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence recovery test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
+
+  // Simulate a malformed archive left by an old build, interrupted migration,
+  // or browser-side corruption. The application must not silently overwrite it.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("cooking-creator-research-evidence", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction("archives", "readwrite");
+        transaction.objectStore("archives").put({ version: 999, invalid: true }, "primary");
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  await page.reload();
+  await expect(page.locator(".research-evidence-vault .research-evidence-error")).toContainText("saved evidence archive failed validation");
+  await expect(page.getByLabel("Restore evidence backup JSON")).toBeEnabled();
+
+  const backupTimestamp = new Date().toISOString();
+  const validArchive = {
+    version: 1,
+    updatedAt: backupTimestamp,
+    sources: [{
+      id: "source-recovered-from-backup",
+      url: "https://recovery.example.org/recipe",
+      title: "Recovered source",
+      publisher: "Recovery test",
+      capturedAt: backupTimestamp,
+      captureMethod: "manual",
+      status: "needs-input",
+      warnings: ["Recovered test data; not independently verified."],
+    }],
+    claims: [],
+  };
+
+  const restoreDialogPromise = page.waitForEvent("dialog");
+  const restoreFilePromise = page.getByLabel("Restore evidence backup JSON").setInputFiles({
+    name: "recovery-evidence.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(validArchive)),
+  });
+  const restoreDialog = await restoreDialogPromise;
+  expect(restoreDialog.type()).toBe("confirm");
+  expect(restoreDialog.message()).toContain("current evidence ledger could not be loaded");
+  await restoreDialog.accept();
+  await restoreFilePromise;
+
+  await expect(page.getByText("Evidence backup restored. Review the source records before relying on them.")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
+
+  // The recovered archive should survive another full component reload.
+  await page.reload();
+  await expect(page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true })).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Recovered source", { exact: true })).toBeVisible();
+});
+
+
+test("V2 evidence records can be removed safely, including linked claims", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Evidence deletion test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://delete-test.example.com/recipe");
+  await page.locator("#evidence-source-title").fill("Source to remove");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await page.locator("#evidence-claim-source").selectOption({ label: "Source to remove" });
+  await page.locator("#evidence-claim-subject").fill("salt");
+  await page.locator("#evidence-claim-predicate").fill("quantity");
+  await page.locator("#evidence-claim-value").fill("1");
+  await page.getByRole("button", { name: /Save unreviewed claim/ }).click();
+  await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
+
+  const sourceRecord = page.locator(".research-evidence-list").first().locator(".research-evidence-record").filter({ hasText: "Source to remove" });
+  let cancelDialogMessage = "";
+  page.once("dialog", (dialog) => {
+    cancelDialogMessage = dialog.message();
+    void dialog.dismiss();
+  });
+  await sourceRecord.getByRole("button", { name: "Remove source and linked claims", exact: true }).click({ noWaitAfter: true });
+  expect(cancelDialogMessage).toContain("linked claim");
+  await expect(sourceRecord.getByText("Source to remove", { exact: true })).toBeVisible();
+  await expect(page.getByText(/salt · quantity: 1/)).toBeVisible();
+
+  let confirmDialogMessage = "";
+  page.once("dialog", (dialog) => {
+    confirmDialogMessage = dialog.message();
+    void dialog.accept();
+  });
+  await sourceRecord.getByRole("button", { name: "Remove source and linked claims", exact: true }).click({ noWaitAfter: true });
+  expect(confirmDialogMessage).toContain("linked claim");
+  await expect(page.getByText("Source to remove", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/salt · quantity: 1/)).toHaveCount(0);
+  await expect(page.getByText("0 sources")).toBeVisible();
+  await expect(page.getByText("0 claims")).toBeVisible();
+});
+
+
+test("US audience scheduling supports multiple time zones and values beyond the old arbitrary caps", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Plan Content");
+  await page.locator("#schedule-links").fill([
+    "https://example.com/one",
+    "https://example.com/two",
+    "https://example.com/three",
+  ].join(String.fromCharCode(10)));
+
+  await page.locator("#schedule-audience-timezone").selectOption("America/Los_Angeles");
+
+  // Save timezone choices immediately, without needing to generate a schedule.
+  await page.waitForFunction(() => {
+    const saved = localStorage.getItem("cooking-creator-local-schedule-v1");
+    return Boolean(saved && JSON.parse(saved).timeZone === "America/Los_Angeles");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator("#schedule-audience-timezone")).toHaveValue("America/Los_Angeles");
+
+  await expect(page.locator('label[for="schedule-start-date"]')).toContainText("Pacific Time (PT)");
+  await expect(page.locator("#schedule-links-per-day")).not.toHaveAttribute("max");
+  await expect(page.locator("#schedule-days-count")).not.toHaveAttribute("max");
+  await page.locator("#schedule-links-per-day").fill("1500");
+  await page.locator("#schedule-days-count").fill("400");
+  await page.waitForFunction(() => {
+    const saved = localStorage.getItem("cooking-creator-local-schedule-v1");
+    return Boolean(saved && JSON.parse(saved).linksPerDay === "1500" && JSON.parse(saved).daysToProcess === "400");
+  });
+  await page.reload();
+  await chooseMenuTool(page, "Plan Content");
+  await expect(page.locator("#schedule-links-per-day")).toHaveValue("1500");
+  await expect(page.locator("#schedule-days-count")).toHaveValue("400");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+
+  const rows = page.locator(".schedule-table tbody tr");
+  await expect(rows).toHaveCount(3);
+  await expect(page.getByLabel("Post 1 date")).toHaveValue(await page.locator("#schedule-start-date").inputValue());
+  await expect(page.getByLabel("Post 2 date")).toHaveValue(await page.locator("#schedule-start-date").inputValue());
+  await expect(page.getByLabel("Post 1 time")).toHaveValue("09:00");
+  await expect(page.getByLabel("Post 2 time")).toHaveValue("13:00");
+  await expect(page.locator(".schedule-table thead")).toContainText("Time (PT)");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export schedule JSON" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-schedule-draft.json");
+  const path = await download.path();
+  expect(path).toBeTruthy();
+  const exported = JSON.parse(await readFile(path!, "utf8")) as {
+    audienceTimezone?: string;
+    audienceTimezoneLabel?: string;
+    posts?: Array<{ url: string; date: string; time: string }>;
+  };
+  expect(exported.audienceTimezone).toBe("America/Los_Angeles");
+  expect(exported.audienceTimezoneLabel).toBe("Pacific Time (PT)");
+  expect(exported.posts?.map((post) => post.url)).toEqual([
+    "https://example.com/one",
+    "https://example.com/two",
+    "https://example.com/three",
+  ]);
+});
+
+
+test("V2 evidence ledger reuses an existing canonical source instead of duplicating it", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("Canonical source deduplication test");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await page.locator(".research-evidence-vault").getByRole("heading", { name: "Evidence ledger", exact: true }).scrollIntoViewIfNeeded();
+
+  await page.locator("#evidence-source-url").fill("https://example.com/same-recipe#ingredients");
+  await page.locator("#evidence-source-title").fill("Original source");
+  await page.getByRole("button", { name: /Save source/ }).click();
+  await expect(page.getByText("1 sources")).toBeVisible();
+
+  // A fragment and trailing slash are not independent source identities.
+  await page.locator("#evidence-source-url").fill("https://example.com/same-recipe/");
+  await page.locator("#evidence-source-title").fill("Duplicate title should not replace original");
+  await page.getByRole("button", { name: /Save source/ }).click();
+
+  await expect(page.getByText(/already in the evidence ledger/i)).toBeVisible();
+  await expect(page.getByText("1 sources")).toBeVisible();
+  await expect(page.locator(".research-evidence-list").first().getByText("Original source", { exact: true })).toBeVisible();
+  await expect(page.getByText("Duplicate title should not replace original", { exact: true })).toHaveCount(0);
+  await expect(page.locator("#evidence-claim-source")).toHaveValue(/source-/);
+});
+
+
+test("chat link planning accepts any submitted URL count and prefers explicit links over an old saved list", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("cooking-creator-local-schedule-v1", JSON.stringify({
+      linksText: "https://old.example/previous-list",
+      startDate: "2026-10-14",
+      plan: [],
+    }));
+  });
+  await page.goto("/");
+
+  const requestedLinks = [
+    "https://example.com/a",
+    "https://example.com/b",
+    "https://example.com/c",
+  ];
+  await page.locator("#workspace-command").fill(
+    `Plan these videos: ${requestedLinks.join(" ")}`,
+  );
+  await page.getByRole("button", { name: "Send message" }).click();
+
+  await expect(page.locator("#schedule-links")).toHaveValue(requestedLinks.join("\n"));
+  await expect(page.locator(".chat-transcript")).toContainText("I found 3 valid HTTP(S) link(s)");
+  await expect(page.locator(".chat-transcript")).not.toContainText("exactly seven");
+  await expect(page.locator("#schedule-links")).not.toHaveValue("https://old.example/previous-list");
+
+  await page.locator("#schedule-links-per-day").fill("2");
+  await page.locator("#schedule-days-count").fill("2");
+  await page.getByRole("button", { name: "Build my custom plan" }).click();
+  await expect(page.locator(".schedule-table tbody tr")).toHaveCount(3);
+  await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
+  await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-10-15");
 });
