@@ -1597,6 +1597,7 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await page.locator("#money-affiliate-status").selectOption("active");
   await page.getByRole("checkbox", { name: "Disclosure reviewed" }).check();
   await page.getByRole("checkbox", { name: "Product/media rights reviewed" }).check();
+  await page.getByRole("checkbox", { name: "Affiliate platform age and payment eligibility reviewed" }).check();
   await page.getByRole("button", { name: "Add affiliate record" }).click();
   await expect(page.locator(".monetization-record-card").filter({ hasText: "Kitchen tools affiliate program" })).toContainText("Active");
 
