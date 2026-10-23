@@ -14,6 +14,7 @@ import {
   estimatedAffiliateUsd,
   estimatedPartnerUsd,
   mergeMonetizationRows,
+  mergeMonetizationReadinessChecks,
   metricFingerprint,
   partnershipFingerprint,
   affiliateFingerprint,
@@ -340,15 +341,15 @@ export default function MonetizationWorkspace() {
       const metricResult = mergeMonetizationRows(metrics, parsed.metrics, metricFingerprint);
       const partnershipResult = mergeMonetizationRows(partnerships, parsed.partnerships, partnershipFingerprint);
       const affiliateResult = mergeMonetizationRows(affiliates, parsed.affiliates, affiliateFingerprint);
-      const existingChecks = new Set(readinessChecks.map((item) => item.category));
-      const nextChecks = [...readinessChecks, ...parsed.readinessChecks.filter((item) => !existingChecks.has(item.category))];
+      const readinessResult = mergeMonetizationReadinessChecks(readinessChecks, parsed.readinessChecks);
+      const nextChecks = readinessResult.checks;
       setProfile(nextProfile);
       setMetrics(metricResult.rows);
       setPartnerships(partnershipResult.rows);
       setAffiliates(affiliateResult.rows);
       setReadinessChecks(nextChecks);
       setStorageBlocked(false);
-      setMessage(`Backup validated. Added ${metricResult.added} metric(s), ${partnershipResult.added} partnership(s), ${affiliateResult.added} affiliate record(s); preserved current distinct rows and skipped ${metricResult.duplicates + partnershipResult.duplicates + affiliateResult.duplicates} duplicate(s). Readiness checks already present were not overwritten.`);
+      setMessage(`Backup validated. Added ${metricResult.added} metric(s), ${partnershipResult.added} partnership(s), ${affiliateResult.added} affiliate record(s); restored ${readinessResult.restored} blank/default readiness check(s), preserved ${readinessResult.preserved} customized check(s), and skipped ${metricResult.duplicates + partnershipResult.duplicates + affiliateResult.duplicates} duplicate record(s).`);
     } catch {
       setMessage("The backup could not be read in this browser. Current data was not changed.");
     }
