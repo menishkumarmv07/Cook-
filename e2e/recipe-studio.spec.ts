@@ -428,6 +428,14 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("USD-oriented business tracking");
   await expect(pack).toContainText("Owner sign-off");
   await expect(pack).toContainText("Source links for creator-policy review");
+  await expect(pack).toContainText("Originality and differentiation worksheet");
+  await expect(pack).toContainText("Platform-specific finishing pass");
+  await expect(pack).toContainText("Step-by-step voiceover draft");
+  await expect(pack).toContainText("Evidence-linked factual-claim ledger");
+  await expect(pack).toContainText("OWNER REVIEW REQUIRED");
+  await expect(pack).toContainText("Nutrition traceability — manual values only");
+  await expect(pack).toContainText("No ingredients recorded. Nutrition claims are not supported.");
+  await expect(pack).toContainText("Pinned-comment idea");
 
   await page.getByRole("button", { name: "Approve pack" }).click();
   await expect(page.getByText("APPROVED", { exact: true })).toBeVisible();
@@ -453,6 +461,9 @@ test("content pack export downloads a text file without publishing", async ({ pa
   expect(exportedPack).toContain("US-first creator production appendix");
   expect(exportedPack).toContain("USD-oriented business tracking");
   expect(exportedPack).toContain("Source links for creator-policy review");
+  expect(exportedPack).toContain("Evidence-linked factual-claim ledger");
+  expect(exportedPack).toContain("Nutrition traceability — manual values only");
+  expect(exportedPack).toContain("Originality and differentiation worksheet");
   await expect(page.getByRole("status")).toContainText("not uploaded or published");
 });
 
