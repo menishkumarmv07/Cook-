@@ -258,6 +258,12 @@ export function validatePartnership(value: unknown, profile: CreatorMediaKitProf
   } else if (value.amountStage === "received") {
     errors.push("An amount marked Received must use Paid status so received income is not confused with an offer or contract.");
   }
+  if (value.amountStage === "contracted" && !["contracted", "delivered", "closed"].includes(String(value.status))) {
+    errors.push("A contracted amount must use Contracted or Delivered status (or remain archived as Closed); do not classify a lead or offer as contracted.");
+  }
+  if ((value.amountStage === "estimate" || value.amountStage === "offered") && ["contracted", "delivered", "paid"].includes(String(value.status))) {
+    errors.push("A contracted, delivered or paid partnership cannot retain Estimate/Offer amount basis. Use Contracted for an agreed amount or Received for payment actually received.");
+  }
   return errors;
 }
 
