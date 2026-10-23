@@ -12,6 +12,7 @@ import {
   estimatedPartnerUsd,
   contractedPartnershipUsd,
   mergeMonetizationRows,
+  mergeMonetizationReadinessChecks,
   metricFingerprint,
   parseMonetizationBackupJSON,
   validateAffiliateRecord,
@@ -220,6 +221,26 @@ test("workspace JSON backup round-trips valid records and rejects malformed or d
   assert.equal(parseMonetizationBackupJSON("not JSON"), null);
   assert.equal(parseMonetizationBackupJSON(JSON.stringify({ format: "cooking-creator-monetization-workspace", version: 9 })), null);
   assert.equal(parseMonetizationBackupJSON(createMonetizationBackupJSON(profile, [metric(), metric()], [], [], checks)), null);
+});
+
+test("backup restore fills untouched readiness defaults and preserves customized local reviews", () => {
+  const empty = [...DEFAULT_READINESS_CHECKS].map((item) => ({ ...item }));
+  const imported = empty.map((item) => item.category === "originality"
+    ? { ...item, status: "reviewed" as const, reviewedDate: yesterday, sourceUrl: "https://support.google.com/youtube/", notes: "Reviewed official originality guidance." }
+    : item);
+  const restored = mergeMonetizationReadinessChecks(empty, imported);
+  assert.equal(restored.restored, DEFAULT_READINESS_CHECKS.length);
+  assert.equal(restored.preserved, 0);
+  assert.equal(restored.checks.find((item) => item.category === "originality")?.status, "reviewed");
+
+  const customized = empty.map((item) => item.category === "rights"
+    ? { ...item, status: "needs-action" as const, notes: "Check licensed music usage rights." }
+    : item);
+  const merged = mergeMonetizationReadinessChecks(customized, imported);
+  assert.equal(merged.checks.find((item) => item.category === "rights")?.status, "needs-action");
+  assert.equal(merged.checks.find((item) => item.category === "rights")?.notes, "Check licensed music usage rights.");
+  assert.equal(merged.preserved, 1);
+  assert.equal(merged.restored, DEFAULT_READINESS_CHECKS.length - 1);
 });
 
 test("merge preserves existing records, skips duplicates and rekeys ID collisions", () => {
