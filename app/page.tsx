@@ -2,6 +2,13 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import {
+  GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
+  buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
+  mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
+  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
+  type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
+} from "@/lib/growth-lab";
 import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
 
@@ -36,6 +43,7 @@ import {
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
+const GROWTH_STORAGE_KEY = "cooking-creator-growth-lab-v1";
 const THEME_STORAGE_KEY = "cooking-creator-theme-v1";
 const ACTIVE_TOOL_STORAGE_KEY = "cooking-creator-active-tool-v1";
 const CHAT_HISTORY_STORAGE_KEY = "cooking-creator-chat-history-v1"; // Legacy flat history key; used only for migration.
@@ -43,7 +51,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -70,7 +78,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -80,12 +88,33 @@ type ChatConversation = {
   messages: ChatMessage[];
 };
 
+type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retentionPercent" | "likes" | "comments" | "shares" | "saves" | "followersGained" | "linkClicks" | "revenueUsd";
+type GrowthMetricDraft = {
+  publishedDate: string; platform: GrowthPlatform; contentTitle: string; concept: string; dataKind: "actual" | "estimate";
+} & Record<GrowthNumericDraftKey, string>;
+type GrowthExperimentDraft = { hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string; startedDate: string };
+type GrowthCsvPreview = GrowthCsvImportResult & { fileName: string };
+const GROWTH_METRIC_INPUTS: Array<{ key: GrowthNumericDraftKey; label: string; id: string; step: string; hint?: string }> = [
+  { key: "views", label: "Views", id: "growth-views", step: "1" },
+  { key: "reach", label: "Reach / impressions", id: "growth-reach", step: "1" },
+  { key: "averageWatchSeconds", label: "Average watch duration (seconds)", id: "growth-average-watch", step: "any" },
+  { key: "retentionPercent", label: "Retention (%)", id: "growth-retention", step: "any", hint: "0–100, when available" },
+  { key: "likes", label: "Likes", id: "growth-likes", step: "1" },
+  { key: "comments", label: "Comments", id: "growth-comments", step: "1" },
+  { key: "shares", label: "Shares", id: "growth-shares", step: "1" },
+  { key: "saves", label: "Saves", id: "growth-saves", step: "1" },
+  { key: "followersGained", label: "Followers / subscribers gained", id: "growth-followers", step: "1" },
+  { key: "linkClicks", label: "Link clicks", id: "growth-link-clicks", step: "1" },
+  { key: "revenueUsd", label: "Reported revenue for this content (USD)", id: "growth-revenue-usd", step: "any", hint: "Only record a platform-reported USD amount attributable to this content; estimates are kept separate." },
+];
+
 type OverlayKind = "drawer" | "tasks" | "logo" | "message";
 type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y: number };
 
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
+  growth: "Growth Lab",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -408,6 +437,20 @@ export default function Home() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [chatHistoryReady, setChatHistoryReady] = useState(false);
   const [schedulePrefill, setSchedulePrefill] = useState("");
+  const [growthMetrics, setGrowthMetrics] = useState<GrowthMetric[]>([]);
+  const [growthExperiments, setGrowthExperiments] = useState<GrowthExperiment[]>([]);
+  const [growthDataReady, setGrowthDataReady] = useState(false);
+  const [growthStorageBlocked, setGrowthStorageBlocked] = useState(false);
+  const [growthMessage, setGrowthMessage] = useState("");
+  const [growthCsvPreview, setGrowthCsvPreview] = useState<GrowthCsvPreview | null>(null);
+  const [growthMetricDraft, setGrowthMetricDraft] = useState<GrowthMetricDraft>({
+    publishedDate: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
+    views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
+    shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
+  });
+  const [growthExperimentDraft, setGrowthExperimentDraft] = useState<GrowthExperimentDraft>({
+    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: "",
+  });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -420,6 +463,9 @@ export default function Home() {
   const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
   const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
+  const growthSummary = useMemo(() => summarizeGrowthMetrics(growthMetrics), [growthMetrics]);
+  const growthInsights = useMemo(() => buildDescriptiveGrowthInsights(growthMetrics), [growthMetrics]);
+  const recentGrowthMetrics = useMemo(() => growthMetrics.slice().sort((a, b) => b.publishedDate.localeCompare(a.publishedDate)).slice(0, 50), [growthMetrics]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
@@ -667,15 +713,17 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth") {
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "growth" ? "growth" :
       item === "images" ? "intake" :
       item === "library" || item === "projects" ? "library" :
       item === "remote" ? "connections" :
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "growth" ? "growth-lab" :
       item === "images" ? (current ? "recipe-editor" : "intake") :
       item === "library" || item === "projects" ? "recent-projects" :
       item === "remote" ? "social-connections" :
@@ -942,7 +990,8 @@ export default function Home() {
     if (tool === "intake") return "Recipe intake is open. Enter a recipe name and optionally add a source URL. The draft is stored in this browser on this device; save an export backup for important work.";
     if (tool === "profile") return "Your creator profile settings are open. Preferences save in this browser. This screen is not connected to an AI model and does not automatically enforce every wording rule.";
     if (tool === "library") return projects.length ? `Your local library is open with ${projects.length} recipe draft(s). Select a draft to continue editing. Drafts are saved on this device only.` : "Your local library is open, but there are no recipe drafts saved in this browser yet.";
-    return "Social connections are open. Official account authorization is not configured yet, so every platform remains disconnected and nothing can be posted from this screen.";
+    if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
+    return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
@@ -967,7 +1016,8 @@ export default function Home() {
       tool === "publish" ? (current ? "publish-queue" : "recipe-editor") :
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
-      tool === "library" ? "recent-projects" : "social-connections";
+      tool === "library" ? "recent-projects" :
+      tool === "growth" ? "growth-lab" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1113,6 +1163,39 @@ export default function Home() {
       setMessage("Browser storage is unavailable or full. Export your draft before leaving this page.");
     }
   }, [projects, hydrated]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(GROWTH_STORAGE_KEY);
+      if (raw) {
+        const restored = parseGrowthWorkspaceBackupJSON(raw);
+        if (!restored) {
+          setGrowthStorageBlocked(true);
+          setGrowthMessage("The saved Growth Lab workspace did not pass validation and has not been overwritten. Import a known-good JSON backup, export any visible data, then explicitly replace the local copy.");
+        } else {
+          setGrowthMetrics(restored.metrics);
+          setGrowthExperiments(restored.experiments);
+        }
+      }
+    } catch {
+      setGrowthStorageBlocked(true);
+      setGrowthMessage("Growth Lab browser storage could not be read. Imported/exported data may not persist until storage is repaired.");
+    } finally {
+      setGrowthMetricDraft((previous) => ({ ...previous, publishedDate: previous.publishedDate || getLocalDateOnly() }));
+      setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: previous.startedDate || getLocalDateOnly() }));
+      setGrowthDataReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!growthDataReady || growthStorageBlocked) return;
+    try {
+      window.localStorage.setItem(GROWTH_STORAGE_KEY, createGrowthWorkspaceBackupJSON(growthMetrics, growthExperiments));
+    } catch {
+      setGrowthStorageBlocked(true);
+      setGrowthMessage("Growth Lab changes could not be saved in this browser. Export the visible workspace as JSON before clearing storage or leaving this page.");
+    }
+  }, [growthMetrics, growthExperiments, growthDataReady, growthStorageBlocked]);
 
   async function inspectRecipeSource() {
     const candidate = url.trim();
@@ -1603,6 +1686,184 @@ export default function Home() {
     setMessage("All local recipe drafts were removed from this browser.");
   }
 
+  function addGrowthMetric() {
+    if (growthMetrics.length >= MAX_GROWTH_METRIC_ROWS) {
+      setGrowthMessage(`Growth Lab has reached the ${MAX_GROWTH_METRIC_ROWS.toLocaleString("en-US")} row limit. Export a backup and start a separate archive before adding more.`);
+      return;
+    }
+    const optionalNumber = (value: string) => value.trim() ? Number(value.trim()) : null;
+    const row: GrowthMetric = {
+      id: makeId(),
+      publishedDate: growthMetricDraft.publishedDate,
+      platform: growthMetricDraft.platform,
+      contentTitle: growthMetricDraft.contentTitle.trim(),
+      concept: growthMetricDraft.concept.trim(),
+      dataKind: growthMetricDraft.dataKind,
+      views: optionalNumber(growthMetricDraft.views),
+      reach: optionalNumber(growthMetricDraft.reach),
+      averageWatchSeconds: optionalNumber(growthMetricDraft.averageWatchSeconds),
+      retentionPercent: optionalNumber(growthMetricDraft.retentionPercent),
+      likes: optionalNumber(growthMetricDraft.likes),
+      comments: optionalNumber(growthMetricDraft.comments),
+      shares: optionalNumber(growthMetricDraft.shares),
+      saves: optionalNumber(growthMetricDraft.saves),
+      followersGained: optionalNumber(growthMetricDraft.followersGained),
+      linkClicks: optionalNumber(growthMetricDraft.linkClicks),
+      revenueUsd: optionalNumber(growthMetricDraft.revenueUsd),
+    };
+    const errors = validateGrowthMetric(row);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    const merged = mergeGrowthMetrics(growthMetrics, [row]);
+    if (!merged.added) {
+      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Edit or remove the existing row instead of double-counting it.");
+      return;
+    }
+    setGrowthMetrics(merged.rows);
+    setGrowthMessage("Metric row saved locally. Actual platform data and estimates stay in separate totals.");
+    setGrowthMetricDraft({
+      publishedDate: getLocalDateOnly(), platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
+      views: "", reach: "", averageWatchSeconds: "", retentionPercent: "", likes: "", comments: "",
+      shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
+    });
+  }
+
+  async function inspectGrowthCsv(file: File | null) {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setGrowthMessage("CSV exceeds 2 MB. Export a smaller date range and try again.");
+      setGrowthCsvPreview(null);
+      return;
+    }
+    try {
+      const result = parseGrowthMetricsCsv(await file.text(), "csv-" + makeId());
+      setGrowthCsvPreview({ ...result, fileName: file.name });
+      setGrowthMessage(result.errors.length
+        ? result.errors.join(" ")
+        : "CSV preview ready. Check rejected-row messages before importing the valid rows.");
+    } catch {
+      setGrowthCsvPreview(null);
+      setGrowthMessage("CSV could not be read by this browser. Nothing was imported.");
+    }
+  }
+
+  function importGrowthCsvPreview() {
+    if (!growthCsvPreview || growthCsvPreview.rows.length === 0) {
+      setGrowthMessage("There are no valid CSV rows to import.");
+      return;
+    }
+    const incoming = growthCsvPreview.rows.map((row) => ({ ...row, id: makeId() }));
+    const merged = mergeGrowthMetrics(growthMetrics, incoming);
+    if (merged.rows.length > MAX_GROWTH_METRIC_ROWS) {
+      setGrowthMessage(`Import would exceed the ${MAX_GROWTH_METRIC_ROWS.toLocaleString("en-US")} metric-row limit. Import a smaller CSV batch or export an archive first.`);
+      return;
+    }
+    setGrowthMetrics(merged.rows);
+    const duplicateRows = merged.duplicates + growthCsvPreview.duplicateRows;
+    const invalidRows = Math.max(0, growthCsvPreview.rejectedRows.length - growthCsvPreview.duplicateRows);
+    setGrowthMessage(
+      "Imported " + merged.added + " new row(s); skipped " + duplicateRows +
+      " duplicate row(s) and " + invalidRows + " invalid row(s). CSV-level errors: " +
+      growthCsvPreview.errors.length + ".",
+    );
+    setGrowthCsvPreview(null);
+  }
+
+  async function importGrowthBackup(file: File | null) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) {
+      setGrowthMessage("Growth Lab JSON backup exceeds 15 MB. Nothing was imported.");
+      return;
+    }
+    try {
+      const backup = parseGrowthWorkspaceBackupJSON(await file.text());
+      if (!backup) {
+        setGrowthMessage("This is not a valid Growth Lab backup, or its rows/timestamps are invalid. Nothing was imported.");
+        return;
+      }
+      const mergedMetrics = mergeGrowthMetrics(growthMetrics, backup.metrics);
+      const mergedExperiments = mergeGrowthExperiments(growthExperiments, backup.experiments);
+      if (mergedMetrics.rows.length > MAX_GROWTH_METRIC_ROWS ||
+          mergedExperiments.rows.length > MAX_GROWTH_EXPERIMENT_ROWS) {
+        setGrowthMessage("This backup would exceed the local Growth Lab row limits. Nothing was imported; export an archive or merge a smaller backup.");
+        return;
+      }
+      setGrowthMetrics(mergedMetrics.rows);
+      setGrowthExperiments(mergedExperiments.rows);
+      setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + mergedExperiments.added +
+        " experiment(s); skipped " + mergedMetrics.duplicates + " duplicate metric row(s) and " +
+        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten.");
+      setGrowthCsvPreview(null);
+    } catch {
+      setGrowthMessage("Growth Lab JSON backup could not be read. Nothing was imported.");
+    }
+  }
+
+  function replaceBlockedGrowthStorage() {
+    if (!window.confirm("Replace this browser's blocked Growth Lab storage with the data currently visible here? Export a backup first if you may need the original copy.")) return;
+    setGrowthStorageBlocked(false);
+    setGrowthMessage("Using the currently visible Growth Lab data and attempting to save a new local copy.");
+  }
+
+  function addGrowthExperiment() {
+    if (growthExperiments.length >= MAX_GROWTH_EXPERIMENT_ROWS) {
+      setGrowthMessage(`Growth Lab has reached the ${MAX_GROWTH_EXPERIMENT_ROWS.toLocaleString("en-US")} experiment limit. Export a backup and archive this workspace before adding more.`);
+      return;
+    }
+    const candidate: GrowthExperiment = {
+      id: makeId(),
+      ...growthExperimentDraft,
+      resultDate: "",
+      outcome: "",
+      nextAction: "",
+      status: "planned",
+    };
+    const errors = validateGrowthExperiment(candidate);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    setGrowthExperiments((existing) => [candidate, ...existing]);
+    setGrowthExperimentDraft({
+      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: getLocalDateOnly(),
+    });
+    setGrowthMessage("Experiment added locally. Record one main variable and review actual platform data when available.");
+  }
+
+  function patchGrowthExperiment(id: string, patch: Partial<GrowthExperiment>) {
+    setGrowthExperiments((existing) => existing.map((item) => {
+      if (item.id !== id) return item;
+      const updated = { ...item, ...patch };
+      if (updated.status !== "planned" && validateGrowthExperiment(updated).length) updated.status = "planned";
+      return updated;
+    }));
+  }
+
+  function updateGrowthExperimentStatus(id: string, status: "reviewed" | "closed") {
+    const experiment = growthExperiments.find((item) => item.id === id);
+    if (!experiment) return;
+    const updated = { ...experiment, status };
+    const errors = validateGrowthExperiment(updated);
+    if (errors.length) {
+      setGrowthMessage(errors.join(" "));
+      return;
+    }
+    setGrowthExperiments((existing) => existing.map((item) => item.id === id ? updated : item));
+    setGrowthMessage(status === "reviewed" ? "Experiment review saved. The result is descriptive, not proof of causality." : "Experiment closed. Keep the outcome tied to actual recorded data.");
+  }
+
+  function exportGrowthMetrics() {
+    downloadFile("cooking-creator-growth-metrics.csv", serializeGrowthMetricsCsv(growthMetrics), "text/csv;charset=utf-8");
+    setGrowthMessage("Growth metrics exported as CSV. Estimates remain labelled and are not combined with actual results.");
+  }
+
+  function exportGrowthBackup() {
+    downloadFile("cooking-creator-growth-lab-backup.json", createGrowthWorkspaceBackupJSON(growthMetrics, growthExperiments), "application/json;charset=utf-8");
+    setGrowthMessage("Growth Lab metrics and experiments exported as JSON. Store the backup privately.");
+  }
+
   return (
     <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
@@ -1628,6 +1889,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("remote")}><span className="nav-icon"><InterfaceIcon name="remote" /></span>Remote</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("scheduled")}><span className="nav-icon"><InterfaceIcon name="clock" /></span>Scheduled</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
@@ -1728,6 +1990,155 @@ export default function Home() {
           <section className="research-hub panel" id="research-trends">
             <div className="section-head"><div><p className="eyebrow">RESEARCH STUDIO</p><h2>Build from evidence, not guesses.</h2><p>Compare recipe sources, record ingredients and ordered steps, and flag timing or safety gaps before scripting.</p></div><span className="step">SOURCE-FIRST</span></div>
             <div className="research-hub-row"><span className="research-icon" aria-hidden="true">⌕</span><div><strong>{current ? "Research desk is available in your open recipe" : "Start a recipe to open its research desk"}</strong><p>Public HTML recipe pages can be inspected after an explicit action during intake. Extraction is not verification; video frames and audio are not analyzed. Never treat a URL alone as proof that the video was inspected.</p></div><button className="secondary" type="button" onClick={() => goToSection(current ? "studio" : "intake")}>{current ? "Open recipe desk" : "Create recipe"} →</button></div>
+          </section>
+
+          <section id="growth-lab" className="panel growth-lab" aria-labelledby="growth-lab-title">
+            <div className="section-head growth-lab-heading">
+              <div>
+                <p className="eyebrow">V2.3 · PRIVATE PERFORMANCE WORKSPACE</p>
+                <h2 id="growth-lab-title">Growth Lab</h2>
+                <p>Learn from results you actually recorded. There is no analytics API, platform login, “viral score,” revenue forecast, or automatic publishing here.</p>
+              </div>
+              <span className="step">LOCAL · USD-AWARE</span>
+            </div>
+            <p className="growth-lab-local-note">Saved in this browser on this device only. Data is not encrypted or synced. Record actual platform values separately from estimates.</p>
+            {growthStorageBlocked && (
+              <div className="growth-alert" role="alert">
+                <strong>Local storage is blocked.</strong>
+                <p>The currently visible data remains available for export, but it may not persist. Import a known-good backup if needed, export a copy, then explicitly replace the blocked local workspace when you are ready.</p>
+                <button className="secondary" type="button" onClick={replaceBlockedGrowthStorage}>Use current data and replace local storage</button>
+              </div>
+            )}
+            {!growthDataReady ? <p className="empty-inline">Loading this device&apos;s Growth Lab…</p> : (
+              <>
+                <div className="growth-summary-grid" aria-label="Growth Lab summary">
+                  <article className="growth-summary-card"><small>Actual metric rows</small><strong>{growthSummary.actualRows}</strong><span>Owner-entered or platform-exported values</span></article>
+                  <article className="growth-summary-card"><small>Estimated rows</small><strong>{growthSummary.estimateRows}</strong><span>Kept separate from real platform data</span></article>
+                  <article className="growth-summary-card"><small>Views recorded · actual</small><strong>{growthSummary.actualViewsTotal === null ? "Not recorded" : growthSummary.actualViewsTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualViewsRows} row(s) include views</span></article>
+                  <article className="growth-summary-card"><small>Reach / impressions · actual</small><strong>{growthSummary.actualReachTotal === null ? "Not recorded" : growthSummary.actualReachTotal.toLocaleString("en-US")}</strong><span>{growthSummary.actualReachRows} row(s) include reach</span></article>
+                  <article className="growth-summary-card"><small>Reported revenue · actual USD</small><strong>{growthSummary.actualRevenueUsdTotal === null ? "Not recorded" : growthSummary.actualRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong><span>{growthSummary.actualRevenueUsdRows} row(s) have platform-reported revenue</span></article>
+                  <article className="growth-summary-card"><small>Revenue · estimates USD</small><strong>{growthSummary.estimateRevenueUsdTotal === null ? "Not recorded" : growthSummary.estimateRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong><span>{growthSummary.estimateRevenueUsdRows} estimated row(s); not actual income</span></article>
+                </div>
+                <div className="growth-warnings" aria-label="Data quality and sample warnings">
+                  {growthSummary.warnings.map((warning, index) => <p className="warning" key={index}>{warning}</p>)}
+                </div>
+
+                <section className="growth-subpanel" aria-labelledby="growth-add-metric-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-add-metric-title">Record a content result</h3><p className="muted">Use the publish date and numbers reported by the platform. Blank metrics stay missing; zero is a real recorded zero.</p></div>
+                  </div>
+                  <form className="growth-form" onSubmit={(event) => { event.preventDefault(); addGrowthMetric(); }}>
+                    <div className="growth-form-grid">
+                      <div><label htmlFor="growth-published-date">Publish date *</label><input id="growth-published-date" type="date" value={growthMetricDraft.publishedDate} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, publishedDate: event.target.value }))} required /></div>
+                      <div><label htmlFor="growth-platform">Platform *</label><select id="growth-platform" value={growthMetricDraft.platform} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
+                      <div><label htmlFor="growth-data-kind">Data type *</label><select id="growth-data-kind" value={growthMetricDraft.dataKind} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, dataKind: event.target.value as "actual" | "estimate" }))}><option value="actual">Actual platform data</option><option value="estimate">Estimate / assumption</option></select></div>
+                      <div><label htmlFor="growth-content-title">Content title *</label><input id="growth-content-title" value={growthMetricDraft.contentTitle} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} required placeholder="Use a recognizable title for comparison" /></div>
+                      <div><label htmlFor="growth-concept">Recipe family / content concept</label><input id="growth-concept" value={growthMetricDraft.concept} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, concept: event.target.value }))} maxLength={240} placeholder="e.g. quick weeknight meals" /></div>
+                    </div>
+                    <div className="growth-form-grid growth-number-grid">
+                      {GROWTH_METRIC_INPUTS.map((field) => (
+                        <div key={field.key}>
+                          <label htmlFor={field.id}>{field.label}</label>
+                          <input id={field.id} type="number" min="0" step={field.step} inputMode="decimal" value={growthMetricDraft[field.key]} onChange={(event) => setGrowthMetricDraft((previous) => ({ ...previous, [field.key]: event.target.value }))} />
+                          {field.hint && <small className="hint">{field.hint}</small>}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="hint">Revenue is optional and entered in USD. Record it only when an actual platform statement attributes the amount to this content; never distribute account-wide payout totals across videos without evidence. Estimates remain estimates, are never added to actual income, and do not predict future earnings.</p>
+                    <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add metric row</button><button className="secondary" type="button" onClick={exportGrowthMetrics}>Export metrics CSV</button><button className="secondary" type="button" onClick={exportGrowthBackup}>Export full backup JSON</button></div>
+                  </form>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-import-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-import-title">Import a platform CSV</h3><p className="muted">Import metrics you lawfully exported from a platform. Invalid rows are reported, not silently converted to zero.</p></div>
+                  </div>
+                  <div className="growth-import-controls">
+                    <div><label htmlFor="growth-csv-file">Metrics CSV (maximum 2 MB)</label><input id="growth-csv-file" type="file" accept=".csv,text/csv" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void inspectGrowthCsv(file); }} /></div>
+                    <div><label htmlFor="growth-backup-file">Merge a Growth Lab JSON backup (maximum 15 MB)</label><input id="growth-backup-file" type="file" accept=".json,application/json" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void importGrowthBackup(file); }} /></div>
+                  </div>
+                  <p className="hint">Expected CSV columns: published_date, platform, content_title, data_kind, and optional concept/views/reach/watch-duration/retention/engagement columns plus revenue_usd when a platform reports content-level USD revenue. The app-generated CSV is the preferred template; estimates remain separate from actual data.</p>
+                  {growthCsvPreview && (
+                    <div className="growth-csv-preview" role="region" aria-label="CSV import preview">
+                      <strong>{growthCsvPreview.fileName}</strong>
+                      <p>{growthCsvPreview.rows.length} valid row(s) ready, {growthCsvPreview.rejectedRows.length} rejected row(s), {growthCsvPreview.duplicateRows} duplicate row(s) within the file.</p>
+                      {growthCsvPreview.errors.map((error, index) => <p className="growth-alert-text" key={index}>{error}</p>)}
+                      {growthCsvPreview.rejectedRows.slice(0, 12).map((row) => <p className="growth-alert-text" key={row.rowNumber}>CSV row {row.rowNumber}: {row.reason}</p>)}
+                      {growthCsvPreview.rejectedRows.length > 12 && <p className="hint">Only the first 12 rejected-row messages are shown here.</p>}
+                      <div className="action-row">
+                        <button className="primary" type="button" disabled={growthCsvPreview.rows.length === 0} onClick={importGrowthCsvPreview}>Import valid CSV rows</button>
+                        <button className="secondary" type="button" onClick={() => setGrowthCsvPreview(null)}>Cancel preview</button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-experiments-title">
+                  <div className="subsection-head">
+                    <div><h3 id="growth-experiments-title">One-variable experiments</h3><p className="muted">Record a hypothesis before changing one primary variable. Review the observed result later; small samples do not prove causality.</p></div>
+                  </div>
+                  <form className="growth-form" onSubmit={(event) => { event.preventDefault(); addGrowthExperiment(); }}>
+                    <div className="growth-form-grid">
+                      <div className="growth-span-two"><label htmlFor="growth-experiment-hypothesis">Hypothesis *</label><textarea id="growth-experiment-hypothesis" rows={2} value={growthExperimentDraft.hypothesis} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, hypothesis: event.target.value }))} maxLength={500} required placeholder="What do you expect to observe, and why?" /></div>
+                      <div><label htmlFor="growth-experiment-variable">Variable changed *</label><input id="growth-experiment-variable" value={growthExperimentDraft.variableChanged} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, variableChanged: event.target.value }))} maxLength={240} required placeholder="e.g. opening shot only" /></div>
+                      <div><label htmlFor="growth-experiment-platform">Platform *</label><select id="growth-experiment-platform" value={growthExperimentDraft.platform} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
+                      <div><label htmlFor="growth-experiment-title">Content / recipe family</label><input id="growth-experiment-title" value={growthExperimentDraft.contentTitle} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} placeholder="Optional label" /></div>
+                      <div><label htmlFor="growth-experiment-start-date">Start date *</label><input id="growth-experiment-start-date" type="date" value={growthExperimentDraft.startedDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: event.target.value }))} required /></div>
+                    </div>
+                    <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add experiment</button></div>
+                  </form>
+                  {growthExperiments.length === 0 ? <p className="empty-inline">No experiments yet. Start with one specific hypothesis and one changed variable.</p> : (
+                    <div className="growth-experiment-list">
+                      {growthExperiments.map((item) => (
+                        <article className="growth-experiment-card" key={item.id}>
+                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
+                          <p><b>Variable:</b> {item.variableChanged}</p>
+                          <div className="growth-form-grid">
+                            <div><label htmlFor={"growth-result-date-" + item.id}>Result date</label><input id={"growth-result-date-" + item.id} type="date" value={item.resultDate} min={item.startedDate} onChange={(event) => patchGrowthExperiment(item.id, { resultDate: event.target.value })} /></div>
+                            <div className="growth-span-two"><label htmlFor={"growth-outcome-" + item.id}>Observed outcome (use actual numbers where available)</label><textarea id={"growth-outcome-" + item.id} rows={2} maxLength={1200} value={item.outcome} onChange={(event) => patchGrowthExperiment(item.id, { outcome: event.target.value })} /></div>
+                            <div className="growth-span-two"><label htmlFor={"growth-next-action-" + item.id}>Next action</label><textarea id={"growth-next-action-" + item.id} rows={2} maxLength={500} value={item.nextAction} onChange={(event) => patchGrowthExperiment(item.id, { nextAction: event.target.value })} /></div>
+                          </div>
+                          <div className="action-row">
+                            <button className="secondary" type="button" disabled={item.status === "reviewed" || item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "reviewed")}>Mark reviewed</button>
+                            <button className="secondary" type="button" disabled={item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "closed")}>Close experiment</button>
+                            <button className="secondary" type="button" onClick={() => setGrowthExperiments((existing) => existing.filter((candidate) => candidate.id !== item.id))}>Remove</button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-insights-title">
+                  <div className="subsection-head"><div><h3 id="growth-insights-title">Descriptive comparisons</h3><p className="muted">Only actual view counts are considered. Estimates never enter the comparison. The app does not call a result “viral” or infer a causal effect.</p></div></div>
+                  <ul className="growth-insight-list">{growthInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-records-title">
+                  <div className="subsection-head"><div><h3 id="growth-records-title">Saved metric rows</h3><p className="muted">Showing up to 50 recent rows. Export CSV/JSON before cleanup.</p></div><strong>{growthMetrics.length} total</strong></div>
+                  {recentGrowthMetrics.length === 0 ? <p className="empty-inline">No metrics recorded yet. Manual entry or validated CSV import keeps this workspace grounded in your data.</p> : (
+                    <div className="growth-metric-list">
+                      {recentGrowthMetrics.map((metric) => (
+                        <article className="growth-metric-card" key={metric.id}>
+                          <div className="growth-metric-heading"><div><strong>{metric.contentTitle}</strong><small>{metric.publishedDate} · {metric.platform}{metric.concept ? " · " + metric.concept : ""}</small></div><span className={"growth-status growth-status-" + metric.dataKind}>{metric.dataKind === "actual" ? "ACTUAL" : "ESTIMATE"}</span></div>
+                          <div className="growth-metric-values">
+                            <span>Views: <b>{metric.views === null ? "—" : metric.views.toLocaleString("en-US")}</b></span>
+                            <span>Reach: <b>{metric.reach === null ? "—" : metric.reach.toLocaleString("en-US")}</b></span>
+                            <span>Avg watch: <b>{metric.averageWatchSeconds === null ? "—" : metric.averageWatchSeconds + " sec"}</b></span>
+                            <span>Retention: <b>{metric.retentionPercent === null ? "—" : metric.retentionPercent + "%"}</b></span>
+                            <span>Likes: <b>{metric.likes === null ? "—" : metric.likes.toLocaleString("en-US")}</b></span>
+                            <span>Saves: <b>{metric.saves === null ? "—" : metric.saves.toLocaleString("en-US")}</b></span>
+                            <span>Revenue USD: <b>{metric.revenueUsd === null ? "—" : metric.revenueUsd.toLocaleString("en-US", { style: "currency", currency: "USD" })}</b></span>
+                          </div>
+                          <div className="action-row"><button className="text-button" type="button" aria-label={"Remove metric: " + metric.contentTitle} onClick={() => setGrowthMetrics((existing) => existing.filter((candidate) => candidate.id !== metric.id))}>Remove row</button></div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+                {growthMessage && <p className="message" role="status" aria-live="polite">{growthMessage}</p>}
+              </>
+            )}
           </section>
 
           <section className="connection-hub panel" id="social-connections">

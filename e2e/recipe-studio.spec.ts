@@ -56,6 +56,10 @@ async function chooseMenuTool(page: import("@playwright/test").Page, label: stri
     await page.getByRole("button", { name: "Open navigation menu" }).click();
   }
 
+  if (label === "Growth Lab") {
+    await page.getByRole("button", { name: "Growth Lab", exact: true }).click();
+    return;
+  }
   if (label === "New recipe") {
     await page.getByRole("button", { name: "Images", exact: true }).click();
     return;
@@ -1364,3 +1368,61 @@ test("chat link planning accepts any submitted URL count and prefers explicit li
   await expect(page.getByLabel("Post 1 date")).toHaveValue("2026-10-14");
   await expect(page.getByLabel("Post 3 date")).toHaveValue("2026-10-15");
 });
+
+test("Growth Lab validates manual metrics, previews CSV errors and exports local data", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Growth Lab");
+  await expect(page.getByRole("heading", { name: "Growth Lab" })).toBeVisible();
+
+  await page.getByLabel("Publish date").fill("2026-10-20");
+  await page.getByLabel("Content title").fill("Lemon rice Short");
+  await page.getByLabel("Views").fill("1200");
+  await page.getByLabel("Reach / impressions").fill("1000");
+  await page.getByLabel("Reported revenue for this content (USD)").fill("12.50");
+  await page.getByRole("button", { name: "Add metric row" }).click();
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Actual metric rows" }).locator("strong")).toHaveText("1");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Reported revenue · actual USD" }).locator("strong")).toHaveText("$12.50");
+  await expect(page.getByText("Lemon rice Short", { exact: true })).toBeVisible();
+  await expect(page.getByText("ACTUAL", { exact: true })).toBeVisible();
+
+  const csv = [
+    "published_date,platform,content_title,concept,data_kind,views,reach,average_watch_seconds,retention_percent,likes,comments,shares,saves,followers_gained,link_clicks,revenue_usd",
+    "2026-10-21,Instagram Reels,Tomato pasta,Weeknight meals,estimate,500,,,,,,,,,,0.40",
+    "2026-02-30,Instagram Reels,Bad date,Weeknight meals,actual,20,,,,,,,,,,",
+  ].join("\n");
+  await page.locator("#growth-csv-file").setInputFiles({
+    name: "platform-metrics.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv, "utf8"),
+  });
+  const preview = page.getByRole("region", { name: "CSV import preview" });
+  await expect(preview).toContainText("1 valid row(s) ready");
+  await expect(preview).toContainText("1 rejected row(s)");
+  await page.getByRole("button", { name: "Import valid CSV rows" }).click();
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Estimated rows" }).locator("strong")).toHaveText("1");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Revenue · estimates USD" }).locator("strong")).toHaveText("$0.40");
+  await expect(page.getByText("Tomato pasta", { exact: true })).toBeVisible();
+  await expect(page.getByText("ESTIMATE", { exact: true })).toBeVisible();
+
+  await page.getByLabel("Hypothesis").fill("A clearer close-up will improve viewer retention.");
+  await page.getByLabel("Variable changed").fill("Opening shot");
+  await page.locator("#growth-experiment-start-date").fill("2026-10-20");
+  await page.getByRole("button", { name: "Add experiment" }).click();
+  const card = page.locator(".growth-experiment-card").filter({ hasText: "A clearer close-up will improve viewer retention." });
+  await expect(card).toBeVisible();
+  await card.getByLabel("Result date").fill("2026-10-22");
+  await card.getByLabel("Observed outcome (use actual numbers where available)").fill("Recorded 1,200 actual views; the sample remains small.");
+  await card.getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(card.locator(".growth-status-reviewed")).toContainText("reviewed");
+
+  const csvDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export metrics CSV" }).click();
+  const csvDownload = await csvDownloadPromise;
+  expect(csvDownload.suggestedFilename()).toBe("cooking-creator-growth-metrics.csv");
+
+  const jsonDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export full backup JSON" }).click();
+  const jsonDownload = await jsonDownloadPromise;
+  expect(jsonDownload.suggestedFilename()).toBe("cooking-creator-growth-lab-backup.json");
+});
+
