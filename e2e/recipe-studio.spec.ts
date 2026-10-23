@@ -64,6 +64,10 @@ async function chooseMenuTool(page: import("@playwright/test").Page, label: stri
     await page.getByRole("button", { name: "Editorial Calendar", exact: true }).click();
     return;
   }
+  if (label === "Monetization Readiness") {
+    await page.getByRole("button", { name: "Monetization Readiness", exact: true }).click();
+    return;
+  }
   if (label === "New recipe") {
     await page.getByRole("button", { name: "Images", exact: true }).click();
     return;
@@ -1517,5 +1521,113 @@ test("V2.4 editorial calendar records original ideas, gates Hold, persists and e
   const restored = page.locator(".editorial-idea-card").filter({ hasText: title });
   await expect(restored).toBeVisible();
   await expect(restored.getByLabel("Status")).toHaveValue("hold");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+
+test("V2.5 monetization workspace separates real USD receipts, gates contracts, and exports local records", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Monetization Readiness");
+  await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+  await page.getByRole("button", { name: "Media kit & metrics" }).click();
+  await page.locator("#money-brand-name").fill("Weeknight Kitchen Lab");
+  await page.locator("#money-bio").fill("Original cooking demonstrations and practical home-kitchen tests.");
+  await page.locator("#money-cuisine").fill("Global home cooking");
+
+  await page.locator("#money-metric-name").selectOption("followers");
+  await page.locator("#money-metric-value").fill("1250");
+  await page.locator("#money-metric-kind").selectOption("actual");
+  await page.locator("#money-metric-date").fill("2026-10-22");
+  await page.locator("#money-metric-source").fill("https://support.google.com/youtube/");
+  await page.locator("#money-metric-note").fill("Owner copied this value from the platform dashboard on the recorded date.");
+  await page.getByRole("button", { name: "Add metric snapshot" }).click();
+  await expect(page.locator(".monetization-record-card").filter({ hasText: "Followers / subscribers" })).toContainText("Owner-reported actual");
+
+  await page.locator("#money-metric-name").selectOption("averageViews");
+  await page.locator("#money-metric-value").fill("900");
+  await page.locator("#money-metric-kind").selectOption("estimate");
+  await page.locator("#money-metric-date").fill("2026-10-23");
+  await page.locator("#money-metric-source").fill("");
+  await page.locator("#money-metric-note").fill("Planning estimate, not actual platform performance.");
+  await page.getByRole("button", { name: "Add metric snapshot" }).click();
+  await page.getByRole("button", { name: "Generate media kit preview" }).click();
+  await expect(page.locator(".monetization-preview pre")).toContainText("Estimates — not actual results");
+  await expect(page.locator(".monetization-preview pre")).toContainText("Followers/subscribers");
+  await expect(page.locator(".monetization-preview pre")).toContainText("Planning estimate, not actual platform performance.");
+
+  await page.locator("#money-age-band").selectOption("under18");
+  await page.getByRole("button", { name: "Partnerships" }).click();
+  await page.locator("#money-partner-brand").fill("Test Kitchen Brand");
+  await page.locator("#money-partner-campaign").fill("Original skillet recipe");
+  await page.locator("#money-partner-deliverable").fill("One original short recipe demonstration.");
+  await page.locator("#money-partner-status").selectOption("contracted");
+  await page.locator("#money-partner-amount").fill("85");
+  await page.locator("#money-partner-amount-stage").selectOption("contracted");
+  await page.getByRole("checkbox", { name: "Written terms reviewed" }).check();
+  await page.getByRole("checkbox", { name: "Asset and usage rights reviewed" }).check();
+  await page.getByRole("checkbox", { name: "Disclosure requirements reviewed" }).check();
+  await page.getByRole("checkbox", { name: "Current platform eligibility/payment rules checked" }).check();
+  await page.getByRole("button", { name: "Add partnership" }).click();
+  await expect(page.getByRole("status")).toContainText("parent/legal guardian");
+  await expect(page.locator(".monetization-record-card").filter({ hasText: "Test Kitchen Brand" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Media kit & metrics" }).click();
+  await page.getByRole("checkbox", { name: /Parent\/legal guardian is or will be involved/ }).check();
+  await page.getByRole("button", { name: "Partnerships" }).click();
+  await page.getByRole("button", { name: "Add partnership" }).click();
+  const partnerCard = page.locator(".monetization-record-card").filter({ hasText: "Test Kitchen Brand" });
+  await expect(partnerCard).toContainText("Contracted");
+
+  await partnerCard.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator("#money-partner-status").selectOption("paid");
+  await page.locator("#money-partner-amount-stage").selectOption("received");
+  await page.locator("#money-partner-payment-date").fill("2026-10-22");
+  await page.locator("#money-partner-payment-note").fill("Owner matched the payment to the actual account statement.");
+  await page.getByRole("button", { name: "Update partnership" }).click();
+  await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
+  await expect(page.locator(".monetization-summary-grid")).toContainText("Actual partnership receipts");
+
+  await page.getByRole("button", { name: "Affiliate links" }).click();
+  await page.locator("#money-affiliate-program").fill("Kitchen tools affiliate program");
+  await page.locator("#money-affiliate-product").fill("Pan used in recipe demonstration");
+  await page.locator("#money-affiliate-url").fill("https://recipes.com/products/pan");
+  await page.locator("#money-affiliate-status").selectOption("active");
+  await page.getByRole("checkbox", { name: "Disclosure reviewed" }).check();
+  await page.getByRole("checkbox", { name: "Product/media rights reviewed" }).check();
+  await page.getByRole("button", { name: "Add affiliate record" }).click();
+  await expect(page.locator(".monetization-record-card").filter({ hasText: "Kitchen tools affiliate program" })).toContainText("Active");
+
+  await page.getByRole("button", { name: "Readiness checklist" }).click();
+  await page.locator("#money-readiness-notes-originality").fill("Review the official originality requirements and record an actual original contribution.");
+  await page.locator("#money-readiness-status-originality").selectOption("needs-action");
+  await page.locator("#money-readiness-date-originality").fill("2026-10-22");
+  await page.locator("#money-readiness-source-originality").fill("https://support.google.com/youtube/");
+  await page.locator("#money-readiness-status-originality").selectOption("reviewed");
+  await expect(page.locator(".monetization-readiness-card").filter({ hasText: "Original-content standards" })).toContainText("Reviewed by owner");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export full workspace JSON backup" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-monetization-backup.json");
+  const raw = await readFile(await download.path(), "utf8");
+  const backup = JSON.parse(raw) as {
+    profile: { ageBand: string; guardianInvolved: boolean; brandName: string };
+    metrics: Array<{ valueKind: string }>;
+    partnerships: Array<{ status: string; amountStage: string; amountUsd: number | null }>;
+    affiliates: Array<{ status: string }>;
+  };
+  expect(backup.profile.ageBand).toBe("under18");
+  expect(backup.profile.guardianInvolved).toBe(true);
+  expect(backup.metrics.some((item) => item.valueKind === "actual")).toBe(true);
+  expect(backup.metrics.some((item) => item.valueKind === "estimate")).toBe(true);
+  expect(backup.partnerships.some((item) => item.status === "paid" && item.amountStage === "received" && item.amountUsd === 85)).toBe(true);
+  expect(backup.affiliates.some((item) => item.status === "active")).toBe(true);
+
+  await page.reload();
+  await chooseMenuTool(page, "Monetization Readiness");
+  await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
+  await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
