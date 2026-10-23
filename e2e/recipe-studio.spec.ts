@@ -60,6 +60,10 @@ async function chooseMenuTool(page: import("@playwright/test").Page, label: stri
     await page.getByRole("button", { name: "Growth Lab", exact: true }).click();
     return;
   }
+  if (label === "Editorial Calendar") {
+    await page.getByRole("button", { name: "Editorial Calendar", exact: true }).click();
+    return;
+  }
   if (label === "New recipe") {
     await page.getByRole("button", { name: "Images", exact: true }).click();
     return;
@@ -1459,3 +1463,59 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await expect(page.getByText("Lemon rice Short", { exact: true })).toBeVisible();
 });
 
+
+
+test("V2.4 editorial calendar records original ideas, gates Hold, persists and exports", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Editorial Calendar");
+  await expect(page.getByRole("heading", { name: "Editorial calendar & idea research" })).toBeVisible();
+  await expect(page.locator(".editorial-day-cell")).toHaveCount(42);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+  const tomorrow = await page.evaluate(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    const year = String(date.getFullYear()).padStart(4, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return [year, month, day].join("-");
+  });
+  const title = "Original kitchen texture experiment";
+  await page.locator("#editorial-title").fill(title);
+  await page.locator("#editorial-series").fill("Weeknight meals");
+  await page.locator("#editorial-platform").selectOption("YouTube Shorts");
+  await page.locator("#editorial-date").fill(tomorrow);
+  await page.locator("#editorial-promise").fill("Show a viewer one practical texture cue they can repeat at home.");
+  await page.locator("#editorial-original").fill("Demonstrate the actual dish, explain the texture cue, and record the creator's own cooking trial.");
+  await page.getByRole("button", { name: "Save idea locally" }).click();
+
+  const card = page.locator(".editorial-idea-card").filter({ hasText: title });
+  await expect(card).toBeVisible();
+  await expect(card).toContainText("Hypothesis (not a live trend)");
+  await card.getByLabel("Status").selectOption("hold");
+  await expect(page.getByRole("status")).toContainText("concrete unresolved question or blocker");
+  await expect(card.getByLabel("Status")).toHaveValue("idea");
+
+  await card.getByRole("button", { name: "Edit", exact: true }).click();
+  await page.locator("#editorial-unresolved-questions").fill("Confirm the recipe heat cue and media-rights status before publishing.");
+  await page.getByRole("button", { name: "Save idea changes" }).click();
+  const updatedCard = page.locator(".editorial-idea-card").filter({ hasText: title });
+  await updatedCard.getByLabel("Status").selectOption("hold");
+  await expect(updatedCard).toContainText("Do not publish yet.");
+  await expect(updatedCard).toContainText("Confirm the recipe heat cue and media-rights status before publishing.");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export workspace JSON backup" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-editorial-backup.json");
+  const raw = await readFile(await download.path(), "utf8");
+  const backup = JSON.parse(raw) as { ideas: Array<{ title: string; status: string; unresolvedQuestions: string }> };
+  expect(backup.ideas.some((idea) => idea.title === title && idea.status === "hold" && idea.unresolvedQuestions.includes("heat cue"))).toBe(true);
+
+  await page.reload();
+  await chooseMenuTool(page, "Editorial Calendar");
+  const restored = page.locator(".editorial-idea-card").filter({ hasText: title });
+  await expect(restored).toBeVisible();
+  await expect(restored.getByLabel("Status")).toHaveValue("hold");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
