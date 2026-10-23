@@ -318,6 +318,42 @@ export function validateReadinessCheck(value: unknown): string[] {
   return errors;
 }
 
+export function mergeMonetizationReadinessChecks(
+  existing: MonetizationReadinessCheck[],
+  incoming: MonetizationReadinessCheck[],
+): { checks: MonetizationReadinessCheck[]; restored: number; preserved: number } {
+  const incomingByCategory = new Map(incoming.map((item) => [item.category, item]));
+  const existingCategories = new Set(existing.map((item) => item.category));
+  let restored = 0;
+  let preserved = 0;
+
+  const checks = existing.map((current) => {
+    const imported = incomingByCategory.get(current.category);
+    if (!imported) return current;
+    const currentIsUntouchedDefault =
+      current.status === "not-reviewed" &&
+      current.reviewedDate === "" &&
+      current.sourceUrl.trim() === "" &&
+      current.notes.trim() === "";
+
+    if (currentIsUntouchedDefault) {
+      restored += 1;
+      return imported;
+    }
+    preserved += 1;
+    return current;
+  });
+
+  for (const imported of incoming) {
+    if (!existingCategories.has(imported.category)) {
+      checks.push(imported);
+      restored += 1;
+    }
+  }
+
+  return { checks, restored, preserved };
+}
+
 export function isMetricSnapshot(value: unknown): value is CreatorMetricSnapshot {
   return validateCreatorMetricSnapshot(value).length === 0;
 }
