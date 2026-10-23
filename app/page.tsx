@@ -1026,7 +1026,7 @@ export default function Home() {
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" :
-      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : "social-connections";
+      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
