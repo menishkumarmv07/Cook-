@@ -166,7 +166,7 @@ test("affiliate activation requires a safe URL, reviewed disclosure and rights; 
 
 test("readiness marked Reviewed needs a source, date and notes; a checklist never silently claims certification", () => {
   const emptyReview = { ...DEFAULT_READINESS_CHECKS[0], status: "reviewed" as const };
-  assert.ok(validateReadinessCheck(emptyReview).some((error) => /source URL and notes/.test(error)));
+  assert.ok(validateReadinessCheck(emptyReview).some((error) => /safe public source URL and notes/.test(error)));
   const reviewed = {
     ...emptyReview,
     reviewedDate: yesterday,
