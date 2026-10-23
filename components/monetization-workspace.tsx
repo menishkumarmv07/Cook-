@@ -317,7 +317,9 @@ export default function MonetizationWorkspace() {
     try {
       const parsed = parseMonetizationBackupJSON(await file.text());
       if (!parsed) return setMessage("This is not a valid monetization workspace backup. No current records were changed.");
-      const nextProfile = profile.brandName.trim() || profile.bio.trim() ? profile : parsed.profile;
+      // Preserve any locally customized profile, including the age/guardian settings even when the creator has not filled in a brand name or bio.
+      const profileCustomized = JSON.stringify(profile) !== JSON.stringify(DEFAULT_MEDIA_KIT_PROFILE);
+      const nextProfile = profileCustomized ? profile : parsed.profile;
       const incomingPartnershipErrors = parsed.partnerships.filter((item) => validatePartnership(item, nextProfile).length > 0);
       if (incomingPartnershipErrors.length) return setMessage("This backup contains partnerships that fail the current age/payment/contract gates. No records were imported; review eligibility and guardian settings with a responsible adult before restoring.");
       const metricResult = mergeMonetizationRows(metrics, parsed.metrics, metricFingerprint);
