@@ -188,6 +188,11 @@ export default function MonetizationWorkspace() {
       setMessage("That age/guardian profile change would invalidate an existing advanced partnership. Keep the record safe and update its contract/guardian review first; do not bypass a platform age or payment rule.");
       return;
     }
+    const incompatibleAffiliate = affiliates.find((item) => validateAffiliateRecord(item, candidate).length > 0);
+    if (incompatibleAffiliate) {
+      setMessage("That age/guardian profile change would invalidate an active affiliate relationship. Update guardian/eligibility review first; do not bypass platform rules.");
+      return;
+    }
     setProfile(candidate);
   }
 
@@ -260,7 +265,7 @@ export default function MonetizationWorkspace() {
     if (storageBlocked) return setMessage("Saved data is protected while storage is invalid. Import a known-good backup or explicitly replace the saved copy first.");
     const value = affiliateDraft.commissionUsd.trim() === "" ? null : Number(affiliateDraft.commissionUsd);
     const candidate: AffiliateRecord = { ...affiliateDraft, id: editingAffiliateId ?? newId("affiliate"), commissionUsd: value };
-    const errors = validateAffiliateRecord(candidate);
+    const errors = validateAffiliateRecord(candidate, profile);
     if (errors.length) return setMessage(errors.join(" "));
     if (editingAffiliateId) {
       setAffiliates((current) => current.map((item) => item.id === editingAffiliateId ? candidate : item));
@@ -321,7 +326,8 @@ export default function MonetizationWorkspace() {
       const profileCustomized = JSON.stringify(profile) !== JSON.stringify(DEFAULT_MEDIA_KIT_PROFILE);
       const nextProfile = profileCustomized ? profile : parsed.profile;
       const incomingPartnershipErrors = parsed.partnerships.filter((item) => validatePartnership(item, nextProfile).length > 0);
-      if (incomingPartnershipErrors.length) return setMessage("This backup contains partnerships that fail the current age/payment/contract gates. No records were imported; review eligibility and guardian settings with a responsible adult before restoring.");
+      const incomingAffiliateErrors = parsed.affiliates.filter((item) => validateAffiliateRecord(item, nextProfile).length > 0);
+      if (incomingPartnershipErrors.length || incomingAffiliateErrors.length) return setMessage("This backup contains paid partnership or affiliate records that fail the current age/payment/guardian gates. No records were imported; review eligibility and guardian settings with a responsible adult before restoring.");
       const metricResult = mergeMonetizationRows(metrics, parsed.metrics, metricFingerprint);
       const partnershipResult = mergeMonetizationRows(partnerships, parsed.partnerships, partnershipFingerprint);
       const affiliateResult = mergeMonetizationRows(affiliates, parsed.affiliates, affiliateFingerprint);
