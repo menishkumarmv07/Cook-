@@ -260,7 +260,7 @@ export function validatePartnership(value: unknown, profile: CreatorMediaKitProf
   return errors;
 }
 
-export function validateAffiliateRecord(value: unknown): string[] {
+export function validateAffiliateRecord(value: unknown, profile: CreatorMediaKitProfile): string[] {
   if (!isObject(value)) return ["Affiliate record must be an object."];
   const errors: string[] = [];
   if (!boundedText(value.id, 160, true)) errors.push("Affiliate ID is required.");
@@ -277,6 +277,8 @@ export function validateAffiliateRecord(value: unknown): string[] {
   if (!boundedText(value.commissionEvidenceNote, 1_000, false)) errors.push("Commission evidence note must be 1,000 characters or fewer.");
   if (!boundedText(value.notes, MAX_TEXT, false)) errors.push("Affiliate notes must be 2,000 characters or fewer.");
   if (value.status === "active") {
+    if (profile.ageBand === "not-set") errors.push("Record the creator age band in the profile before activating an affiliate relationship. The app will not infer eligibility.");
+    if (profile.ageBand === "under18" && !profile.guardianInvolved) errors.push("A parent/legal guardian must be involved in affiliate agreements and payment review for a creator under 18. Do not bypass platform age rules.");
     if (!isHttpSourceUrl(value.destinationUrl)) errors.push("Active affiliate links need a safe public HTTP(S) destination.");
     if (!boundedText(value.disclosureText, 1_000, true) || !value.disclosureReviewed) errors.push("Active affiliate links need clear disclosure text that the owner has reviewed.");
     if (!value.rightsReviewed) errors.push("Review relevant product/media rights before activating an affiliate link.");
@@ -314,8 +316,8 @@ export function isMetricSnapshot(value: unknown): value is CreatorMetricSnapshot
 export function isPartnership(value: unknown, profile: CreatorMediaKitProfile): value is CreatorPartnership {
   return validatePartnership(value, profile).length === 0;
 }
-export function isAffiliateRecord(value: unknown): value is AffiliateRecord {
-  return validateAffiliateRecord(value).length === 0;
+export function isAffiliateRecord(value: unknown, profile: CreatorMediaKitProfile): value is AffiliateRecord {
+  return validateAffiliateRecord(value, profile).length === 0;
 }
 
 export function actualReceivedPartnershipUsd(partnerships: CreatorPartnership[]): number {
@@ -351,7 +353,7 @@ export function createMonetizationBackupJSON(
   const validProfile = validateMediaKitProfile(profile, false).length === 0 ? profile : DEFAULT_MEDIA_KIT_PROFILE;
   const validMetrics = metrics.filter(isMetricSnapshot);
   const validPartnerships = partnerships.filter((item) => isPartnership(item, validProfile));
-  const validAffiliates = affiliates.filter(isAffiliateRecord);
+  const validAffiliates = affiliates.filter((item) => isAffiliateRecord(item, validProfile));
   const validChecks = readinessChecks.filter((item) => validateReadinessCheck(item).length === 0);
   return JSON.stringify({
     format: "cooking-creator-monetization-workspace",
@@ -383,7 +385,7 @@ export function parseMonetizationBackupJSON(raw: string): MonetizationWorkspaceB
   const readinessChecks = parsed.readinessChecks as unknown[];
   if (metrics.some((item) => !isMetricSnapshot(item)) ||
       partnerships.some((item) => !isPartnership(item, profile)) ||
-      affiliates.some((item) => !isAffiliateRecord(item)) ||
+      affiliates.some((item) => !isAffiliateRecord(item, profile)) ||
       readinessChecks.some((item) => validateReadinessCheck(item).length > 0)) return null;
   if (new Set(metrics.map((item) => (item as CreatorMetricSnapshot).id)).size !== metrics.length) return null;
   if (new Set(partnerships.map((item) => (item as CreatorPartnership).id)).size !== partnerships.length) return null;
