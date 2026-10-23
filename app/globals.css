@@ -1643,3 +1643,38 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
   .shell .editorial-meta-grid { grid-template-columns: 1fr; }
   .shell .editorial-filter-label { width: 100%; }
 }
+
+
+/* Editorial month grid */
+.shell .editorial-calendar-month { margin: 18px 0; padding: 13px; border: 1px solid var(--chat-line); border-radius: 12px; background: var(--chat-paper); }
+.shell .editorial-month-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.shell .editorial-month-heading h4 { margin: 0 0 4px; font-size: 15px; color: var(--chat-terracotta-deep); }
+.shell .editorial-month-heading .hint { margin: 0; font-size: 11px; }
+.shell .editorial-month-controls { display: flex; gap: 7px; flex: 0 0 auto; }
+.shell .editorial-month-controls button { min-width: 40px; min-height: 38px; padding: 7px 10px; }
+.shell .editorial-weekdays,.shell .editorial-calendar-grid { display: grid; grid-template-columns: repeat(7,minmax(0,1fr)); gap: 5px; }
+.shell .editorial-weekdays { margin-bottom: 5px; }
+.shell .editorial-weekdays span { padding: 7px 2px; text-align: center; color: var(--chat-muted); font-size: 10px; font-weight: 750; }
+.shell .editorial-day-cell { display: flex; flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; min-height: 84px; padding: 6px; border: 1px solid var(--chat-line); border-radius: 8px; background: var(--chat-card); color: var(--chat-ink); text-align: left; cursor: pointer; overflow: hidden; }
+.shell .editorial-day-cell:hover,.shell .editorial-day-cell:focus-visible { border-color: var(--chat-terracotta); background: var(--chat-soft); }
+.shell .editorial-day-cell.is-outside-month { opacity: .56; background: transparent; }
+.shell .editorial-day-cell.has-ideas { border-color: #d7a68e; }
+.shell .editorial-day-number { align-self: flex-start; display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 7px; font-size: 11px; font-weight: 750; }
+.shell .editorial-day-entry { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 3px 4px; border-radius: 4px; background: var(--chat-soft); color: var(--chat-terracotta-deep); font-size: 9px; line-height: 1.35; }
+.shell .editorial-day-more { color: var(--chat-muted); font-size: 9px; line-height: 1.3; }
+.shell .editorial-day-cell:focus-visible { outline: 3px solid var(--chat-terracotta); outline-offset: 2px; }
+.shell[data-theme="dark"] .editorial-day-cell { background: var(--chat-card); }
+@media(max-width:700px) {
+  .shell .editorial-calendar-month { padding: 8px; }
+  .shell .editorial-weekdays,.shell .editorial-calendar-grid { gap: 3px; }
+  .shell .editorial-weekdays span { font-size: 9px; padding: 6px 0; }
+  .shell .editorial-day-cell { min-height: 61px; padding: 3px; border-radius: 6px; gap: 3px; }
+  .shell .editorial-day-number { min-width: 19px; height: 19px; font-size: 10px; }
+  .shell .editorial-day-entry { padding: 2px; font-size: 8px; }
+  .shell .editorial-day-more { font-size: 8px; }
+}
+@media(max-width:380px) {
+  .shell .editorial-day-cell { min-height: 52px; padding: 2px; }
+  .shell .editorial-day-entry { display: none; }
+  .shell .editorial-day-cell.has-ideas .editorial-day-number::after { content: "•"; display: block; line-height: 6px; color: var(--chat-terracotta); }
+}
