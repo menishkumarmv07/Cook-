@@ -206,6 +206,9 @@ export default function MonetizationWorkspace() {
     const errors = validateCreatorMetricSnapshot(candidate);
     if (errors.length) return setMessage(errors.join(" "));
     if (editingMetricId) {
+      if (metrics.some((item) => item.id !== editingMetricId && metricFingerprint(item) === metricFingerprint(candidate))) {
+        return setMessage("This identical platform/metric/date/value snapshot already exists. Nothing was changed.");
+      }
       setMetrics((current) => current.map((item) => item.id === editingMetricId ? candidate : item));
       setMessage("Metric snapshot updated. Actual and estimated values remain separate.");
     } else {
@@ -233,6 +236,9 @@ export default function MonetizationWorkspace() {
     const errors = validatePartnership(candidate, profile);
     if (errors.length) return setMessage(errors.join(" "));
     if (editingPartnershipId) {
+      if (partnerships.some((item) => item.id !== editingPartnershipId && partnershipFingerprint(item) === partnershipFingerprint(candidate))) {
+        return setMessage("A matching brand/campaign/deliverable/platform record already exists. Nothing was changed.");
+      }
       setPartnerships((current) => current.map((item) => item.id === editingPartnershipId ? candidate : item));
       setMessage("Partnership record updated locally.");
     } else {
@@ -268,6 +274,9 @@ export default function MonetizationWorkspace() {
     const errors = validateAffiliateRecord(candidate, profile);
     if (errors.length) return setMessage(errors.join(" "));
     if (editingAffiliateId) {
+      if (affiliates.some((item) => item.id !== editingAffiliateId && affiliateFingerprint(item) === affiliateFingerprint(candidate))) {
+        return setMessage("A matching merchant/product/destination record already exists. Nothing was changed.");
+      }
       setAffiliates((current) => current.map((item) => item.id === editingAffiliateId ? candidate : item));
       setMessage("Affiliate record updated locally.");
     } else {
