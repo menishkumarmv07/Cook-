@@ -75,6 +75,7 @@ export type AffiliateRecord = {
   disclosureText: string;
   disclosureReviewed: boolean;
   rightsReviewed: boolean;
+  ageEligibilityReviewed: boolean;
   commissionUsd: number | null;
   commissionKind: CommissionKind;
   commissionAsOfDate: string;
@@ -269,7 +270,7 @@ export function validateAffiliateRecord(value: unknown, profile: CreatorMediaKit
   optionalSafeUrl(value.destinationUrl, "Affiliate destination", errors);
   if (!enumValue(value.status, AFFILIATE_STATUSES)) errors.push("Choose a supported affiliate status.");
   if (!boundedText(value.disclosureText, 1_000, false)) errors.push("Disclosure text must be 1,000 characters or fewer.");
-  if (typeof value.disclosureReviewed !== "boolean" || typeof value.rightsReviewed !== "boolean") errors.push("Affiliate review flags are malformed.");
+  if (typeof value.disclosureReviewed !== "boolean" || typeof value.rightsReviewed !== "boolean" || typeof value.ageEligibilityReviewed !== "boolean") errors.push("Affiliate review flags are malformed.");
   if (!validUsd(value.commissionUsd)) errors.push("Commission must be blank or a non-negative valid USD amount.");
   if (!enumValue(value.commissionKind, COMMISSION_KINDS)) errors.push("Choose estimate, received or no commission record.");
   if (typeof value.commissionAsOfDate !== "string" || (value.commissionAsOfDate !== "" && !isValidDateOnly(value.commissionAsOfDate))) errors.push("Commission date must be blank or a real YYYY-MM-DD date.");
@@ -277,6 +278,7 @@ export function validateAffiliateRecord(value: unknown, profile: CreatorMediaKit
   if (!boundedText(value.commissionEvidenceNote, 1_000, false)) errors.push("Commission evidence note must be 1,000 characters or fewer.");
   if (!boundedText(value.notes, MAX_TEXT, false)) errors.push("Affiliate notes must be 2,000 characters or fewer.");
   if (value.status === "active") {
+    if (!value.ageEligibilityReviewed) errors.push("Check current platform age, eligibility and payment rules before activating an affiliate relationship.");
     if (profile.ageBand === "not-set") errors.push("Record the creator age band in the profile before activating an affiliate relationship. The app will not infer eligibility.");
     if (profile.ageBand === "under18" && !profile.guardianInvolved) errors.push("A parent/legal guardian must be involved in affiliate agreements and payment review for a creator under 18. Do not bypass platform age rules.");
     if (!isHttpSourceUrl(value.destinationUrl)) errors.push("Active affiliate links need a safe public HTTP(S) destination.");
