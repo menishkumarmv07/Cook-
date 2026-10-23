@@ -70,11 +70,11 @@ test("dated observations need a safe source, actual observation date, and what w
 
   const complete = idea({
     evidenceKind: "dated-observation",
-    sourceUrl: "https://food.example.com/story",
+    sourceUrl: "https://recipes.example/story",
     observedDate: "2026-10-20",
     observationNotes: "The page dated October 20 mentions a seasonal ingredient; this is one source, not proof of broad trend demand.",
   });
-  // The reserved example domain is deliberately rejected by the shared source validator.
+  // The reserved .example domain is deliberately rejected by the shared source validator.
   assert.ok(validateEditorialIdea(complete).some((message) => /safe public HTTP\(S\) source URL/.test(message)));
 
   const publicSource = idea({
