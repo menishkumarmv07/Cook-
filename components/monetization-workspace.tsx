@@ -19,7 +19,6 @@ import {
   affiliateFingerprint,
   MONETIZATION_PLATFORMS,
   parseMonetizationBackupJSON,
-  READINESS_CATEGORIES,
   READINESS_LABELS,
   serializeAffiliatesCsv,
   serializePartnershipsCsv,
@@ -365,7 +364,6 @@ export default function MonetizationWorkspace() {
 
   const actualMetrics = metrics.filter((item) => item.valueKind === "actual");
   const estimatedMetrics = metrics.filter((item) => item.valueKind === "estimate");
-  const advancedPartnerships = partnerships.filter((item) => ["contracted", "delivered", "paid"].includes(item.status));
   const navItems: Array<{ value: typeof activeSection; label: string }> = [
     { value: "overview", label: "Overview" },
     { value: "media-kit", label: "Media kit & metrics" },
@@ -412,7 +410,7 @@ export default function MonetizationWorkspace() {
             <p className="monetization-alert"><strong>Under 18:</strong> involve a parent or legal guardian in contracts, payment setup and applicable tax matters. Platform age, identity and payout requirements must be followed; do not try to bypass them.</p>
           ) : profile.ageBand === "not-set" ? (
             <p className="monetization-alert">Age/payment setting is not recorded. Check official eligibility requirements before advancing a paid partnership.</p>
-          ) : <p className="monetization-safe-note">Adult eligibility is self-recorded, not verified by this app. Re-check each platform's current rules before using paid features.</p>}
+          ) : <p className="monetization-safe-note">Adult eligibility is self-recorded, not verified by this app. Re-check each platform&apos;s current rules before using paid features.</p>}
           <div className="monetization-overview-links"><button className="secondary" type="button" onClick={() => setActiveSection("media-kit")}>Prepare media kit</button><button className="secondary" type="button" onClick={() => setActiveSection("partnerships")}>Track a partnership</button><button className="secondary" type="button" onClick={() => setActiveSection("affiliates")}>Review affiliate disclosures</button><button className="secondary" type="button" onClick={() => setActiveSection("readiness")}>Review readiness checklist</button></div>
         </div>
       </>}
@@ -462,7 +460,7 @@ export default function MonetizationWorkspace() {
       {activeSection === "partnerships" && <>
         <div className="monetization-subpanel">
           <h3>{editingPartnershipId ? "Edit partnership" : "Track a brand partnership"}</h3>
-          <p className="muted">Offers and contracts are not received income. Mark Paid only after a real payment is recorded. If under 18, involve a parent/legal guardian; don't bypass platform rules.</p>
+          <p className="muted">Offers and contracts are not received income. Mark Paid only after a real payment is recorded. If under 18, involve a parent/legal guardian; don&apos;t bypass platform rules.</p>
           <form className="monetization-form-grid" onSubmit={savePartnership}>
             <div><label htmlFor="money-partner-brand">Brand / partner</label><input id="money-partner-brand" value={partnershipDraft.brandName} onChange={(event) => setPartnershipDraft({ ...partnershipDraft, brandName: event.target.value })} required maxLength={180} /></div>
             <div><label htmlFor="money-partner-campaign">Campaign / product</label><input id="money-partner-campaign" value={partnershipDraft.campaign} onChange={(event) => setPartnershipDraft({ ...partnershipDraft, campaign: event.target.value })} required maxLength={240} /></div>
