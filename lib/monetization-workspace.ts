@@ -176,7 +176,7 @@ function optionalSafeUrl(value: unknown, label: string, errors: string[]): void 
   }
 }
 
-export function validateMediaKitProfile(value: unknown): string[] {
+export function validateMediaKitProfile(value: unknown, strictPublicUrl = true): string[] {
   if (!isObject(value)) return ["Media-kit profile must be an object."];
   const errors: string[] = [];
   if (!boundedText(value.brandName, 180, false)) errors.push("Brand name must be 180 characters or fewer.");
@@ -184,7 +184,8 @@ export function validateMediaKitProfile(value: unknown): string[] {
   if (!boundedText(value.cuisineFocus, 300, false)) errors.push("Cuisine focus must be 300 characters or fewer.");
   if (!boundedText(value.targetAudience, 500, false)) errors.push("Target audience must be 500 characters or fewer.");
   if (!boundedText(value.contentFormats, 300, false)) errors.push("Content formats must be 300 characters or fewer.");
-  optionalSafeUrl(value.publicWebsiteUrl, "Public website", errors);
+  if (strictPublicUrl) optionalSafeUrl(value.publicWebsiteUrl, "Public website", errors);
+  else if (!boundedText(value.publicWebsiteUrl, 2_000, false)) errors.push("Public website URL must be 2,000 characters or fewer.");
   if (!enumValue(value.ageBand, AGE_BANDS)) errors.push("Choose an age/payment eligibility setting.");
   if (typeof value.guardianInvolved !== "boolean") errors.push("Guardian-involvement setting is invalid.");
   return errors;
@@ -297,7 +298,8 @@ export function validateReadinessCheck(value: unknown): string[] {
   if (!enumValue(value.status, READINESS_STATUSES)) errors.push("Choose a supported review status.");
   if (typeof value.reviewedDate !== "string" || (value.reviewedDate !== "" && !isValidDateOnly(value.reviewedDate))) errors.push("Review date must be blank or a real YYYY-MM-DD date.");
   if (typeof value.reviewedDate === "string" && value.reviewedDate && isValidDateOnly(value.reviewedDate) && value.reviewedDate > getLocalDateOnly()) errors.push("Review date cannot be in the future.");
-  optionalSafeUrl(value.sourceUrl, "Readiness evidence URL", errors);
+  if (value.status === "reviewed") optionalSafeUrl(value.sourceUrl, "Readiness evidence URL", errors);
+  else if (!boundedText(value.sourceUrl, 2_000, false)) errors.push("Readiness evidence URL must be 2,000 characters or fewer.");
   if (!boundedText(value.notes, 1_000, false)) errors.push("Review notes must be 1,000 characters or fewer.");
   if (value.status === "reviewed" && (!isValidDateOnly(String(value.reviewedDate)) || String(value.reviewedDate) > getLocalDateOnly() || !isHttpSourceUrl(value.sourceUrl) || !boundedText(value.notes, 1_000, true))) {
     errors.push("A reviewed readiness item needs a real past/today review date, a safe public source URL and notes about what you checked.");
@@ -321,11 +323,11 @@ export function actualReceivedPartnershipUsd(partnerships: CreatorPartnership[])
     .reduce((sum, record) => sum + (record.amountUsd ?? 0), 0));
 }
 export function contractedPartnershipUsd(partnerships: CreatorPartnership[]): number {
-  return roundUsd(partnerships.filter((record) => record.status === "contracted" && record.amountStage === "contracted" && typeof record.amountUsd === "number")
+  return roundUsd(partnerships.filter((record) => (record.status === "contracted" || record.status === "delivered") && record.amountStage === "contracted" && typeof record.amountUsd === "number")
     .reduce((sum, record) => sum + (record.amountUsd ?? 0), 0));
 }
 export function estimatedPartnerUsd(partnerships: CreatorPartnership[]): number {
-  return roundUsd(partnerships.filter((record) => record.amountStage === "estimate" || record.amountStage === "offered")
+  return roundUsd(partnerships.filter((record) => (record.status === "lead" || record.status === "negotiating") && (record.amountStage === "estimate" || record.amountStage === "offered"))
     .reduce((sum, record) => sum + (record.amountUsd ?? 0), 0));
 }
 export function actualReceivedAffiliateUsd(affiliates: AffiliateRecord[]): number {
@@ -346,7 +348,7 @@ export function createMonetizationBackupJSON(
   readinessChecks: MonetizationReadinessCheck[],
   exportedAt = new Date().toISOString(),
 ): string {
-  const validProfile = validateMediaKitProfile(profile).length === 0 ? profile : DEFAULT_MEDIA_KIT_PROFILE;
+  const validProfile = validateMediaKitProfile(profile, false).length === 0 ? profile : DEFAULT_MEDIA_KIT_PROFILE;
   const validMetrics = metrics.filter(isMetricSnapshot);
   const validPartnerships = partnerships.filter((item) => isPartnership(item, validProfile));
   const validAffiliates = affiliates.filter(isAffiliateRecord);
@@ -374,7 +376,7 @@ export function parseMonetizationBackupJSON(raw: string): MonetizationWorkspaceB
       parsed.metrics.length > MAX_ROWS || parsed.partnerships.length > MAX_ROWS ||
       parsed.affiliates.length > MAX_ROWS || parsed.readinessChecks.length > READINESS_CATEGORIES.length) return null;
   const profile = parsed.profile as unknown as CreatorMediaKitProfile;
-  if (validateMediaKitProfile(profile).length) return null;
+  if (validateMediaKitProfile(profile, false).length) return null;
   const metrics = parsed.metrics as unknown[];
   const partnerships = parsed.partnerships as unknown[];
   const affiliates = parsed.affiliates as unknown[];
