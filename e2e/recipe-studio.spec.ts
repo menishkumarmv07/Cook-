@@ -1531,7 +1531,7 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 
-  await page.getByRole("button", { name: "Media kit & metrics" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Media kit & metrics" }).click();
   await page.locator("#money-brand-name").fill("Weeknight Kitchen Lab");
   await page.locator("#money-bio").fill("Original cooking demonstrations and practical home-kitchen tests.");
   await page.locator("#money-cuisine").fill("Global home cooking");
@@ -1558,7 +1558,7 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect(page.locator(".monetization-preview pre")).toContainText("Planning estimate, not actual platform performance.");
 
   await page.locator("#money-age-band").selectOption("under18");
-  await page.getByRole("button", { name: "Partnerships" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Partnerships" }).click();
   await page.locator("#money-partner-brand").fill("Test Kitchen Brand");
   await page.locator("#money-partner-campaign").fill("Original skillet recipe");
   await page.locator("#money-partner-deliverable").fill("One original short recipe demonstration.");
@@ -1573,9 +1573,9 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect(page.getByRole("status")).toContainText("parent/legal guardian");
   await expect(page.locator(".monetization-record-card").filter({ hasText: "Test Kitchen Brand" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Media kit & metrics" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Media kit & metrics" }).click();
   await page.getByRole("checkbox", { name: /Parent\/legal guardian is or will be involved/ }).check();
-  await page.getByRole("button", { name: "Partnerships" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Partnerships" }).click();
   await page.getByRole("button", { name: "Add partnership" }).click();
   const partnerCard = page.locator(".monetization-record-card").filter({ hasText: "Test Kitchen Brand" });
   await expect(partnerCard).toContainText("Contracted");
@@ -1586,11 +1586,11 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await page.locator("#money-partner-payment-date").fill("2026-10-22");
   await page.locator("#money-partner-payment-note").fill("Owner matched the payment to the actual account statement.");
   await page.getByRole("button", { name: "Update partnership" }).click();
-  await page.getByRole("button", { name: "Overview" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Overview" }).click();
   await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
   await expect(page.locator(".monetization-summary-grid")).toContainText("Actual partnership receipts");
 
-  await page.getByRole("button", { name: "Affiliate links" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Affiliate links" }).click();
   await page.locator("#money-affiliate-program").fill("Kitchen tools affiliate program");
   await page.locator("#money-affiliate-product").fill("Pan used in recipe demonstration");
   await page.locator("#money-affiliate-url").fill("https://recipes.com/products/pan");
@@ -1601,7 +1601,7 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await page.getByRole("button", { name: "Add affiliate record" }).click();
   await expect(page.locator(".monetization-record-card").filter({ hasText: "Kitchen tools affiliate program" })).toContainText("Active");
 
-  await page.getByRole("button", { name: "Readiness checklist" }).click();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Readiness checklist" }).click();
   await page.locator("#money-readiness-notes-originality").fill("Review the official originality requirements and record an actual original contribution.");
   await page.locator("#money-readiness-status-originality").selectOption("needs-action");
   await page.locator("#money-readiness-date-originality").fill("2026-10-22");
