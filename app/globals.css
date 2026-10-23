@@ -1678,3 +1678,84 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
   .shell .editorial-day-entry { display: none; }
   .shell .editorial-day-cell.has-ideas .editorial-day-number::after { content: "•"; display: block; line-height: 6px; color: var(--chat-terracotta); }
 }
+
+
+/* V2.5 monetization workspace — truthful USD reporting, disclosure gates and local-only records. */
+.shell .monetization-workspace {
+  width: min(100%, 900px);
+  max-width: 900px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: clamp(14px, 3vw, 24px);
+  border: 1px solid var(--chat-line);
+  border-radius: 16px;
+  background: var(--chat-card);
+  box-shadow: 0 8px 24px rgba(83,45,28,.06);
+  overflow-wrap: anywhere;
+}
+.shell .monetization-heading { margin-top: 0; align-items: flex-start; }
+.shell .monetization-heading h2 { color: var(--chat-terracotta-deep); margin: 0 0 8px; }
+.shell .monetization-heading p:not(.eyebrow) { max-width: 610px; line-height: 1.7; }
+.shell .monetization-notice,.shell .monetization-safe-note { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--chat-line); border-radius: 10px; background: var(--chat-soft); color: var(--chat-muted); font-size: 12px; line-height: 1.65; }
+.shell .monetization-notice strong { color: var(--chat-terracotta-deep); }
+.shell .monetization-subnav { display: flex; gap: 7px; flex-wrap: wrap; margin: 16px 0; padding-bottom: 12px; border-bottom: 1px solid var(--chat-line); }
+.shell .monetization-subnav button { min-height: 38px; border: 1px solid var(--chat-line); border-radius: 9px; padding: 8px 12px; background: var(--chat-paper); color: var(--chat-ink); font: inherit; font-size: 11px; cursor: pointer; }
+.shell .monetization-subnav button.is-active { border-color: var(--chat-terracotta); background: var(--chat-terracotta); color: #fff; }
+.shell .monetization-summary-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin: 16px 0; }
+.shell .monetization-summary-grid article { min-width: 0; border: 1px solid var(--chat-line); border-radius: 12px; background: var(--chat-paper); padding: 14px; display: grid; gap: 7px; }
+.shell .monetization-summary-grid small { color: var(--chat-muted); font-size: 11px; line-height: 1.45; }
+.shell .monetization-summary-grid strong { color: var(--chat-terracotta-deep); font-size: clamp(18px,3vw,24px); overflow-wrap: anywhere; }
+.shell .monetization-summary-grid p { margin: 0; color: var(--chat-muted); font-size: 11px; line-height: 1.5; }
+.shell .monetization-subpanel { min-width: 0; margin: 16px 0; padding: clamp(12px,2.5vw,18px); border: 1px solid var(--chat-line); border-radius: 13px; background: var(--chat-card); }
+.shell .monetization-subpanel h3 { margin-top: 0; }
+.shell .monetization-form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; min-width: 0; }
+.shell .monetization-form-grid>div { min-width: 0; }
+.shell .monetization-form-grid label,.shell .monetization-readiness-card>label { display: block; margin: 7px 0; color: var(--chat-ink); font-size: 12px; }
+.shell .monetization-form-grid input,.shell .monetization-form-grid textarea,.shell .monetization-form-grid select,
+.shell .monetization-readiness-card input,.shell .monetization-readiness-card textarea,.shell .monetization-readiness-card select {
+  display: block; box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid var(--chat-line); border-radius: 9px; padding: 10px 11px; background: var(--chat-paper); color: var(--chat-ink); font: inherit; font-size: 12px;
+}
+.shell .monetization-wide { grid-column: 1 / -1; min-width: 0; }
+.shell .monetization-checkbox { display: flex !important; align-items: flex-start; gap: 9px; min-width: 0; margin: 9px 0 !important; padding: 10px; border: 1px solid var(--chat-line); border-radius: 9px; background: var(--chat-paper); font-size: 12px !important; line-height: 1.55; }
+.shell .monetization-checkbox input { display: inline-block !important; flex: 0 0 17px; width: 17px !important; min-height: 17px; margin-top: 2px; accent-color: var(--chat-terracotta); }
+.shell .monetization-fieldset { min-width: 0; grid-column: 1 / -1; padding: 12px; border: 1px solid var(--chat-line); border-radius: 11px; }
+.shell .monetization-fieldset legend { padding: 0 5px; color: var(--chat-terracotta-deep); font-weight: 750; font-size: 12px; }
+.shell .monetization-fieldset .monetization-checkbox { margin: 7px 0 !important; }
+.shell .monetization-overview-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.shell .monetization-overview-links button { min-height: 40px; }
+.shell .monetization-metric-summary { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; color: var(--chat-muted); font-size: 11px; }
+.shell .monetization-metric-summary span { padding: 8px 10px; border-radius: 7px; background: var(--chat-soft); }
+.shell .monetization-metric-summary strong { color: var(--chat-terracotta-deep); }
+.shell .monetization-record-list,.shell .monetization-readiness-list { display: grid; gap: 11px; }
+.shell .monetization-record-card,.shell .monetization-readiness-card { min-width: 0; border: 1px solid var(--chat-line); border-radius: 12px; padding: 13px; background: var(--chat-paper); }
+.shell .monetization-record-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 9px; }
+.shell .monetization-record-heading h4 { margin: 0 0 7px; font-size: 13px; overflow-wrap: anywhere; }
+.shell .monetization-record-card p,.shell .monetization-readiness-card p { font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; white-space: pre-wrap; }
+.shell .monetization-record-card a { color: var(--chat-terracotta-deep); }
+.shell .monetization-pill { display: inline-block; flex: 0 0 auto; max-width: 48%; padding: 5px 8px; border: 1px solid #96b39b; border-radius: 7px; background: #e5f1e7; color: #245438; font-size: 10px; line-height: 1.35; overflow-wrap: anywhere; }
+.shell .monetization-pill.is-estimate { border-color: var(--chat-line); background: var(--chat-soft); color: var(--chat-muted); }
+.shell .monetization-pill.is-warning { border-color: #dfab9c; background: #f9e1d8; color: #80321f; }
+.shell .monetization-preview { margin-top: 14px; padding: 14px; border: 1px solid var(--chat-line); border-radius: 12px; background: var(--chat-paper); min-width: 0; }
+.shell .monetization-preview pre { max-width: 100%; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--chat-ink); font-size: 11px; line-height: 1.65; }
+.shell .monetization-preview button { min-height: 40px; }
+.shell .monetization-alert { margin: 12px 0; padding: 12px; border: 1px solid #dfab9c; border-radius: 10px; background: #f9e1d8; color: #713b2a; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.shell .monetization-alert p { margin-top: 0; }
+.shell .monetization-export-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+.shell .monetization-export-bar button { min-height: 40px; }
+.shell .monetization-export-bar label { display: grid; gap: 5px; flex: 1 1 180px; color: var(--chat-muted); font-size: 11px; min-width: 0; }
+.shell .monetization-export-bar input { width: 100%; min-width: 0; font-size: 11px; }
+.shell .monetization-message { padding: 11px 13px; border: 1px solid var(--chat-line); border-radius: 9px; background: var(--chat-soft); color: var(--chat-terracotta-deep); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.shell .monetization-privacy-note { display: block; font-size: 11px; line-height: 1.7; margin: 14px 0 0; }
+.shell[data-theme="dark"] .monetization-pill { background: #203f2e; color: #d2eed6; border-color: #557f60; }
+.shell[data-theme="dark"] .monetization-pill.is-warning,.shell[data-theme="dark"] .monetization-alert { background: #44251f; color: #ffd8cb; border-color: #805043; }
+.shell[data-active-tool="monetization"] .content > #monetization-workspace { display: block !important; }
+.shell[data-active-tool="monetization"] .content > :not(.chat-transcript):not(footer):not(#monetization-workspace) { display: none !important; }
+@media(max-width:700px) {
+  .shell .monetization-workspace { padding: 13px; }
+  .shell .monetization-summary-grid,.shell .monetization-form-grid { grid-template-columns: 1fr; }
+  .shell .monetization-wide,.shell .monetization-fieldset { grid-column: auto; }
+  .shell .monetization-subnav { gap: 5px; }
+  .shell .monetization-subnav button { flex: 1 1 auto; padding: 8px 10px; }
+  .shell .monetization-record-heading { flex-direction: column; }
+  .shell .monetization-pill { max-width: 100%; }
+}
