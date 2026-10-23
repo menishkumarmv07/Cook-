@@ -135,7 +135,7 @@ test("contract progression requires rights, written terms, disclosure and explic
 });
 
 test("cash partnerships count as received income only after a recorded payment", () => {
-  const invalidPaid = partnership({ status: "paid", amountUsd: 400, amountStage: "contracted", review: allReviewed, paymentDate: today, paymentEvidenceNote: "Invoice sent" });
+  const invalidPaid = partnership({ status: "paid", amountUsd: 400, amountStage: "contracted", review: allReviewed, paymentDate: today, paymentEvidenceNote: "" });
   assert.ok(validatePartnership(invalidPaid, safeProfile()).some((error) => /actually received in USD/.test(error)));
   assert.ok(validatePartnership(invalidPaid, safeProfile()).some((error) => /real payment reference/.test(error)));
 
