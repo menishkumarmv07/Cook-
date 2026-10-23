@@ -185,6 +185,7 @@ test("media-kit markdown separates actual values and estimates without revenue p
   ], "2026-10-23T12:00:00.000Z");
   assert.match(markdown, /Owner-entered actual platform-reported values/);
   assert.match(markdown, /Followers\/subscribers — 2,300/);
+  assert.match(markdown, /source: https:\/\/support\.google\.com\/youtube\//);
   assert.match(markdown, /Estimates — not actual results/);
   assert.match(markdown, /Average views per post\/video — 1,800/);
   assert.match(markdown, /do not turn estimates into actual results/i);
