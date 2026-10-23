@@ -35,11 +35,9 @@ import {
   type CreatorMetricSnapshot,
   type CreatorPartnership,
   type CreatorMediaKitProfile,
-  type CreatorMetricSnapshot as MetricRecord,
   type MonetizationMetricName,
   type MonetizationPlatform,
   type MonetizationReadinessCheck,
-  type MonetizationWorkspaceBackup,
   type PartnershipStatus,
   type ReadinessCategory,
   type ReadinessStatus,
@@ -428,7 +426,7 @@ export default function MonetizationWorkspace() {
             <div><label htmlFor="money-formats">Content formats / target platforms</label><input id="money-formats" value={profile.contentFormats} onChange={(event) => patchProfile({ contentFormats: event.target.value })} maxLength={300} /></div>
             <div><label htmlFor="money-website">Public website URL (optional)</label><input id="money-website" type="url" value={profile.publicWebsiteUrl} onChange={(event) => patchProfile({ publicWebsiteUrl: event.target.value })} maxLength={2000} placeholder="https://…" /></div>
             <div><label htmlFor="money-age-band">Age / payment eligibility setting</label><select id="money-age-band" value={profile.ageBand} onChange={(event) => patchProfile({ ageBand: event.target.value as CreatorMediaKitProfile["ageBand"] })}><option value="not-set">Not recorded — must check</option><option value="under18">Under 18 — guardian involvement required</option><option value="18plus">18+ — self-recorded, not verified</option></select></div>
-            {profile.ageBand === "under18" && <label className="monetization-checkbox"><input type="checkbox" checked={profile.guardianInvolved} onChange={(event) => patchProfile({ guardianInvolved: event.target.checked })} /> Parent/legal guardian is involved in contracts and payment review.</label>}
+            <label className="monetization-checkbox"><input type="checkbox" checked={profile.guardianInvolved} onChange={(event) => patchProfile({ guardianInvolved: event.target.checked })} /> Parent/legal guardian is or will be involved where needed for contracts and payment review.</label>
           </div>
         </div>
         <div className="monetization-subpanel">
@@ -491,7 +489,7 @@ export default function MonetizationWorkspace() {
             <p><strong>{item.amountUsd === null ? "Amount not recorded" : fmtUsd(item.amountUsd)}</strong> · {item.amountStage === "received" ? "Received (owner-entered payment evidence)" : item.amountStage === "contracted" ? "Contracted, not necessarily paid" : item.amountStage === "offered" ? "Offer, not received income" : item.amountStage === "estimate" ? "Estimate only" : "No amount basis"}</p>
             {item.sponsoredOrAffiliate && <p><strong>Disclosure:</strong> {item.disclosureText || "Not recorded"} · {item.review.disclosureReviewed ? "reviewed by owner" : "needs review"}</p>}
             {item.status === "paid" && <p className="muted">Payment date: {item.paymentDate} · {item.paymentEvidenceNote}</p>}
-            <div className="action-row"><button className="secondary" type="button" onClick={() => beginPartnershipEdit(item)} disabled={storageBlocked}>Edit</button><button className="text-button" type="button" onClick={() => updatePartnershipStatus(item, item.status === "closed" ? "lead" : "closed")} disabled={storageBlocked}>{item.status === "closed" ? "Reopen lead" : "Close record"}</button><button className="text-button" type="button" onClick={() => { if (window.confirm("Remove this partnership record from this browser?")) setPartnerships((current) => current.filter((entry) => entry.id !== item.id)); }}>Remove</button></div>
+            <div className="action-row"><button className="secondary" type="button" onClick={() => beginPartnershipEdit(item)} disabled={storageBlocked}>Edit</button>{item.status !== "paid" && <button className="text-button" type="button" onClick={() => updatePartnershipStatus(item, item.status === "closed" ? "lead" : "closed")} disabled={storageBlocked}>{item.status === "closed" ? "Reopen lead" : "Close record"}</button>}<button className="text-button" type="button" onClick={() => { if (window.confirm("Remove this partnership record from this browser?")) setPartnerships((current) => current.filter((entry) => entry.id !== item.id)); }}>Remove</button></div>
           </article>)}</div>}
         </div>
       </>}
