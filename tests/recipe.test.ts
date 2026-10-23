@@ -10,6 +10,10 @@ import {
   getLocalDateOnly,
   isHttpUrl,
   isValidDateOnly,
+  isValidIsoTimestamp,
+  isValidTrialPhotoDataUrl,
+  MAX_RECIPE_REVISION,
+  nextRecipeRevision,
   isRecipeProject,
   normalizeSourceUrlForComparison,
   parseCreatorWorkspaceBackupJSON,
@@ -30,6 +34,7 @@ const base: RecipeProject = {
   recipeRevision: 0,
   trialPhotoRevision: -1,
   trialNotesRevision: -1,
+  evidenceReviewedAt: "",
   approved: false,
   approvedAt: "",
   name: "Tomato pasta",
@@ -221,7 +226,7 @@ test("validates structured source references and flags invalid or duplicate URLs
   const issues = validateRecipe({
     ...base,
     sourceReferences: [
-      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredients and method", notes: "" },
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "Ingredients and method", notes: "" },
       { id: "r2", url: "https://example.com/recipe/", kind: "video", checked: "", notes: "Timing unclear" },
       { id: "r3", url: "javascript:alert(1)", kind: "other", checked: "", notes: "" },
     ],
@@ -236,7 +241,7 @@ test("exports structured source references without claiming verification", () =>
   const draft = buildTutorialDraft({
     ...base,
     sourceReferences: [
-      { id: "r1", url: "https://example.com/a", kind: "recipe-page", checked: "Ingredient list", notes: "Salt quantity differs" },
+      { id: "r1", url: "https://example.com/a", kind: "recipe-page" as const, checked: "Ingredient list", notes: "Salt quantity differs" },
       { id: "r2", url: "https://example.org/b", kind: "video", checked: "Visible cooking order", notes: "No temperature shown" },
     ],
   });
@@ -250,7 +255,7 @@ test("exports structured source references without claiming verification", () =>
 test("source comparison worksheet validates optional field types and preserves legacy source records", () => {
   const legacy: RecipeProject = {
     ...base,
-    sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page", checked: "ingredients", notes: "" }],
+    sourceReferences: [{ id: "old", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "ingredients", notes: "" }],
   };
   const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
   assert.ok(restored);
@@ -346,7 +351,7 @@ test("narration script carries manual source uncertainty and keeps voice/video c
     ...base,
     sourceEvidence: "Compared the ingredient lists; oil quantity differs.",
     sourceReferences: [
-      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page", checked: "Ingredient list and timing", notes: "Oil quantity differs" },
+      { id: "r1", url: "https://example.com/recipe", kind: "recipe-page" as const, checked: "Ingredient list and timing", notes: "Oil quantity differs" },
       { id: "r2", url: "https://example.org/video", kind: "video", checked: "Visible cooking order", notes: "Exact temperature is unclear" },
     ],
     steps: [
@@ -388,7 +393,7 @@ test("legacy JSON draft imports with an explicit untested and unapproved default
     trialPhotoRevision: undefined,
     trialNotesRevision: undefined,
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const restored = parseRecipeProjectJSON(JSON.stringify(legacy));
   assert.ok(restored);
@@ -421,8 +426,21 @@ test("workspace backup round-trips all drafts and profile, and rejects malformed
     recipeRevision: 3,
     trialPhotoRevision: 3,
     trialNotesRevision: 3,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    sourceReferences: [{
+      id: "reviewed-source",
+      url: "https://example.com/recipe",
+      kind: "recipe-page" as const,
+      checked: "Compared ingredients and method order.",
+      notes: "No other uncertainties recorded.",
+      ingredientFindings: "Recorded quantities.",
+      methodFindings: "Recorded ordered steps.",
+      timingFindings: "Recorded timing or marked absent.",
+      safetyStorageFindings: "Recorded safety/storage or marked absent.",
+    }],
+    steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const exportedAt = "2026-10-12T00:00:00.000Z";
   const backupJSON = createCreatorWorkspaceBackupJSON(
@@ -561,8 +579,21 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
     recipeRevision: 4,
     trialPhotoRevision: 4,
     trialNotesRevision: 4,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    sourceReferences: [{
+      id: "reviewed-source",
+      url: "https://example.com/recipe",
+      kind: "recipe-page" as const,
+      checked: "Compared ingredients and method order.",
+      notes: "No other uncertainties recorded.",
+      ingredientFindings: "Recorded quantities.",
+      methodFindings: "Recorded ordered steps.",
+      timingFindings: "Recorded timing or marked absent.",
+      safetyStorageFindings: "Recorded safety/storage or marked absent.",
+    }],
+    steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   };
   const roundTrip = parseRecipeProjectJSON(JSON.stringify(tested));
   assert.ok(roundTrip);
@@ -591,5 +622,109 @@ test("legacy, future-dated and stale trial proof cannot preserve tested or appro
   assert.ok(impossibleDate);
   assert.equal(impossibleDate.trialDate, "");
   assert.equal(impossibleDate.trialStatus, "untested");
+
+  const tomorrowTimestamp = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const futureReview = parseRecipeProjectJSON(JSON.stringify({
+    ...tested,
+    evidenceReviewedAt: tomorrowTimestamp,
+    approvedAt: tomorrowTimestamp,
+  }));
+  assert.ok(futureReview);
+  assert.equal(futureReview.evidenceReviewedAt, "");
+  assert.equal(futureReview.trialStatus, "untested");
+  assert.equal(futureReview.approved, false);
+  assert.equal(futureReview.approvedAt, "");
+});
+
+test("ISO review timestamps require a real canonical UTC timestamp", () => {
+  assert.equal(isValidIsoTimestamp("2026-10-20T13:00:00.000Z"), true);
+  assert.equal(isValidIsoTimestamp("2026-02-30T13:00:00.000Z"), false);
+  assert.equal(isValidIsoTimestamp("2026-10-20"), false);
+  assert.equal(isValidIsoTimestamp("2026-10-20T13:00:00Z"), false);
+  assert.equal(isValidIsoTimestamp("not a date"), false);
+});
+
+test("recipe shape guard rejects malformed or future lifecycle timestamps", () => {
+  assert.equal(isRecipeProject({ ...base, evidenceReviewedAt: "not a timestamp" }), false);
+  assert.equal(isRecipeProject({ ...base, approvedAt: "not a timestamp" }), false);
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  assert.equal(isRecipeProject({ ...base, evidenceReviewedAt: future }), false);
+  assert.equal(isRecipeProject({ ...base, approvedAt: future }), false);
+});
+
+test("unsafe public-source URLs downgrade imported tested and approved drafts", () => {
+  const reviewedAndTested: RecipeProject = {
+    ...base,
+    trialStatus: "tested",
+    trialRating: "5",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "Followed the reviewed recipe as written.",
+    trialNotes: "Cooked this recipe and checked the timing and texture.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 2,
+    trialPhotoRevision: 2,
+    trialNotesRevision: 2,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    approved: true,
+    approvedAt: "2026-10-20T00:01:00.000Z",
+    sourceReferences: [{
+      id: "source-1",
+      url: "https://example.com/recipe",
+      kind: "recipe-page",
+      checked: "Compared ingredient list and method",
+      notes: "No other differences",
+      ingredientFindings: "One cup rice",
+      methodFindings: "Warm then fold",
+      timingFindings: "Timing noted",
+      safetyStorageFindings: "Storage note recorded",
+    }],
+    steps: [{ ...base.steps[0], ingredientIds: ["i1"] }],
+  };
+  const restored = parseRecipeProjectJSON(JSON.stringify({
+    ...reviewedAndTested,
+    sourceReferences: reviewedAndTested.sourceReferences.map((source) => ({
+      ...source,
+      url: "http://localhost/internal-recipe",
+    })),
+  }));
+  assert.ok(restored);
+  assert.equal(restored.trialStatus, "untested");
+  assert.equal(restored.approved, false);
+  assert.equal(restored.approvedAt, "");
+});
+
+test("recipe revision rollover always changes the revision and rejects invalid counters", () => {
+  assert.equal(nextRecipeRevision(0), 1);
+  assert.equal(nextRecipeRevision(MAX_RECIPE_REVISION - 1), MAX_RECIPE_REVISION);
+  assert.equal(nextRecipeRevision(MAX_RECIPE_REVISION), 0);
+  assert.equal(nextRecipeRevision(-1), 0);
+  assert.equal(nextRecipeRevision(Number.MAX_SAFE_INTEGER), 0);
+  assert.equal(nextRecipeRevision(1.5), 0);
+});
+
+test("trial-photo evidence accepts bounded raster base64 only and restores unsafe photos as missing", () => {
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AA=="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/png;base64,iVBORw0KGgo="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AAA="), true);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,abc"), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,AAAA="), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/svg+xml;base64,PHN2Zz4="), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64,not base64!"), false);
+  assert.equal(isValidTrialPhotoDataUrl("data:image/jpeg;base64," + "A".repeat(500_001)), false);
+  const restored = parseRecipeProjectJSON(JSON.stringify({
+    ...base,
+    trialStatus: "tested",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "Followed the recipe.",
+    trialRating: "4",
+    trialNotes: "Cooked this and checked the result.",
+    trialPhotoDataUrl: "data:image/svg+xml;base64,PHN2Zz4=",
+    recipeRevision: 1,
+    trialPhotoRevision: 1,
+    trialNotesRevision: 1,
+  }));
+  assert.ok(restored);
+  assert.equal(restored.trialPhotoDataUrl, "");
+  assert.equal(restored.trialStatus, "untested");
 });
 

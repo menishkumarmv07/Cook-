@@ -20,6 +20,7 @@ const project: RecipeProject = {
   recipeRevision: 0,
   trialPhotoRevision: -1,
   trialNotesRevision: -1,
+  evidenceReviewedAt: "",
   approved: false,
   approvedAt: "",
   name: "Lemon rice",

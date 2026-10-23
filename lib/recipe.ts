@@ -1,3 +1,5 @@
+import { isHttpSourceUrl } from "./research-evidence";
+
 export type Ingredient = {
   id: string;
   amount: string;
@@ -56,6 +58,18 @@ export function isValidDateOnly(value: string): boolean {
   return Number.isFinite(parsed.valueOf()) && parsed.toISOString().slice(0, 10) === value;
 }
 
+export function isValidIsoTimestamp(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  return Number.isFinite(parsed.valueOf()) && parsed.toISOString() === value;
+}
+
+export function isValidTrialPhotoDataUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length > 500_000) return false;
+  const match = /^data:image\/(?:jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(value);
+  return Boolean(match && match[1].length % 4 === 0);
+}
+
 export type RecipeProject = {
   id: number;
   trialStatus: "untested" | "tested";
@@ -68,6 +82,7 @@ export type RecipeProject = {
   recipeRevision: number;
   trialPhotoRevision: number;
   trialNotesRevision: number;
+  evidenceReviewedAt: string;
   approved: boolean;
   approvedAt: string;
   name: string;
@@ -273,12 +288,15 @@ export function isRecipeProject(value: unknown): value is RecipeProject {
     typeof p.trialDate === "string" && (p.trialDate === "" || isValidDateOnly(p.trialDate)) &&
     typeof p.trialChanges === "string" &&
     typeof p.trialNotes === "string" &&
-    typeof p.trialPhotoDataUrl === "string" &&
+    (p.trialPhotoDataUrl === "" || isValidTrialPhotoDataUrl(p.trialPhotoDataUrl)) &&
     Number.isSafeInteger(p.recipeRevision) && (p.recipeRevision ?? -1) >= 0 && (p.recipeRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialPhotoRevision) && (p.trialPhotoRevision ?? -2) >= -1 && (p.trialPhotoRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
     Number.isSafeInteger(p.trialNotesRevision) && (p.trialNotesRevision ?? -2) >= -1 && (p.trialNotesRevision ?? MAX_RECIPE_REVISION + 1) <= MAX_RECIPE_REVISION &&
+    typeof p.evidenceReviewedAt === "string" &&
+    (p.evidenceReviewedAt === "" || (isValidIsoTimestamp(p.evidenceReviewedAt) && Date.parse(p.evidenceReviewedAt) <= Date.now())) &&
     typeof p.approved === "boolean" &&
     typeof p.approvedAt === "string" &&
+    (p.approvedAt === "" || (isValidIsoTimestamp(p.approvedAt) && Date.parse(p.approvedAt) <= Date.now())) &&
     typeof p.name === "string" &&
     typeof p.url === "string" &&
     typeof p.notes === "string" &&
@@ -535,7 +553,12 @@ export function buildNarrationScript(project: RecipeProject): string {
 }
 
 const MAX_RECIPE_PROJECT_CHARACTERS = 2_000_000;
-const MAX_RECIPE_REVISION = 1_000_000_000;
+export const MAX_RECIPE_REVISION = 1_000_000_000;
+
+export function nextRecipeRevision(revision: number): number {
+  if (!Number.isSafeInteger(revision) || revision < 0 || revision > MAX_RECIPE_REVISION) return 0;
+  return revision >= MAX_RECIPE_REVISION ? 0 : revision + 1;
+}
 const MAX_RECIPE_INGREDIENTS = 500;
 const MAX_RECIPE_STEPS = 500;
 const MAX_RECIPE_SCENES = 100;
@@ -559,12 +582,13 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     trialDate: typeof legacy.trialDate === "string" && isValidDateOnly(legacy.trialDate) ? legacy.trialDate : "",
     trialChanges: typeof legacy.trialChanges === "string" ? legacy.trialChanges : "",
     trialNotes: typeof legacy.trialNotes === "string" ? legacy.trialNotes : "",
-    trialPhotoDataUrl: typeof legacy.trialPhotoDataUrl === "string" && legacy.trialPhotoDataUrl.startsWith("data:image/") ? legacy.trialPhotoDataUrl : "",
+    trialPhotoDataUrl: isValidTrialPhotoDataUrl(legacy.trialPhotoDataUrl) ? legacy.trialPhotoDataUrl : "",
     recipeRevision: Number.isSafeInteger(legacy.recipeRevision) && (legacy.recipeRevision as number) >= 0 && (legacy.recipeRevision as number) <= MAX_RECIPE_REVISION ? legacy.recipeRevision : 0,
     trialPhotoRevision: Number.isSafeInteger(legacy.trialPhotoRevision) && (legacy.trialPhotoRevision as number) >= -1 && (legacy.trialPhotoRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialPhotoRevision : -1,
     trialNotesRevision: Number.isSafeInteger(legacy.trialNotesRevision) && (legacy.trialNotesRevision as number) >= -1 && (legacy.trialNotesRevision as number) <= MAX_RECIPE_REVISION ? legacy.trialNotesRevision : -1,
+    evidenceReviewedAt: typeof legacy.evidenceReviewedAt === "string" && isValidIsoTimestamp(legacy.evidenceReviewedAt) && Date.parse(legacy.evidenceReviewedAt) <= Date.now() ? legacy.evidenceReviewedAt : "",
     approved: legacy.approved === true,
-    approvedAt: typeof legacy.approvedAt === "string" ? legacy.approvedAt : "",
+    approvedAt: typeof legacy.approvedAt === "string" && isValidIsoTimestamp(legacy.approvedAt) && Date.parse(legacy.approvedAt) <= Date.now() ? legacy.approvedAt : "",
     sourceEvidence: typeof legacy.sourceEvidence === "string" ? legacy.sourceEvidence : "",
     sourceReferences: Array.isArray(legacy.sourceReferences) ? legacy.sourceReferences.map((source) => {
       // Preserve malformed entries long enough for isRecipeProject to reject them; migration must never throw first.
@@ -590,8 +614,20 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.sourceReferences.length > MAX_RECIPE_SOURCE_REFERENCES
   ) return null;
   const validIngredientIds = new Set(candidate.ingredients.map((ingredient) => ingredient.id));
+  const sourceReviewComplete = Boolean(
+    candidate.evidenceReviewedAt &&
+    candidate.sourceReferences.length > 0 &&
+    candidate.sourceReferences.every((source) =>
+      isHttpSourceUrl(source.url) &&
+      Boolean(source.checked.trim()) &&
+      ["ingredientFindings", "methodFindings", "timingFindings", "safetyStorageFindings"]
+        .every((field) => typeof source[field as keyof typeof source] === "string" &&
+          Boolean((source[field as keyof typeof source] as string).trim()))
+    )
+  );
   const currentTrialEvidenceIsComplete =
     candidate.trialStatus === "tested" &&
+    sourceReviewComplete &&
     candidate.trialDate !== "" &&
     candidate.trialDate <= getLocalDateOnly() &&
     candidate.trialChanges.trim().length >= 3 &&
@@ -601,11 +637,18 @@ export function parseRecipeProjectJSON(raw: string): RecipeProject | null {
     candidate.trialPhotoRevision === candidate.recipeRevision &&
     candidate.trialNotesRevision === candidate.recipeRevision;
   const trialStatus = currentTrialEvidenceIsComplete ? "tested" : "untested";
+  const approvalIsCurrent = Boolean(
+    trialStatus === "tested" &&
+    candidate.approved &&
+    candidate.evidenceReviewedAt &&
+    candidate.approvedAt &&
+    candidate.approvedAt >= candidate.evidenceReviewedAt
+  );
   return {
     ...candidate,
     trialStatus,
-    approved: trialStatus === "tested" && candidate.approved,
-    approvedAt: trialStatus === "tested" && candidate.approved ? candidate.approvedAt : "",
+    approved: approvalIsCurrent,
+    approvedAt: approvalIsCurrent ? candidate.approvedAt : "",
     steps: candidate.steps.map((step) => ({
       ...step,
       ingredientIds: (step.ingredientIds ?? []).filter((id) => validIngredientIds.has(id)),

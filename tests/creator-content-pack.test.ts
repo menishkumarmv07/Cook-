@@ -22,6 +22,7 @@ function recipe(overrides: Partial<RecipeProject> = {}): RecipeProject {
     recipeRevision: 0,
     trialPhotoRevision: -1,
     trialNotesRevision: -1,
+    evidenceReviewedAt: "",
     approved: false,
     approvedAt: "",
     name: "Tomato pasta",
@@ -83,7 +84,7 @@ test("missing information is exposed, not filled in with fabricated quantities o
   assert.match(output, /timing not recorded/);
   assert.match(output, /Record the serving yield/);
   assert.match(output, /No source URLs recorded/);
-  assert.match(output, /current-version trial proof is incomplete or stale/);
+  assert.match(output, /current-version trial proof or source review is incomplete or stale/);
   assert.match(output, /NOT RECORDED OR INVALID — owner review required/);
   assert.match(output, /approval still required/);
 });
@@ -99,6 +100,18 @@ test("a recipe marked tested but not approved remains approval-gated", () => {
     recipeRevision: 1,
     trialPhotoRevision: 1,
     trialNotesRevision: 1,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    sourceReferences: [{
+      id: "reviewed-source",
+      url: "https://example.com/recipe",
+      kind: "recipe-page",
+      checked: "Compared the ingredient list and method.",
+      notes: "No other uncertainties recorded.",
+      ingredientFindings: "Recorded ingredient quantities.",
+      methodFindings: "Recorded method order.",
+      timingFindings: "Timing is recorded or noted as absent.",
+      safetyStorageFindings: "Safety and storage are recorded or noted as absent.",
+    }],
     approved: false,
   }), DEFAULT_CREATOR_PROFILE);
   assert.match(output, /marked tested for the current recipe version/);
@@ -312,8 +325,20 @@ test("creator appendix reports trial date, changes and current-version proof wit
     recipeRevision: 7,
     trialPhotoRevision: 7,
     trialNotesRevision: 7,
+    evidenceReviewedAt: "2026-10-20T00:00:00.000Z",
+    sourceReferences: [{
+      id: "reviewed-source",
+      url: "https://example.com/recipe",
+      kind: "recipe-page",
+      checked: "Compared the ingredient list and method.",
+      notes: "No other uncertainties recorded.",
+      ingredientFindings: "Recorded ingredient quantities.",
+      methodFindings: "Recorded method order.",
+      timingFindings: "Timing is recorded or noted as absent.",
+      safetyStorageFindings: "Safety and storage are recorded or noted as absent.",
+    }],
     approved: true,
-    approvedAt: "2026-10-19T12:00:00.000Z",
+    approvedAt: "2026-10-20T00:01:00.000Z",
   });
   const output = buildUSCreatorPackAppendix(currentProof, DEFAULT_CREATOR_PROFILE);
   assert.match(output, /marked tested for the current recipe version/);
@@ -327,7 +352,7 @@ test("creator appendix reports trial date, changes and current-version proof wit
     ...currentProof,
     trialPhotoRevision: 6,
   }, DEFAULT_CREATOR_PROFILE);
-  assert.match(stalePhoto, /current-version trial proof is incomplete or stale/);
+  assert.match(stalePhoto, /current-version trial proof or source review is incomplete or stale/);
   assert.match(stalePhoto, /Current-version trial photo: MISSING OR STALE/);
   assert.match(stalePhoto, /Content approved by owner: NO — approval still required/);
   assert.doesNotMatch(stalePhoto, /Content approved by owner: marked approved/);
@@ -339,6 +364,6 @@ test("creator appendix reports trial date, changes and current-version proof wit
   }, DEFAULT_CREATOR_PROFILE);
   assert.match(missingDate, /NOT RECORDED OR INVALID — owner review required/);
   assert.match(missingDate, /explicitly state changes or that the recipe was followed as written/);
-  assert.match(missingDate, /current-version trial proof is incomplete or stale/);
+  assert.match(missingDate, /current-version trial proof or source review is incomplete or stale/);
 });
 

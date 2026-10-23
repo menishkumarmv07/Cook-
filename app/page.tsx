@@ -2,6 +2,7 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -17,6 +18,10 @@ import {
   getLocalDateOnly,
   isHttpUrl,
   isValidDateOnly,
+  isValidIsoTimestamp,
+  isValidTrialPhotoDataUrl,
+  MAX_RECIPE_REVISION,
+  nextRecipeRevision,
   parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
@@ -41,7 +46,6 @@ const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
-const MAX_RECIPE_REVISION = 1_000_000_000;
 
 type SourceInspectionResult = {
   requestedUrl: string;
@@ -202,11 +206,13 @@ function migrateProject(value: unknown): RecipeProject | null {
   const trialChanges = typeof old.trialChanges === "string" ? old.trialChanges : "";
   const trialRating = typeof old.trialRating === "string" && /^[1-5]$/.test(old.trialRating) ? old.trialRating : "";
   const trialNotes = typeof old.trialNotes === "string" ? old.trialNotes : "";
-  const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
+  const trialPhotoDataUrl = isValidTrialPhotoDataUrl(old.trialPhotoDataUrl) ? old.trialPhotoDataUrl : "";
   const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
   const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
+  const evidenceReviewedAt = typeof old.evidenceReviewedAt === "string" && isValidIsoTimestamp(old.evidenceReviewedAt) && Date.parse(old.evidenceReviewedAt) <= Date.now() ? old.evidenceReviewedAt : "";
   const trialEvidenceComplete = Boolean(
     old.trialStatus === "tested" &&
+    evidenceReviewedAt &&
     trialDate &&
     trialDate <= getLocalDateOnly() &&
     trialChanges.trim().length >= 3 &&
@@ -218,13 +224,22 @@ function migrateProject(value: unknown): RecipeProject | null {
   );
   const trialStatus = trialEvidenceComplete ? "tested" : "untested";
   const approved = trialStatus === "tested" && old.approved === true;
-  return { id: old.id, name: old.name, url: old.url, notes: old.notes,
+  const migrated: RecipeProject = {
+    id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
     sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
     trialStatus, trialRating, trialDate, trialChanges, trialNotes, trialPhotoDataUrl,
-    recipeRevision, trialPhotoRevision, trialNotesRevision,
+    recipeRevision, trialPhotoRevision, trialNotesRevision, evidenceReviewedAt,
     approved,
-    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "" };
+    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "",
+  };
+  const trust = getRecipeTrustAssessment(migrated);
+  return {
+    ...migrated,
+    trialStatus: trust.testedByOwner ? "tested" : "untested",
+    approved: trust.canShare,
+    approvedAt: trust.canShare ? migrated.approvedAt : "",
+  };
 }
 
 function makeId() {
@@ -291,6 +306,7 @@ function normalizeChatConversations(value: unknown): ChatConversation[] {
 
 function buildSharePack(project: RecipeProject, profile: CreatorProfile): string {
   const slug = project.name.trim();
+  const trust = getRecipeTrustAssessment(project);
   const tone = profile.tone.trim() || DEFAULT_CREATOR_PROFILE.tone;
   const voiceNotes = [
     `Tone: ${tone}`,
@@ -316,8 +332,10 @@ function buildSharePack(project: RecipeProject, profile: CreatorProfile): string
   ];
   return [
     `RECIPE: ${slug}`,
-    `STATUS: ${project.trialStatus === "tested" ? "Marked tested by the creator" : "UNTESTED — do not publish"}`,
-    `APPROVAL: ${project.approved ? "Creator approved" : "Not approved"}`,
+    `STATUS: ${trust.testedByOwner ? "Marked tested by the creator with current-version proof" : "UNTESTED OR INCOMPLETE — do not publish"}`,
+    `APPROVAL: ${trust.canShare ? "Creator approved for manual sharing" : "Not approved for sharing"}`,
+    `RECIPE LIFECYCLE: ${trust.stageLabel}`,
+    `EVIDENCE REVIEW: ${trust.evidenceReviewed ? `Owner review recorded at ${project.evidenceReviewedAt}; this is not independent verification` : "NOT COMPLETE — review source notes before sharing"}`,
     "",
     "CREATOR PROFILE GUIDANCE (saved locally; apply while editing; this is not an AI-generated translation)",
     ...voiceNotes,
@@ -401,6 +419,7 @@ export default function Home() {
   const copiedToastTimerRef = useRef<number | null>(null);
   const drawerTouchStartXRef = useRef<number | null>(null);
   const current = projects.find((project) => project.id === active);
+  const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
   const narration = useMemo(() => current ? buildNarrationScript(current) : "", [current]);
@@ -1207,6 +1226,7 @@ export default function Home() {
       recipeRevision: 0,
       trialPhotoRevision: -1,
       trialNotesRevision: -1,
+      evidenceReviewedAt: "",
       approved: false,
       approvedAt: "",
       servings: servings.trim(),
@@ -1228,11 +1248,16 @@ export default function Home() {
     document.getElementById("recipe-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function patchProfile(patch: Partial<CreatorProfile>) { setProfile((existing) => ({ ...existing, ...patch })); }
+  function patchProfile(patch: Partial<CreatorProfile>) {
+    setProfile((existing) => ({ ...existing, ...patch }));
+    // The generated captions/briefs depend on this profile, so approval must be renewed.
+    setProjects((existing) => existing.map((project) => ({ ...project, approved: false, approvedAt: "" })));
+  }
 
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
-    const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
+    const changesRecipe = ["name", "url", "notes", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps"].some((key) => key in patch);
+    const changesContent = "scenes" in patch;
     const changesTrialEvidence = ["trialDate", "trialChanges", "trialNotes", "trialRating", "trialPhotoDataUrl"].some((key) => key in patch);
     setProjects((existing) => existing.map((project) => {
       if (project.id !== current.id) return project;
@@ -1240,7 +1265,11 @@ export default function Home() {
         return {
           ...project,
           ...patch,
-          recipeRevision: project.recipeRevision + 1,
+          recipeRevision: nextRecipeRevision(project.recipeRevision),
+          evidenceReviewedAt: "",
+          // Keep old photo/notes for reference but explicitly detach them from the current revision.
+          trialPhotoRevision: -1,
+          trialNotesRevision: -1,
           trialStatus: "untested" as const,
           trialRating: "",
           trialDate: "",
@@ -1248,6 +1277,10 @@ export default function Home() {
           approved: false,
           approvedAt: "",
         };
+      }
+      if (changesContent) {
+        // Storyboard edits change the pack, not the physical recipe or its cooking-trial proof.
+        return { ...project, ...patch, approved: false, approvedAt: "" };
       }
       if (changesTrialEvidence) {
         return { ...project, ...patch, trialStatus: "untested" as const, approved: false, approvedAt: "" };
@@ -1313,40 +1346,46 @@ export default function Home() {
     }
   }
 
+  function markEvidenceReviewed() {
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.canMarkEvidenceReviewed) {
+      setMessage("Complete the source URL, what you checked, ingredient quantities, method order, timing/heat and safety/storage comparison fields for each reference first.");
+      return;
+    }
+    patchCurrent({ evidenceReviewedAt: new Date().toISOString() });
+    setMessage("Source comparison review recorded locally. This records your review; it is not independent verification.");
+  }
+
   function markRecipeTested() {
-    if (!current) return;
-    if (!isValidDateOnly(current.trialDate) || current.trialDate > getLocalDateOnly()) {
-      setMessage("Enter the actual date you cooked this recipe. A future date cannot be marked as a completed trial.");
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.evidenceReviewed) {
+      setMessage("Review every structured source and mark the evidence review complete before recording a tested trial.");
       return;
     }
-    if (current.trialChanges.trim().length < 3) {
-      setMessage("Record what changed during the trial, or explicitly write that you followed the recipe as written.");
+    if (!trustAssessment.readyForTrial) {
+      setMessage("This recipe is not ready for a cooking trial: " + trustAssessment.trialReadinessBlockers.join(" "));
       return;
     }
-    if (!current.trialPhotoDataUrl || current.trialPhotoRevision !== current.recipeRevision) {
-      setMessage("Add a fresh photo of the dish cooked from this recipe version before marking it Tested.");
+    if (trustAssessment.trialRecordBlockers.length > 0) {
+      setMessage("Complete the current-version cooking-trial record first: " + trustAssessment.trialRecordBlockers.join(" "));
       return;
     }
-    if (!/^[1-5]$/.test(current.trialRating)) {
-      setMessage("Rate your real cooking trial before marking this recipe Tested.");
-      return;
-    }
-    if (current.trialNotesRevision !== current.recipeRevision || current.trialNotes.trim().length < 10) {
-      setMessage("Record at least 10 characters of cooking-trial notes for this recipe version before marking Tested.");
+    if (current.trialStatus === "tested" && trustAssessment.testedByOwner) {
+      setMessage("This recipe version already has a complete current trial record. Edit the recipe or trial details only if the record must be corrected.");
       return;
     }
     patchCurrent({ trialStatus: "tested" });
-    setMessage("Recipe marked Tested using the current version's dated trial evidence. Any recipe or trial-evidence edits reset Tested and approval.");
+    setMessage("Recipe marked Tested using the current version's reviewed sources and dated trial proof. Recipe, source or trial-evidence edits invalidate downstream approval.");
   }
 
   async function shareContentPack() {
-    if (!current) return;
-    if (current.trialStatus !== "tested") {
-      setMessage("This recipe is still Untested. Record a real cooking trial and mark it Tested before sharing.");
+    if (!current || !trustAssessment) return;
+    if (!trustAssessment.testedByOwner) {
+      setMessage("Sharing is blocked because the current recipe version has not passed source review and dated cooking-trial proof.");
       return;
     }
-    if (!current.approved) {
-      setMessage("Approve this content pack first. Nothing is posted automatically.");
+    if (!trustAssessment.canShare) {
+      setMessage("Approve this current tested recipe version before sharing. Nothing is posted automatically.");
       return;
     }
     const text = buildSharePack(current, profile);
@@ -1387,7 +1426,11 @@ export default function Home() {
         ...(nutritionOnly
           ? { approved: false, approvedAt: "" }
           : {
-              recipeRevision: project.recipeRevision + 1,
+              recipeRevision: nextRecipeRevision(project.recipeRevision),
+              evidenceReviewedAt: "",
+              // Preserve the evidence for history, never for the edited recipe version.
+              trialPhotoRevision: -1,
+              trialNotesRevision: -1,
               trialStatus: "untested" as const,
               trialRating: "",
               trialDate: "",
@@ -1736,7 +1779,7 @@ export default function Home() {
                 <div className="profile-wide"><label htmlFor="profile-samples">3–5 sample captions in your real voice</label><textarea id="profile-samples" rows={4} value={profile.sampleCaptions} onChange={(event) => patchProfile({ sampleCaptions: event.target.value })} maxLength={2500} placeholder="Paste a few captions you wrote. Separate each caption with a new line." /></div>
               </div>
               <p className="hint">Profile saves locally in this browser and is not encrypted or synced. Avoid entering sensitive personal details. The current text generator includes profile guidance in the pack; it does not guarantee every wording rule is automatically enforced.</p>
-              <button className="secondary" type="button" onClick={() => { setProfile(DEFAULT_CREATOR_PROFILE); setMessage("Creator profile reset to defaults."); }}>Reset profile defaults</button>
+              <button className="secondary" type="button" onClick={() => { patchProfile(DEFAULT_CREATOR_PROFILE); setMessage("Creator profile reset to defaults. Previously approved packs need renewed approval."); }}>Reset profile defaults</button>
             </details>
           </section>
 
@@ -1798,8 +1841,37 @@ export default function Home() {
             {!current ? <div className="empty"><span>▤</span><h3>Your recipe editor will appear here</h3><p>Create a recipe draft above to add ingredients and ordered cooking steps.</p><a href="#intake">Start a recipe project ↑</a></div> : (
               <div className="panel">
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
+                {trustAssessment && <section className="panel recipe-lifecycle-panel" id="recipe-lifecycle" aria-labelledby="recipe-lifecycle-title">
+                  <div className="subsection-head">
+                    <div><p className="eyebrow">V2 RECIPE TRUST</p><h3 id="recipe-lifecycle-title">Recipe readiness workflow</h3><p className="muted">Complete each stage in order. This records your source review and cooking trial; it is not independent fact-checking or a food-safety certification.</p></div>
+                    <span className={trustAssessment.canShare ? "status" : "status status-warning"}>{trustAssessment.stageLabel.toUpperCase()}</span>
+                  </div>
+                  <ol className="checklist recipe-lifecycle-steps">
+                    {trustAssessment.steps.map((step, index) => <li key={step.id} data-state={step.current ? "current" : step.complete ? "complete" : "pending"}>
+                      <b>{step.complete ? "✓" : String(index + 1).padStart(2, "0")}</b>
+                      <span><strong>{step.label}</strong><small>{step.description}</small></span>
+                    </li>)}
+                  </ol>
+                  {!trustAssessment.evidenceReviewed && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>To record source review:</strong> complete every comparison field for each reference. You may write “not stated by source” when it does not supply a fact.</p>
+                    {trustAssessment.evidenceReviewBlockers.length > 0 && <ul className="issue-list">{trustAssessment.evidenceReviewBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>}
+                  </div>}
+                  {trustAssessment.evidenceReviewed && !trustAssessment.readyForTrial && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>Before the cooking trial:</strong> resolve the checklist items below.</p>
+                    <ul className="issue-list">{trustAssessment.trialReadinessBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </div>}
+                  {trustAssessment.readyForTrial && !trustAssessment.testedByOwner && <div className="lifecycle-review-blockers">
+                    <p className="hint"><strong>Current trial record:</strong> complete all items below using the version you actually cooked.</p>
+                    <ul className="issue-list">{trustAssessment.trialRecordBlockers.map((item, index) => <li key={index}>{item}</li>)}</ul>
+                  </div>}
+                  {current.trialStatus === "tested" && !trustAssessment.testedByOwner && <p className="warning">This saved draft says “Tested,” but the current version is missing valid source-review or cooking-trial proof. Approval and sharing remain blocked.</p>}
+                  <div className="action-row">
+                    <button className="secondary" type="button" disabled={!trustAssessment.canMarkEvidenceReviewed} onClick={markEvidenceReviewed}>{trustAssessment.evidenceReviewed ? "Source review recorded" : "Mark source review complete"}</button>
+                    <small className="hint">Any recipe, ingredient or source edit clears the review timestamp, so review the changed version again. Notes remain owner-entered and unverified.</small>
+                  </div>
+                </section>}
                 <section className="trial-panel">
-                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
+                  <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={trustAssessment?.testedByOwner ? "status" : "status status-warning"}>{trustAssessment?.testedByOwner ? "TESTED BY YOU" : current.trialStatus === "tested" ? "TEST RECORD INCOMPLETE" : "UNTESTED"}</span></div>
                   <div className="trial-photo-field"><label htmlFor="trial-photo">Cooking-trial photo <b>*</b></label><input id="trial-photo" type="file" accept="image/*" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void saveTrialPhoto(file); }} /><small className="hint">Resized on your device and saved locally; no upload. Keep the photo of the dish you actually cooked.</small>{current.trialPhotoDataUrl && current.trialPhotoRevision !== current.recipeRevision && <p className="warning">This photo is retained for reference but belongs to an earlier recipe version. Upload a new photo of the current version before marking it Tested.</p>}{current.trialPhotoDataUrl && <div className="trial-photo-preview"><NextImage src={current.trialPhotoDataUrl} alt={`Your cooking-trial photo for ${current.name}`} width={900} height={900} unoptimized style={{ width: "100%", height: "auto", maxWidth: 280, maxHeight: 260, objectFit: "contain" }} /><button className="text-button" type="button" onClick={() => patchCurrent({ trialPhotoDataUrl: "" })}>Remove photo</button></div>}</div>
                   <div className="editor-grid">
                     <div><label htmlFor="trial-date">Actual cooking-trial date <b>*</b></label><input id="trial-date" type="date" value={current.trialDate} max={getLocalDateOnly()} aria-required="true" onChange={(event) => patchCurrent({ trialDate: event.target.value })} /><small className="hint">Enter the date you actually cooked this version. Future dates are not accepted.</small></div>
@@ -1811,14 +1883,14 @@ export default function Home() {
                   <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires an actual non-future date, what changed, current-version photo, rating, and notes. Recipe edits invalidate the old trial proof without deleting the previous photo.</small></div>
                 </section>
                 <section className="approval-panel" id="publish-queue">
-                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
+                  <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={trustAssessment?.canShare ? "status" : "status status-warning"}>{trustAssessment?.canShare ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
                   <div className="action-row">
                     <button className="primary" type="button" onClick={() => setShowContentPack((show) => !show)}>{showContentPack ? "Hide content pack" : "Prepare content pack"}</button>
-                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested"} onClick={() => { patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Content pack approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
-                    <button className="secondary" type="button" disabled={current.trialStatus !== "tested" || !current.approved} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
+                    <button className="secondary" type="button" disabled={!trustAssessment?.canApprove} onClick={() => { if (!trustAssessment?.canApprove) { setMessage("Complete source review and current-version cooking-trial proof before approval."); return; } patchCurrent({ approved: true, approvedAt: new Date().toISOString() }); setShowContentPack(true); setMessage("Current recipe version approved by you. Sharing remains a separate manual action."); }}>Approve pack</button>
+                    <button className="secondary" type="button" disabled={!trustAssessment?.canShare} onClick={() => { void shareContentPack(); }}>Share approved pack</button>
                     <button className="secondary" type="button" onClick={exportContentPack}>Export pack</button>
                   </div>
-                  {current.trialStatus !== "tested" && <p className="warning">This recipe is Untested. Complete a real cooking trial before it can be approved or shared from this workflow.</p>}
+                  {!trustAssessment?.canShare && <p className="warning">This recipe version is not cleared for sharing. Complete the recipe lifecycle checklist and approve the current version first.</p>}
                   {showContentPack && <div className="tutorial-preview"><div className="subsection-head"><div><h3>Editable short-form content pack</h3><p className="muted">Includes five hook options, narration/shot guidance, a caption, hashtags, CTA, source, and review notes. Text only—not a rendered video.</p></div><button className="secondary" type="button" onClick={async () => { try { await navigator.clipboard.writeText(buildSharePack(current, profile)); setMessage("Content pack copied."); } catch { setMessage("Clipboard unavailable. Use Export pack."); } }}>Copy pack</button></div><pre>{buildSharePack(current, profile)}</pre></div>}
                 </section>
                 {current.url && <p className="source">Source URL: <a href={current.url} target="_blank" rel="noreferrer">{current.url}</a></p>}

@@ -6,6 +6,7 @@ import {
   type RecipeProject,
 } from "@/lib/recipe";
 import { isHttpSourceUrl } from "@/lib/research-evidence";
+import { getRecipeTrustAssessment } from "./recipe-trust";
 
 const MAX_LIST_ITEMS = 100;
 const MAX_FIELD_CHARS = 4_000;
@@ -180,18 +181,11 @@ export function buildUSCreatorPackAppendix(
   const validSources = sources.map(sourceLabel);
   const firstIngredient = ingredients.find((item) => clean(item.name, 160));
   const firstStep = steps.find((item) => clean(item.action, 800));
+  const trust = getRecipeTrustAssessment(project);
   const photoMatchesCurrentVersion = Boolean(project.trialPhotoDataUrl) && project.trialPhotoRevision === project.recipeRevision;
   const notesMatchCurrentVersion = project.trialNotes.trim().length >= 10 && project.trialNotesRevision === project.recipeRevision;
-  const trialEvidenceCurrent =
-    project.trialStatus === "tested" &&
-    isValidDateOnly(project.trialDate) &&
-    project.trialDate <= getLocalDateOnly() &&
-    project.trialChanges.trim().length >= 3 &&
-    /^[1-5]$/.test(project.trialRating) &&
-    notesMatchCurrentVersion &&
-    photoMatchesCurrentVersion;
-  const tested = trialEvidenceCurrent;
-  const approved = tested && project.approved;
+  const tested = trust.testedByOwner;
+  const approved = trust.canShare;
   const unitPreference = clean(profile.units, 80) || "US customary";
   const platforms = clean(profile.platforms, 180) || "YouTube Shorts and Instagram Reels";
   const language = clean(profile.language, 80) || "English";
@@ -327,7 +321,9 @@ export function buildUSCreatorPackAppendix(
     "#Cooking #RecipeIdeas #HomeCooking",
     "",
     "### Owner sign-off",
-    `- Cooking trial recorded by owner: ${tested ? "marked tested for the current recipe version — confirm the record reflects a real trial" : "NO — current-version trial proof is incomplete or stale"}`,
+    `- Recipe lifecycle stage: ${trust.stageLabel} (use the checklist in the app; this does not certify recipe facts or food safety)`,
+    `- Evidence review timestamp: ${trust.evidenceReviewed ? project.evidenceReviewedAt : "NOT COMPLETE — finish source review before claiming the recipe is reviewed"}`,
+    `- Cooking trial recorded by owner: ${tested ? "marked tested for the current recipe version — confirm the record reflects a real trial" : "NO — current-version trial proof or source review is incomplete or stale"}`,
     `- Actual cooking-trial date: ${isValidDateOnly(project.trialDate) && project.trialDate <= getLocalDateOnly() ? project.trialDate : "NOT RECORDED OR INVALID — owner review required"}`,
     `- What changed during the trial: ${longText(project.trialChanges, "NOT RECORDED — owner review required; explicitly state changes or that the recipe was followed as written.")}`,
     `- Current-version trial photo: ${photoMatchesCurrentVersion ? "revision matches the current recipe" : "MISSING OR STALE — upload a photo from this version"}`,
