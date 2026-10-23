@@ -337,8 +337,13 @@ export function mergeMonetizationReadinessChecks(
       current.notes.trim() === "";
 
     if (currentIsUntouchedDefault) {
-      restored += 1;
-      return imported;
+      const importedDiffers =
+        current.status !== imported.status ||
+        current.reviewedDate !== imported.reviewedDate ||
+        current.sourceUrl !== imported.sourceUrl ||
+        current.notes !== imported.notes;
+      if (importedDiffers) restored += 1;
+      return importedDiffers ? imported : current;
     }
     preserved += 1;
     return current;
