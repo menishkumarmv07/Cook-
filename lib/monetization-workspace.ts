@@ -247,8 +247,8 @@ export function validatePartnership(value: unknown, profile: CreatorMediaKitProf
     if (!value.review.disclosureReviewed) errors.push("Review sponsorship/gift disclosure requirements before advancing this partnership.");
     if (!value.review.ageEligibilityReviewed) errors.push("Check current platform age, eligibility and payment requirements before advancing this partnership.");
     if (value.sponsoredOrAffiliate && (!boundedText(value.disclosureText, 1_000, true))) errors.push("Add the required sponsorship/affiliate disclosure text before advancing.");
+    if (profile.ageBand === "not-set") errors.push("Record the creator age band in the profile (Under 18 or 18+) before advancing a paid partnership. The app will not infer eligibility.");
     if (profile.ageBand === "under18" && !profile.guardianInvolved) errors.push("A parent/legal guardian must be involved with contracts and payments for a creator under 18. Do not bypass platform age rules.");
-    if (profile.ageBand === "not-set" && !value.review.ageEligibilityReviewed) errors.push("Check applicable age and payment eligibility before advancing; the app will not assume eligibility.");
   }
   if (value.status === "paid") {
     if (value.amountStage !== "received" || typeof value.amountUsd !== "number" || value.amountUsd <= 0) errors.push("Only mark a cash partnership Paid after recording a positive amount actually received in USD.");
