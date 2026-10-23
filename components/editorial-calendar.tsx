@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import {
   createEditorialBackupJSON,
   DEFAULT_EDITORIAL_REVIEW_CHECKS,
@@ -153,7 +154,7 @@ export default function EditorialCalendar() {
     patchDraft({ reviewChecks: { ...draft.reviewChecks, [key]: checked } });
   }
 
-  function saveIdea(event: React.FormEvent<HTMLFormElement>) {
+  function saveIdea(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (storageBlocked) {
       setMessage("Saved storage is protected while its contents are invalid. Import a known-good backup or explicitly replace the saved copy first.");
@@ -181,15 +182,13 @@ export default function EditorialCalendar() {
       setIdeas((current) => current.map((idea) => idea.id === editingId ? candidate : idea));
       setMessage("Idea updated locally. No account, platform or publishing action was performed.");
     } else {
-      setIdeas((current) => {
-        const merged = mergeEditorialIdeas(current, [candidate]);
-        if (merged.added === 0) {
-          setMessage("A matching idea already exists for this title, recipe/series, platform and date. Edit the existing entry or choose a distinct title/date.");
-          return current;
-        }
-        setMessage("Idea saved locally.");
-        return merged.ideas;
-      });
+      const merged = mergeEditorialIdeas(ideas, [candidate]);
+      if (merged.added === 0) {
+        setMessage("A matching idea already exists for this title, recipe/series, platform and date. Edit the existing entry or choose a distinct title/date.");
+        return;
+      }
+      setIdeas(merged.ideas);
+      setMessage("Idea saved locally.");
     }
     setDraft(emptyIdea());
     setEditingId(null);
@@ -232,9 +231,13 @@ export default function EditorialCalendar() {
     const numeric = value.trim() === "" ? 0 : Number(value);
     if (!Number.isFinite(numeric) || numeric < 0 || numeric > 10) return;
     const candidate = { ...weights, [key]: numeric };
-    setWeights(candidate);
     const errors = validateEditorialWeights(candidate);
-    setMessage(errors.length ? errors.join(" ") : "Scoring weights saved locally. Scores are prioritization aids, not predictions.");
+    if (errors.length) {
+      setMessage(errors.join(" "));
+      return;
+    }
+    setWeights(candidate);
+    setMessage("Scoring weights saved locally. Scores are prioritization aids, not predictions.");
   }
 
   function exportJSON() {
@@ -267,6 +270,16 @@ export default function EditorialCalendar() {
     } catch {
       setMessage("The backup could not be read by this browser. Nothing was imported.");
     }
+  }
+
+  function updatePublishedRecord(idea: EditorialIdea, patch: Partial<Pick<EditorialIdea, "publishedUrl" | "outcomeNotes">>) {
+    const candidate = { ...idea, ...patch, updatedAt: new Date().toISOString() };
+    const errors = validateEditorialIdea(candidate);
+    if (errors.some((error) => /Published URL|Published link/.test(error))) {
+      setMessage("Use a safe public HTTP(S) URL for the published link, or leave it blank. Nothing was changed.");
+      return;
+    }
+    setIdeas((current) => current.map((entry) => entry.id === idea.id ? candidate : entry));
   }
 
   function replaceCorruptCopy() {
@@ -400,7 +413,7 @@ export default function EditorialCalendar() {
                   <button className="secondary" type="button" onClick={() => beginEdit(idea)} disabled={storageBlocked}>Edit</button>
                   <button className="secondary" type="button" onClick={() => removeIdea(idea)} disabled={storageBlocked}>Remove</button>
                 </div>
-                {idea.status === "published" && <div className="editorial-published-result"><label htmlFor={`editorial-published-url-${idea.id}`}>Recorded published URL</label><input id={`editorial-published-url-${idea.id}`} type="url" value={idea.publishedUrl} onChange={(event) => setIdeas((current) => current.map((entry) => entry.id === idea.id ? { ...entry, publishedUrl: event.target.value, updatedAt: new Date().toISOString() } : entry))} maxLength={2000} placeholder="https://… (optional)" /><label htmlFor={`editorial-outcome-${idea.id}`}>What you learned from actual results</label><textarea id={`editorial-outcome-${idea.id}`} rows={2} value={idea.outcomeNotes} onChange={(event) => setIdeas((current) => current.map((entry) => entry.id === idea.id ? { ...entry, outcomeNotes: event.target.value, updatedAt: new Date().toISOString() } : entry))} maxLength={2000} placeholder="Use real reported data and keep estimates labelled." /></div>}
+                {idea.status === "published" && <div className="editorial-published-result"><label htmlFor={`editorial-published-url-${idea.id}`}>Recorded published URL</label><input id={`editorial-published-url-${idea.id}`} type="url" value={idea.publishedUrl} onChange={(event) => updatePublishedRecord(idea, { publishedUrl: event.target.value })} maxLength={2000} placeholder="https://… (optional)" /><label htmlFor={`editorial-outcome-${idea.id}`}>What you learned from actual results</label><textarea id={`editorial-outcome-${idea.id}`} rows={2} value={idea.outcomeNotes} onChange={(event) => updatePublishedRecord(idea, { outcomeNotes: event.target.value })} maxLength={2000} placeholder="Use real reported data and keep estimates labelled." /></div>}
               </article>
             ))}
           </div>
