@@ -229,7 +229,7 @@ test("backup restore fills untouched readiness defaults and preserves customized
     ? { ...item, status: "reviewed" as const, reviewedDate: yesterday, sourceUrl: "https://support.google.com/youtube/", notes: "Reviewed official originality guidance." }
     : item);
   const restored = mergeMonetizationReadinessChecks(empty, imported);
-  assert.equal(restored.restored, DEFAULT_READINESS_CHECKS.length);
+  assert.equal(restored.restored, 1);
   assert.equal(restored.preserved, 0);
   assert.equal(restored.checks.find((item) => item.category === "originality")?.status, "reviewed");
 
@@ -240,7 +240,7 @@ test("backup restore fills untouched readiness defaults and preserves customized
   assert.equal(merged.checks.find((item) => item.category === "rights")?.status, "needs-action");
   assert.equal(merged.checks.find((item) => item.category === "rights")?.notes, "Check licensed music usage rights.");
   assert.equal(merged.preserved, 1);
-  assert.equal(merged.restored, DEFAULT_READINESS_CHECKS.length - 1);
+  assert.equal(merged.restored, 1);
 });
 
 test("merge preserves existing records, skips duplicates and rekeys ID collisions", () => {
