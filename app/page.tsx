@@ -2,6 +2,7 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import NextImage from "next/image";
@@ -321,7 +322,7 @@ function buildSharePack(project: RecipeProject, profile: CreatorProfile): string
     project.url || "No source URL recorded.",
     "",
     "IMPORTANT: This is an editable text pack. It does not create a video, add music, upload media, or publish a post. Confirm platform-specific captions, music rights, and disclosures before sharing.",
-  ].join("\n");
+  ].join("\n") + "\n\n" + buildUSCreatorPackAppendix(project, profile);
 }
 
 function downloadFile(name: string, content: string, type: string) {
