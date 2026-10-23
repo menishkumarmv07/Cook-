@@ -1,4 +1,4 @@
-import { isValidDateOnly, isValidIsoTimestamp } from "./recipe";
+import { getLocalDateOnly, isValidDateOnly, isValidIsoTimestamp } from "./recipe";
 
 export const GROWTH_PLATFORMS = [
   "YouTube Shorts",
@@ -52,6 +52,8 @@ export type GrowthWorkspaceBackup = {
   exportedAt: string;
   metrics: GrowthMetric[];
   experiments: GrowthExperiment[];
+  // Parser-only warnings: never written into the exported backup file.
+  migrationWarnings?: string[];
 };
 
 export type GrowthCsvRejectedRow = {
@@ -197,7 +199,11 @@ export function validateGrowthMetric(value: unknown): string[] {
   if (!isPlainObject(value)) return ["Metric row must be a plain object."];
   const errors: string[] = [];
   if (typeof value.id !== "string" || !value.id.trim() || value.id.length > 160) errors.push("Metric ID is missing or too long.");
-  if (typeof value.publishedDate !== "string" || !isValidDateOnly(value.publishedDate)) errors.push("Published date must be a real YYYY-MM-DD date.");
+  if (typeof value.publishedDate !== "string" || !isValidDateOnly(value.publishedDate)) {
+    errors.push("Published date must be a real YYYY-MM-DD date.");
+  } else if (value.dataKind === "actual" && value.publishedDate > getLocalDateOnly()) {
+    errors.push("Actual platform metrics cannot be recorded for content with a future publish date. Use Estimate until it is published.");
+  }
   if (!isGrowthPlatform(value.platform)) errors.push("Choose a supported platform.");
   if (!validText(value.contentTitle, MAX_TEXT_TITLE, true)) errors.push("Content title is required and must be 180 characters or fewer.");
   if (!validText(value.concept, MAX_TEXT_CONCEPT, false)) errors.push("Content concept must be 240 characters or fewer.");
@@ -437,7 +443,9 @@ export function isGrowthExperiment(value: unknown): value is GrowthExperiment {
   if (value.resultDate && value.resultDate < value.startedDate) return false;
   if (!validText(value.outcome, 1200, false) || !validText(value.nextAction, 500, false)) return false;
   if (!isGrowthExperimentStatus(value.status)) return false;
-  if (value.status !== "planned" && (!value.resultDate || !value.outcome.trim())) return false;
+  if (value.status !== "planned" && (!value.resultDate || !value.outcome.trim() || !value.nextAction.trim())) return false;
+  if (value.status !== "planned" &&
+      (value.startedDate > getLocalDateOnly() || value.resultDate > getLocalDateOnly())) return false;
   return true;
 }
 
@@ -463,6 +471,20 @@ export function validateGrowthExperiment(value: unknown): string[] {
   if ((value.status === "reviewed" || value.status === "closed") && (typeof value.outcome !== "string" || value.outcome.trim().length === 0)) {
     errors.push("Record an outcome before marking this experiment reviewed or closed.");
   }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      (typeof value.nextAction !== "string" || value.nextAction.trim().length === 0)) {
+    errors.push("Record the next action before marking this experiment reviewed or closed.");
+  }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) &&
+      value.startedDate > getLocalDateOnly()) {
+    errors.push("A future-dated experiment cannot be marked reviewed or closed.");
+  }
+  if ((value.status === "reviewed" || value.status === "closed") &&
+      typeof value.resultDate === "string" && isValidDateOnly(value.resultDate) &&
+      value.resultDate > getLocalDateOnly()) {
+    errors.push("A future result date cannot be marked reviewed or closed.");
+  }
   return errors;
 }
 
@@ -486,11 +508,59 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
 
   // Version 1 backups predate per-content USD revenue. Migrate the absent field to missing,
   // never to zero; malformed present values still fail validation.
-  const metrics = parsed.metrics.map((value) => {
+  const migrationWarnings: string[] = [];
+  const today = getLocalDateOnly();
+  const metrics = parsed.metrics.map((value, index) => {
     if (!isPlainObject(value)) return value;
-    return value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
+    const migrated = value.revenueUsd === undefined ? { ...value, revenueUsd: null } : value;
+    if (
+      migrated.dataKind === "actual" &&
+      typeof migrated.publishedDate === "string" &&
+      isValidDateOnly(migrated.publishedDate) &&
+      migrated.publishedDate > today
+    ) {
+      migrationWarnings.push(
+        `Metric row ${index + 1} was downgraded to Estimate because its publish date is in the future; verify the date and reported values.`,
+      );
+      return { ...migrated, dataKind: "estimate" };
+    }
+    return migrated;
   });
-  if (!metrics.every(isGrowthMetric) || !parsed.experiments.every(isGrowthExperiment)) return null;
+  const experiments = parsed.experiments.map((value, index) => {
+    if (!isPlainObject(value)) return value;
+    // V2.3 introduced a required next action and disallows future-dated completed experiments.
+    // Normalize missing legacy fields, then downgrade incomplete completed records instead of
+    // discarding an otherwise recoverable owner's workspace.
+    const candidate: Record<string, unknown> = {
+      ...value,
+      nextAction: value.nextAction === undefined ? "" : value.nextAction,
+      outcome: value.outcome === undefined ? "" : value.outcome,
+    };
+    if (candidate.status !== "reviewed" && candidate.status !== "closed") return candidate;
+
+    const startIsValid = typeof candidate.startedDate === "string" && isValidDateOnly(candidate.startedDate);
+    const resultIsValid = typeof candidate.resultDate === "string" &&
+      (candidate.resultDate === "" || isValidDateOnly(candidate.resultDate));
+    if (!startIsValid || !resultIsValid) return candidate;
+
+    const startedDate = candidate.startedDate as string;
+    const resultDate = candidate.resultDate as string;
+    if (resultDate && resultDate < startedDate) return candidate;
+
+    const hasNextAction = typeof candidate.nextAction === "string" && Boolean(candidate.nextAction.trim());
+    const hasOutcome = typeof candidate.outcome === "string" && Boolean(candidate.outcome.trim());
+    const hasMissingResultDate = resultDate === "";
+    const hasFutureCompletionDate = startedDate > today || (resultDate !== "" && resultDate > today);
+    if (!hasNextAction || !hasOutcome || hasMissingResultDate || hasFutureCompletionDate) {
+      migrationWarnings.push(
+        `Experiment ${index + 1} was downgraded to Planned because completed experiments require an outcome, next action, a result date, and non-future dates.`,
+      );
+      return { ...candidate, status: "planned" };
+    }
+    return candidate;
+  });
+
+  if (!metrics.every(isGrowthMetric) || !experiments.every(isGrowthExperiment)) return null;
 
   const seenFingerprints = new Set<string>();
   const seenMetricIds = new Set<string>();
@@ -501,7 +571,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     seenMetricIds.add(metric.id);
   }
   const seenExperimentIds = new Set<string>();
-  for (const experiment of parsed.experiments) {
+  for (const experiment of experiments as GrowthExperiment[]) {
     if (seenExperimentIds.has(experiment.id)) return null;
     seenExperimentIds.add(experiment.id);
   }
@@ -510,7 +580,8 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     version: 2,
     exportedAt: parsed.exportedAt,
     metrics: metrics as GrowthMetric[],
-    experiments: parsed.experiments as GrowthExperiment[],
+    experiments: experiments as GrowthExperiment[],
+    ...(migrationWarnings.length ? { migrationWarnings } : {}),
   };
 }
 

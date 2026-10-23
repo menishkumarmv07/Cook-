@@ -1374,11 +1374,24 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await chooseMenuTool(page, "Growth Lab");
   await expect(page.getByRole("heading", { name: "Growth Lab" })).toBeVisible();
 
-  await page.getByLabel("Publish date").fill("2026-10-20");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  const tomorrowDate = await page.evaluate(() => {
+    const date = new Date();
+    date.setDate(date.getDate() + 1);
+    const year = String(date.getFullYear()).padStart(4, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return [year, month, day].join("-");
+  });
+  await page.getByLabel("Publish date").fill(tomorrowDate);
   await page.getByLabel("Content title").fill("Lemon rice Short");
   await page.getByLabel("Views").fill("1200");
   await page.getByLabel("Reach / impressions").fill("1000");
   await page.getByLabel("Reported revenue for this content (USD)").fill("12.50");
+  await page.getByRole("button", { name: "Add metric row" }).click();
+  await expect(page.getByRole("status")).toContainText("future publish date");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Actual metric rows" }).locator("strong")).toHaveText("0");
+  await page.getByLabel("Publish date").fill("2026-10-20");
   await page.getByRole("button", { name: "Add metric row" }).click();
   await expect(page.locator(".growth-summary-card").filter({ hasText: "Actual metric rows" }).locator("strong")).toHaveText("1");
   await expect(page.locator(".growth-summary-card").filter({ hasText: "Reported revenue · actual USD" }).locator("strong")).toHaveText("$12.50");
@@ -1413,6 +1426,10 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await card.getByLabel("Result date").fill("2026-10-22");
   await card.getByLabel("Observed outcome (use actual numbers where available)").fill("Recorded 1,200 actual views; the sample remains small.");
   await card.getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(page.getByRole("status")).toContainText("next action before marking");
+  await expect(card.locator(".growth-status-planned")).toContainText("planned");
+  await card.getByLabel("Next action").fill("Repeat cautiously with one variable changed and compare actual results.");
+  await card.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(card.locator(".growth-status-reviewed")).toContainText("reviewed");
 
   const csvDownloadPromise = page.waitForEvent("download");
@@ -1424,5 +1441,21 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await page.getByRole("button", { name: "Export full backup JSON" }).click();
   const jsonDownload = await jsonDownloadPromise;
   expect(jsonDownload.suggestedFilename()).toBe("cooking-creator-growth-lab-backup.json");
+
+  const backupContents = await readFile(await jsonDownload.path(), "utf8");
+  await page.locator("#growth-backup-file").setInputFiles({
+    name: "growth-lab-backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(backupContents, "utf8"),
+  });
+  await expect(page.getByRole("status")).toContainText("skipped 2 duplicate metric row(s)");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+  await page.reload();
+  await chooseMenuTool(page, "Growth Lab");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Actual metric rows" }).locator("strong")).toHaveText("1");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Estimated rows" }).locator("strong")).toHaveText("1");
+  await expect(page.locator(".growth-summary-card").filter({ hasText: "Reported revenue · actual USD" }).locator("strong")).toHaveText("$12.50");
+  await expect(page.getByText("Lemon rice Short", { exact: true })).toBeVisible();
 });
 

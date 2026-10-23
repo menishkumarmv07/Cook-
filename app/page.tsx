@@ -1175,6 +1175,9 @@ export default function Home() {
         } else {
           setGrowthMetrics(restored.metrics);
           setGrowthExperiments(restored.experiments);
+          if (restored.migrationWarnings?.length) {
+            setGrowthMessage(restored.migrationWarnings.join(" "));
+          }
         }
       }
     } catch {
@@ -1718,7 +1721,7 @@ export default function Home() {
     }
     const merged = mergeGrowthMetrics(growthMetrics, [row]);
     if (!merged.added) {
-      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Edit or remove the existing row instead of double-counting it.");
+      setGrowthMessage("A row for this date, platform, content title, concept and data type already exists. Remove the old row before importing replacement values; existing rows are never silently overwritten.");
       return;
     }
     setGrowthMetrics(merged.rows);
@@ -1792,9 +1795,13 @@ export default function Home() {
       }
       setGrowthMetrics(mergedMetrics.rows);
       setGrowthExperiments(mergedExperiments.rows);
+      const migrationNote = backup.migrationWarnings?.length
+        ? " Compatibility note: " + backup.migrationWarnings.join(" ")
+        : "";
       setGrowthMessage("Merged " + mergedMetrics.added + " metric row(s) and " + mergedExperiments.added +
         " experiment(s); skipped " + mergedMetrics.duplicates + " duplicate metric row(s) and " +
-        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten.");
+        mergedExperiments.duplicates + " duplicate experiment row(s). Existing records were not overwritten." +
+        migrationNote);
       setGrowthCsvPreview(null);
     } catch {
       setGrowthMessage("Growth Lab JSON backup could not be read. Nothing was imported.");
