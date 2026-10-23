@@ -3,6 +3,7 @@
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
 import EditorialCalendar from "@/components/editorial-calendar";
+import MonetizationWorkspace from "@/components/monetization-workspace";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
   buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
@@ -52,7 +53,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial", "monetization"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -79,7 +80,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial" | "monetization";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -115,7 +116,7 @@ type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y:
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
-  growth: "Growth Lab", editorial: "Editorial Calendar",
+  growth: "Growth Lab", editorial: "Editorial Calendar", monetization: "Monetization Readiness",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -714,9 +715,10 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization") {
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "monetization" ? "monetization" :
       item === "editorial" ? "editorial" :
       item === "growth" ? "growth" :
       item === "images" ? "intake" :
@@ -725,6 +727,7 @@ export default function Home() {
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "monetization" ? "monetization-workspace" :
       item === "editorial" ? "editorial-calendar" :
       item === "growth" ? "growth-lab" :
       item === "images" ? (current ? "recipe-editor" : "intake") :
@@ -996,6 +999,7 @@ export default function Home() {
     if (tool === "library") return projects.length ? `Your local library is open with ${projects.length} recipe draft(s). Select a draft to continue editing. Drafts are saved on this device only.` : "Your local library is open, but there are no recipe drafts saved in this browser yet.";
     if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
     if (tool === "editorial") return "Editorial Calendar is open. Record original ideas, separate hypotheses from dated sourced observations, customize transparent scoring weights, and keep unresolved recipe, rights, nutrition or disclosure questions on hold. No live trends are fetched and nothing is published automatically.";
+    if (tool === "monetization") return "Monetization Readiness is open. Prepare a media kit from owner-entered records, keep actual USD receipts separate from estimates/offers, review disclosures and rights, and track brand/affiliate commitments locally. The app does not connect accounts, handle payouts, verify legal eligibility or guarantee income.";
     return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
@@ -1022,7 +1026,7 @@ export default function Home() {
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" :
-      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : "social-connections";
+      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1083,6 +1087,7 @@ export default function Home() {
       return;
     }
 
+    if (/monetization|media kit|sponsorship|affiliate program|brand deal|creator income|earning readiness/.test(request)) { openTool("monetization", rawRequest); return; }
     if (/editorial calendar|content ideas|idea backlog|idea research|editorial ideas/.test(request)) { openTool("editorial", rawRequest); return; }
     if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) {
       setSchedulePrefill("");
@@ -1904,6 +1909,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("editorial")}><span className="nav-icon"><InterfaceIcon name="calendar" /></span>Editorial Calendar</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("monetization")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Monetization Readiness</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
@@ -2156,6 +2162,7 @@ export default function Home() {
           </section>
 
           {activeTool === "editorial" && <EditorialCalendar />}
+          {activeTool === "monetization" && <MonetizationWorkspace />}
 
           <section className="connection-hub panel" id="social-connections">
             <div className="section-head">
