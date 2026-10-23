@@ -3,9 +3,9 @@ node_modules/
 out/
 build/
 dist/
-.env
-.env.local
-.env.*.local
+# Keep local environment files and secrets out of Git; retain only the blank example template.
+.env*
+!.env.example
 .vercel/
 .DS_Store
 *.tsbuildinfo
