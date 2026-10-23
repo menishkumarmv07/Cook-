@@ -1586,6 +1586,7 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await page.locator("#money-partner-payment-date").fill("2026-10-22");
   await page.locator("#money-partner-payment-note").fill("Owner matched the payment to the actual account statement.");
   await page.getByRole("button", { name: "Update partnership" }).click();
+  await page.getByRole("button", { name: "Overview" }).click();
   await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
   await expect(page.locator(".monetization-summary-grid")).toContainText("Actual partnership receipts");
 
