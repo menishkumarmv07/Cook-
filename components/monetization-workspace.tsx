@@ -117,6 +117,12 @@ const READINESS_STATUS_LABELS: Record<ReadinessStatus, string> = {
   "needs-action": "Needs action",
   reviewed: "Reviewed by owner",
 };
+const AFFILIATE_STATUS_LABELS: Record<AffiliateStatus, string> = {
+  idea: "Idea",
+  active: "Active — reviewed",
+  paused: "Paused",
+  ended: "Ended",
+};
 
 export default function MonetizationWorkspace() {
   const [profile, setProfile] = useState<CreatorMediaKitProfile>({ ...DEFAULT_MEDIA_KIT_PROFILE });
@@ -533,7 +539,7 @@ export default function MonetizationWorkspace() {
         </div>
         <div className="monetization-subpanel"><h3>Affiliate register</h3>
           {affiliates.length === 0 ? <p className="empty-inline">No affiliate links recorded.</p> : <div className="monetization-record-list">{affiliates.map((item) => <article className="monetization-record-card" key={item.id}>
-            <div className="monetization-record-heading"><h4>{item.merchantOrProgram} · {item.productOrService}</h4><span className={item.commissionKind === "received" ? "monetization-pill" : "monetization-pill is-estimate"}>{item.commissionKind === "received" ? "Commission received" : item.commissionKind === "estimate" ? "Estimate only" : item.status}</span></div>
+            <div className="monetization-record-heading"><h4>{item.merchantOrProgram} · {item.productOrService}</h4><span className={item.commissionKind === "received" ? "monetization-pill" : "monetization-pill is-estimate"}>{item.commissionKind === "received" ? "Commission received" : item.commissionKind === "estimate" ? "Estimate only" : AFFILIATE_STATUS_LABELS[item.status]}</span></div>
             {item.destinationUrl && <p><a href={item.destinationUrl} target="_blank" rel="noreferrer">Open recorded destination</a></p>}
             <p><strong>Disclosure:</strong> {item.disclosureText || "Not recorded"} · {item.disclosureReviewed ? "reviewed" : "review needed"}</p>
             <p>{item.commissionUsd === null ? "Commission not recorded" : fmtUsd(item.commissionUsd)} · {item.commissionKind === "received" ? "Actual commission (owner-recorded)" : item.commissionKind === "estimate" ? "Estimate, not actual income" : "No commission record"}</p>
