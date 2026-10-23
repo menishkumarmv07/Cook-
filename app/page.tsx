@@ -2,6 +2,7 @@
 
 import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
+import EditorialCalendar from "@/components/editorial-calendar";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
   buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
@@ -51,7 +52,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -78,7 +79,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -114,7 +115,7 @@ type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y:
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
-  growth: "Growth Lab",
+  growth: "Growth Lab", editorial: "Editorial Calendar",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -713,9 +714,10 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial") {
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "editorial" ? "editorial" :
       item === "growth" ? "growth" :
       item === "images" ? "intake" :
       item === "library" || item === "projects" ? "library" :
@@ -723,6 +725,7 @@ export default function Home() {
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "editorial" ? "editorial-calendar" :
       item === "growth" ? "growth-lab" :
       item === "images" ? (current ? "recipe-editor" : "intake") :
       item === "library" || item === "projects" ? "recent-projects" :
@@ -844,6 +847,7 @@ export default function Home() {
       }
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
+    if (/editorial calendar|content ideas|idea backlog|idea research|editorial ideas/.test(request)) return { tool: "editorial", text: responseForTool("editorial") };
     if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts." };
     if (/today[’\u0027]s plan|my plan|daily plan|next step/.test(request)) return { tool: "plan", text: responseForTool("plan") };
     if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) return { tool: "content", text: responseForTool("content") };
@@ -991,6 +995,7 @@ export default function Home() {
     if (tool === "profile") return "Your creator profile settings are open. Preferences save in this browser. This screen is not connected to an AI model and does not automatically enforce every wording rule.";
     if (tool === "library") return projects.length ? `Your local library is open with ${projects.length} recipe draft(s). Select a draft to continue editing. Drafts are saved on this device only.` : "Your local library is open, but there are no recipe drafts saved in this browser yet.";
     if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
+    if (tool === "editorial") return "Editorial Calendar is open. Record original ideas, separate hypotheses from dated sourced observations, customize transparent scoring weights, and keep unresolved recipe, rights, nutrition or disclosure questions on hold. No live trends are fetched and nothing is published automatically.";
     return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
@@ -1017,7 +1022,7 @@ export default function Home() {
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" :
-      tool === "growth" ? "growth-lab" : "social-connections";
+      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1078,6 +1083,7 @@ export default function Home() {
       return;
     }
 
+    if (/editorial calendar|content ideas|idea backlog|idea research|editorial ideas/.test(request)) { openTool("editorial", rawRequest); return; }
     if (scheduleIntent || /plan content|links upload|upload links|multiple links|custom link plan/.test(request)) {
       setSchedulePrefill("");
       openTool("content", rawRequest);
@@ -1897,6 +1903,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("scheduled")}><span className="nav-icon"><InterfaceIcon name="clock" /></span>Scheduled</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("explore")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Explore</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("editorial")}><span className="nav-icon"><InterfaceIcon name="calendar" /></span>Editorial Calendar</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
@@ -2147,6 +2154,8 @@ export default function Home() {
               </>
             )}
           </section>
+
+          {activeTool === "editorial" && <EditorialCalendar />}
 
           <section className="connection-hub panel" id="social-connections">
             <div className="section-head">
