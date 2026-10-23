@@ -129,6 +129,8 @@ test("contract progression requires rights, written terms, disclosure and explic
 
   const reviewed = partnership({ status: "contracted", amountUsd: 250, amountStage: "contracted", review: allReviewed });
   assert.deepEqual(validatePartnership(reviewed, safeProfile()), []);
+  assert.ok(validatePartnership(partnership({ status: "contracted", amountUsd: 250, amountStage: "estimate", review: allReviewed }), safeProfile()).some((error) => /cannot retain Estimate\/Offer amount basis/.test(error)));
+  assert.ok(validatePartnership(partnership({ status: "lead", amountUsd: 250, amountStage: "contracted" }), safeProfile()).some((error) => /must use Contracted or Delivered status/.test(error)));
   assert.ok(validatePartnership(reviewed, safeProfile({ ageBand: "not-set" })).some((error) => /Record the creator age band/.test(error)));
 
   const minorWithoutGuardian = partnership({ status: "contracted", amountUsd: 250, amountStage: "contracted", review: allReviewed });
