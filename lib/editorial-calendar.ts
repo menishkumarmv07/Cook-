@@ -306,8 +306,7 @@ export function parseEditorialBackupJSON(raw: string): EditorialWorkspaceBackup 
       !isValidIsoTimestamp(parsed.exportedAt) ||
       !Array.isArray(parsed.ideas) ||
       parsed.ideas.length > MAX_IDEAS ||
-      !isWeights(parsed.weights) ||
-      parsed.ideas.some((idea) => !isEditorialIdea(idea))) return null;
+      !isWeights(parsed.weights)) return null;
   const migrationWarnings: string[] = [];
   const normalizedIdeas = (parsed.ideas as unknown[]).map((value) => {
     if (!isObject(value)) return value;
