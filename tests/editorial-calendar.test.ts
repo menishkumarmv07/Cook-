@@ -40,6 +40,7 @@ function idea(overrides: Partial<EditorialIdea> = {}): EditorialIdea {
     scheduledDate: "",
     audiencePromise: "A practical US weeknight meal with clear textures and steps.",
     originalContribution: "Show an original taste test and explain why each texture is used.",
+    unresolvedQuestions: "",
     hypothesis: "A close-up texture comparison may help viewers understand the recipe.",
     evidenceKind: "hypothesis",
     sourceUrl: "",
@@ -101,6 +102,14 @@ test("future observation dates and unsafe source URLs cannot be used as dated ev
     observationNotes: "Private URL should not be accepted.",
   });
   assert.ok(validateEditorialIdea(local).some((message) => /safe public HTTP\(S\) source URL/.test(message)));
+});
+
+test("Hold status requires a concrete blocker and stays separate from publish readiness", () => {
+  const missingBlocker = idea({ status: "hold" });
+  assert.ok(validateEditorialIdea(missingBlocker).some((message) => /concrete unresolved question or blocker/.test(message)));
+  const documentedBlocker = idea({ status: "hold", unresolvedQuestions: "The cooking temperature needs to be checked against an authoritative food-safety source." });
+  assert.deepEqual(validateEditorialIdea(documentedBlocker), []);
+  assert.equal(isEditorialIdea(documentedBlocker), true);
 });
 
 test("ready and scheduled states require the originality and review gates", () => {
@@ -168,6 +177,27 @@ test("JSON backup round-trips ideas and weights while rejecting corrupt, duplica
     format: "cooking-creator-editorial-workspace", version: 1, exportedAt, ideas: [ideas[0], ideas[0]], weights: DEFAULT_EDITORIAL_WEIGHTS,
   })), null);
   assert.equal(parseEditorialBackupJSON("x".repeat(5_000_001)), null);
+});
+
+test("legacy editorial backup migration adds blocker notes and downgrades Hold without losing records", () => {
+  const existing = idea({ status: "hold" });
+  const legacy = { ...existing, unresolvedQuestions: undefined };
+  const exportedAt = "2026-10-22T12:00:00.000Z";
+  const raw = JSON.stringify({
+    format: "cooking-creator-editorial-workspace",
+    version: 1,
+    exportedAt,
+    ideas: [legacy],
+    weights: DEFAULT_EDITORIAL_WEIGHTS,
+  });
+  const restored = parseEditorialBackupJSON(raw);
+  assert.ok(restored);
+  assert.equal(restored.ideas.length, 1);
+  assert.equal(restored.ideas[0].unresolvedQuestions, "");
+  assert.equal(restored.ideas[0].status, "researching");
+  assert.ok(restored.migrationWarnings?.some((warning) => /downgraded to Researching/.test(warning)));
+  const newlyExported = createEditorialBackupJSON(restored.ideas, restored.weights, exportedAt);
+  assert.equal("migrationWarnings" in JSON.parse(newlyExported), false);
 });
 
 test("merge keeps existing records, skips duplicates, and rekeys unrelated ID collisions", () => {
