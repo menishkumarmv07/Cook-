@@ -91,6 +91,10 @@ export default function EditorialCalendar() {
   const [message, setMessage] = useState("");
   const [showScoringSettings, setShowScoringSettings] = useState(false);
   const [filter, setFilter] = useState<"all" | EditorialStatus>("all");
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  });
 
   useEffect(() => {
     try {
@@ -141,6 +145,40 @@ export default function EditorialCalendar() {
         return a.scheduledDate.localeCompare(b.scheduledDate);
       });
   }, [ideas, filter, weights]);
+
+  const ideasByDate = useMemo(() => {
+    const grouped = new Map<string, EditorialIdea[]>();
+    for (const idea of ideas) {
+      if (!idea.scheduledDate || !/^\d{4}-\d{2}-\d{2}$/.test(idea.scheduledDate)) continue;
+      const current = grouped.get(idea.scheduledDate) ?? [];
+      current.push(idea);
+      grouped.set(idea.scheduledDate, current);
+    }
+    return grouped;
+  }, [ideas]);
+
+  const calendarCells = useMemo(() => {
+    const first = new Date(`${calendarMonth}T12:00:00`);
+    const gridStart = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay(), 12, 0, 0);
+    return Array.from({ length: 42 }, (_, index) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + index);
+      const dateOnly = getLocalDateOnly(date);
+      return {
+        date: dateOnly,
+        day: date.getDate(),
+        inMonth: date.getMonth() === first.getMonth(),
+        entries: ideasByDate.get(dateOnly) ?? [],
+      };
+    });
+  }, [calendarMonth, ideasByDate]);
+
+  function shiftCalendarMonth(offset: number) {
+    const date = new Date(`${calendarMonth}T12:00:00`);
+    date.setDate(1);
+    date.setMonth(date.getMonth() + offset);
+    setCalendarMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`);
+  }
 
   function patchDraft(patch: Partial<EditorialIdea>) {
     setDraft((previous) => ({ ...previous, ...patch, updatedAt: new Date().toISOString() }));
@@ -394,6 +432,35 @@ export default function EditorialCalendar() {
         <div className="subsection-head">
           <div><h3 id="editorial-list-title">Your idea backlog &amp; calendar</h3><p className="muted">Items with dates appear first. Status changes are validated against the evidence and pre-publish gates.</p></div>
           <label className="editorial-filter-label" htmlFor="editorial-filter">Filter status<select id="editorial-filter" value={filter} onChange={(event) => setFilter(event.target.value as "all" | EditorialStatus)}><option value="all">All items</option>{STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}</select></label>
+        </div>
+        <div className="editorial-calendar-month" aria-label="Monthly editorial calendar">
+          <div className="editorial-month-heading">
+            <div><h4>{new Date(`${calendarMonth}T12:00:00`).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</h4><p className="hint">Dates are planning notes only; no platform is scheduled automatically.</p></div>
+            <div className="editorial-month-controls">
+              <button className="secondary" type="button" aria-label="Previous month" onClick={() => shiftCalendarMonth(-1)}>←</button>
+              <button className="secondary" type="button" aria-label="Next month" onClick={() => shiftCalendarMonth(1)}>→</button>
+            </div>
+          </div>
+          <div className="editorial-weekdays" aria-hidden="true">{["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => <span key={day}>{day}</span>)}</div>
+          <div className="editorial-calendar-grid" role="grid" aria-label="Days in selected month">
+            {calendarCells.map((cell) => (
+              <button
+                key={cell.date}
+                type="button"
+                role="gridcell"
+                aria-label={`${new Date(`${cell.date}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}; ${cell.entries.length} saved idea(s). Select this date for the idea form.`}
+                className={`editorial-day-cell${cell.inMonth ? "" : " is-outside-month"}${cell.entries.length ? " has-ideas" : ""}`}
+                onClick={() => {
+                  patchDraft({ scheduledDate: cell.date });
+                  setMessage(`Draft date set to ${cell.date}. Save the idea form to keep the date; this does not schedule a post.`);
+                }}
+              >
+                <span className="editorial-day-number">{cell.day}</span>
+                {cell.entries.slice(0, 2).map((entry) => <span className="editorial-day-entry" key={entry.id} title={entry.title}>{entry.title}</span>)}
+                {cell.entries.length > 2 && <span className="editorial-day-more">+{cell.entries.length - 2} more</span>}
+              </button>
+            ))}
+          </div>
         </div>
         {visibleIdeas.length === 0 ? <div className="empty-inline">No ideas match this view yet. Add an original idea above, or change the filter.</div> : (
           <div className="editorial-idea-list">
