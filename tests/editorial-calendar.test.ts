@@ -14,7 +14,6 @@ import {
   validateEditorialIdea,
   validateEditorialWeights,
   type EditorialIdea,
-  type EditorialScoreWeights,
 } from "../lib/editorial-calendar";
 
 function testDateOnly(date = new Date()): string {
