@@ -416,6 +416,19 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await page.getByLabel("Your trial rating").selectOption("5");
   await page.getByLabel("What happened when you cooked it?").fill("Cooked at home; texture and taste were good.");
   await page.getByRole("button", { name: "Mark as Tested" }).click();
+  await expect(page.getByRole("status")).toContainText("Enter the actual date you cooked this recipe");
+  await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+
+  const trialDate = await page.evaluate(() => {
+    const now = new Date();
+    const year = String(now.getFullYear()).padStart(4, "0");
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return [year, month, day].join("-");
+  });
+  await page.getByLabel("Actual cooking-trial date").fill(trialDate);
+  await page.getByLabel("What changed (or confirm no changes)").fill("No changes; followed the recipe as written.");
+  await page.getByRole("button", { name: "Mark as Tested" }).click();
   await expect(page.getByText("TESTED BY YOU")).toBeVisible();
 
   await page.getByRole("button", { name: "Prepare content pack" }).click();
@@ -427,6 +440,10 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await expect(pack).toContainText("US-first creator production appendix");
   await expect(pack).toContainText("USD-oriented business tracking");
   await expect(pack).toContainText("Owner sign-off");
+  await expect(pack).toContainText(`Actual cooking-trial date: ${trialDate}`);
+  await expect(pack).toContainText("What changed during the trial: No changes; followed the recipe as written.");
+  await expect(pack).toContainText("Current-version trial photo: revision matches the current recipe");
+  await expect(pack).toContainText("Current-version trial notes: revision matches the current recipe");
   await expect(pack).toContainText("Source links for creator-policy review");
   await expect(pack).toContainText("Originality and differentiation worksheet");
   await expect(pack).toContainText("Platform-specific finishing pass");
@@ -444,6 +461,8 @@ test("tested recipe must be approved before share; recipe edits reset trust and 
   await page.getByRole("button", { name: /Add ingredient/ }).click();
   await page.getByLabel("Ingredient 1 name").fill("cooked rice");
   await expect(page.getByText("UNTESTED", { exact: true })).toBeVisible();
+  await expect(page.getByText(/photo is retained for reference but belongs to an earlier recipe version/i)).toBeVisible();
+  await expect(page.getByText(/notes are retained from an earlier recipe version/i)).toBeVisible();
   await expect(page.getByText("AWAITING APPROVAL", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Share approved pack" })).toBeDisabled();
 });

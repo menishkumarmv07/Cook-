@@ -1,4 +1,6 @@
 import {
+  getLocalDateOnly,
+  isValidDateOnly,
   normalizeSourceUrlForComparison,
   type CreatorProfile,
   type RecipeProject,
@@ -178,7 +180,17 @@ export function buildUSCreatorPackAppendix(
   const validSources = sources.map(sourceLabel);
   const firstIngredient = ingredients.find((item) => clean(item.name, 160));
   const firstStep = steps.find((item) => clean(item.action, 800));
-  const tested = project.trialStatus === "tested";
+  const photoMatchesCurrentVersion = Boolean(project.trialPhotoDataUrl) && project.trialPhotoRevision === project.recipeRevision;
+  const notesMatchCurrentVersion = project.trialNotes.trim().length >= 10 && project.trialNotesRevision === project.recipeRevision;
+  const trialEvidenceCurrent =
+    project.trialStatus === "tested" &&
+    isValidDateOnly(project.trialDate) &&
+    project.trialDate <= getLocalDateOnly() &&
+    project.trialChanges.trim().length >= 3 &&
+    /^[1-5]$/.test(project.trialRating) &&
+    notesMatchCurrentVersion &&
+    photoMatchesCurrentVersion;
+  const tested = trialEvidenceCurrent;
   const approved = tested && project.approved;
   const unitPreference = clean(profile.units, 80) || "US customary";
   const platforms = clean(profile.platforms, 180) || "YouTube Shorts and Instagram Reels";
@@ -315,7 +327,11 @@ export function buildUSCreatorPackAppendix(
     "#Cooking #RecipeIdeas #HomeCooking",
     "",
     "### Owner sign-off",
-    `- Cooking trial recorded by owner: ${tested ? "marked tested — confirm the notes reflect a real trial" : "NO — not marked tested"}`,
+    `- Cooking trial recorded by owner: ${tested ? "marked tested for the current recipe version — confirm the record reflects a real trial" : "NO — current-version trial proof is incomplete or stale"}`,
+    `- Actual cooking-trial date: ${isValidDateOnly(project.trialDate) && project.trialDate <= getLocalDateOnly() ? project.trialDate : "NOT RECORDED OR INVALID — owner review required"}`,
+    `- What changed during the trial: ${longText(project.trialChanges, "NOT RECORDED — owner review required; explicitly state changes or that the recipe was followed as written.")}`,
+    `- Current-version trial photo: ${photoMatchesCurrentVersion ? "revision matches the current recipe" : "MISSING OR STALE — upload a photo from this version"}`,
+    `- Current-version trial notes: ${notesMatchCurrentVersion ? "revision matches the current recipe" : "MISSING OR STALE — add notes for this version"}`,
     `- Content approved by owner: ${approved ? "marked approved — verify it remains current" : "NO — approval still required"}`,
     `- Unresolved review notes: ${longText(project.notes, "None recorded; inspect all recipe fields before sharing.")}`,
     ...(missingChecks.length ? ["", "### Items to resolve before publication", ...missingChecks.map((item) => `- ${item}`)] : []),

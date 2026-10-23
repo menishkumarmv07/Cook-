@@ -5,6 +5,7 @@ import {
 } from "../lib/creator-content-pack";
 import {
   DEFAULT_CREATOR_PROFILE,
+  getLocalDateOnly,
   SCENE_TEMPLATE,
   type RecipeProject,
 } from "../lib/recipe";
@@ -14,8 +15,13 @@ function recipe(overrides: Partial<RecipeProject> = {}): RecipeProject {
     id: 1,
     trialStatus: "untested",
     trialRating: "",
+    trialDate: "",
+    trialChanges: "",
     trialNotes: "",
     trialPhotoDataUrl: "",
+    recipeRevision: 0,
+    trialPhotoRevision: -1,
+    trialNotesRevision: -1,
     approved: false,
     approvedAt: "",
     name: "Tomato pasta",
@@ -77,17 +83,25 @@ test("missing information is exposed, not filled in with fabricated quantities o
   assert.match(output, /timing not recorded/);
   assert.match(output, /Record the serving yield/);
   assert.match(output, /No source URLs recorded/);
-  assert.match(output, /NO — not marked tested/);
+  assert.match(output, /current-version trial proof is incomplete or stale/);
+  assert.match(output, /NOT RECORDED OR INVALID — owner review required/);
   assert.match(output, /approval still required/);
 });
 
 test("a recipe marked tested but not approved remains approval-gated", () => {
   const output = buildUSCreatorPackAppendix(recipe({
     trialStatus: "tested",
-    trialNotes: "Owner recorded a real kitchen trial.",
+    trialRating: "4",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes; followed the instructions as written.",
+    trialNotes: "Owner recorded a real kitchen trial and checked the cooking cues.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 1,
+    trialPhotoRevision: 1,
+    trialNotesRevision: 1,
     approved: false,
   }), DEFAULT_CREATOR_PROFILE);
-  assert.match(output, /marked tested — confirm the notes reflect a real trial/);
+  assert.match(output, /marked tested for the current recipe version/);
   assert.match(output, /Content approved by owner: NO/);
   assert.match(output, /Owner approval is not complete/);
 });
@@ -285,5 +299,46 @@ test("source claim notes remain one-line and unsafe URLs are not presented as ev
   assert.doesNotMatch(output, /http:\/\/localhost\/private/);
   assert.match(output, /1 cup rice ### VERIFIED/);
   assert.doesNotMatch(output, /First line\n### false verification heading/);
+});
+
+test("creator appendix reports trial date, changes and current-version proof without inferring it", () => {
+  const currentProof = recipe({
+    trialStatus: "tested",
+    trialRating: "5",
+    trialDate: getLocalDateOnly(),
+    trialChanges: "No changes; followed the method as written.",
+    trialNotes: "Cooked at home and checked texture and recorded timing.",
+    trialPhotoDataUrl: "data:image/jpeg;base64,AA==",
+    recipeRevision: 7,
+    trialPhotoRevision: 7,
+    trialNotesRevision: 7,
+    approved: true,
+    approvedAt: "2026-10-19T12:00:00.000Z",
+  });
+  const output = buildUSCreatorPackAppendix(currentProof, DEFAULT_CREATOR_PROFILE);
+  assert.match(output, /marked tested for the current recipe version/);
+  assert.match(output, new RegExp(`Actual cooking-trial date: ${getLocalDateOnly()}`));
+  assert.match(output, /What changed during the trial: No changes; followed the method as written\./);
+  assert.match(output, /Current-version trial photo: revision matches the current recipe/);
+  assert.match(output, /Current-version trial notes: revision matches the current recipe/);
+  assert.match(output, /Content approved by owner: marked approved/);
+
+  const stalePhoto = buildUSCreatorPackAppendix({
+    ...currentProof,
+    trialPhotoRevision: 6,
+  }, DEFAULT_CREATOR_PROFILE);
+  assert.match(stalePhoto, /current-version trial proof is incomplete or stale/);
+  assert.match(stalePhoto, /Current-version trial photo: MISSING OR STALE/);
+  assert.match(stalePhoto, /Content approved by owner: NO — approval still required/);
+  assert.doesNotMatch(stalePhoto, /Content approved by owner: marked approved/);
+
+  const missingDate = buildUSCreatorPackAppendix({
+    ...currentProof,
+    trialDate: "",
+    trialChanges: "",
+  }, DEFAULT_CREATOR_PROFILE);
+  assert.match(missingDate, /NOT RECORDED OR INVALID — owner review required/);
+  assert.match(missingDate, /explicitly state changes or that the recipe was followed as written/);
+  assert.match(missingDate, /current-version trial proof is incomplete or stale/);
 });
 

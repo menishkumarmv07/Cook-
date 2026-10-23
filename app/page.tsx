@@ -14,7 +14,9 @@ import {
   createCreatorWorkspaceBackupJSON,
   DEFAULT_CREATOR_PROFILE,
   isCreatorProfile,
+  getLocalDateOnly,
   isHttpUrl,
+  isValidDateOnly,
   parseCreatorWorkspaceBackupJSON,
   parseRecipeProjectJSON,
   SCENE_TEMPLATE,
@@ -39,6 +41,7 @@ const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
 const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_RECIPE_REVISION = 1_000_000_000;
 
 type SourceInspectionResult = {
   requestedUrl: string;
@@ -194,15 +197,34 @@ function migrateProject(value: unknown): RecipeProject | null {
     safetyStorageFindings: typeof source.safetyStorageFindings === "string" ? source.safetyStorageFindings : "",
   })) : [];
   if (Array.isArray(old.sourceReferences) && sourceReferences.length !== old.sourceReferences.length) return null;
+  const recipeRevision = typeof old.recipeRevision === "number" && Number.isSafeInteger(old.recipeRevision) && old.recipeRevision >= 0 && old.recipeRevision <= MAX_RECIPE_REVISION ? old.recipeRevision : 0;
+  const trialDate = typeof old.trialDate === "string" && isValidDateOnly(old.trialDate) ? old.trialDate : "";
+  const trialChanges = typeof old.trialChanges === "string" ? old.trialChanges : "";
+  const trialRating = typeof old.trialRating === "string" && /^[1-5]$/.test(old.trialRating) ? old.trialRating : "";
+  const trialNotes = typeof old.trialNotes === "string" ? old.trialNotes : "";
+  const trialPhotoDataUrl = typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "";
+  const trialPhotoRevision = typeof old.trialPhotoRevision === "number" && Number.isSafeInteger(old.trialPhotoRevision) && old.trialPhotoRevision >= -1 && old.trialPhotoRevision <= MAX_RECIPE_REVISION ? old.trialPhotoRevision : -1;
+  const trialNotesRevision = typeof old.trialNotesRevision === "number" && Number.isSafeInteger(old.trialNotesRevision) && old.trialNotesRevision >= -1 && old.trialNotesRevision <= MAX_RECIPE_REVISION ? old.trialNotesRevision : -1;
+  const trialEvidenceComplete = Boolean(
+    old.trialStatus === "tested" &&
+    trialDate &&
+    trialDate <= getLocalDateOnly() &&
+    trialChanges.trim().length >= 3 &&
+    /^[1-5]$/.test(trialRating) &&
+    trialNotes.trim().length >= 10 &&
+    trialPhotoDataUrl &&
+    trialPhotoRevision === recipeRevision &&
+    trialNotesRevision === recipeRevision
+  );
+  const trialStatus = trialEvidenceComplete ? "tested" : "untested";
+  const approved = trialStatus === "tested" && old.approved === true;
   return { id: old.id, name: old.name, url: old.url, notes: old.notes,
     sourceEvidence: typeof old.sourceEvidence === "string" ? old.sourceEvidence : "",
     sourceReferences, servings: old.servings ?? "", ingredients, steps, scenes,
-    trialStatus: old.trialStatus === "tested" ? "tested" : "untested",
-    trialRating: typeof old.trialRating === "string" ? old.trialRating : "",
-    trialNotes: typeof old.trialNotes === "string" ? old.trialNotes : "",
-    trialPhotoDataUrl: typeof old.trialPhotoDataUrl === "string" && old.trialPhotoDataUrl.startsWith("data:image/") ? old.trialPhotoDataUrl : "",
-    approved: old.approved === true,
-    approvedAt: typeof old.approvedAt === "string" ? old.approvedAt : "" };
+    trialStatus, trialRating, trialDate, trialChanges, trialNotes, trialPhotoDataUrl,
+    recipeRevision, trialPhotoRevision, trialNotesRevision,
+    approved,
+    approvedAt: approved && typeof old.approvedAt === "string" ? old.approvedAt : "" };
 }
 
 function makeId() {
@@ -1178,8 +1200,13 @@ export default function Home() {
       }] : [],
       trialStatus: "untested",
       trialRating: "",
+      trialDate: "",
+      trialChanges: "",
       trialNotes: "",
       trialPhotoDataUrl: "",
+      recipeRevision: 0,
+      trialPhotoRevision: -1,
+      trialNotesRevision: -1,
       approved: false,
       approvedAt: "",
       servings: servings.trim(),
@@ -1206,9 +1233,42 @@ export default function Home() {
   function patchCurrent(patch: Partial<RecipeProject>) {
     if (!current) return;
     const changesRecipe = ["name", "url", "sourceEvidence", "sourceReferences", "servings", "ingredients", "steps", "scenes"].some((key) => key in patch);
-    setProjects((existing) => existing.map((project) => project.id === current.id
-      ? { ...project, ...patch, ...(changesRecipe ? { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" } : (("trialNotes" in patch || "trialRating" in patch || "trialPhotoDataUrl" in patch) ? { approved: false, approvedAt: "" } : {})) }
-      : project));
+    const changesTrialEvidence = ["trialDate", "trialChanges", "trialNotes", "trialRating", "trialPhotoDataUrl"].some((key) => key in patch);
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== current.id) return project;
+      if (changesRecipe) {
+        return {
+          ...project,
+          ...patch,
+          recipeRevision: project.recipeRevision + 1,
+          trialStatus: "untested" as const,
+          trialRating: "",
+          trialDate: "",
+          trialChanges: "",
+          approved: false,
+          approvedAt: "",
+        };
+      }
+      if (changesTrialEvidence) {
+        return { ...project, ...patch, trialStatus: "untested" as const, approved: false, approvedAt: "" };
+      }
+      const updated = { ...project, ...patch };
+      if (updated.trialStatus === "tested") {
+        const currentTrialProofIsComplete =
+          isValidDateOnly(updated.trialDate) &&
+          updated.trialDate <= getLocalDateOnly() &&
+          updated.trialChanges.trim().length >= 3 &&
+          /^[1-5]$/.test(updated.trialRating) &&
+          updated.trialNotes.trim().length >= 10 &&
+          Boolean(updated.trialPhotoDataUrl) &&
+          updated.trialPhotoRevision === updated.recipeRevision &&
+          updated.trialNotesRevision === updated.recipeRevision;
+        if (!currentTrialProofIsComplete) {
+          return { ...updated, trialStatus: "untested" as const, approved: false, approvedAt: "" };
+        }
+      }
+      return updated;
+    }));
   }
 
   async function saveTrialPhoto(file: File | null) {
@@ -1244,7 +1304,7 @@ export default function Home() {
         setMessage("The compressed photo is still too large for reliable local storage. Choose or crop a smaller photo.");
         return;
       }
-      patchCurrent({ trialPhotoDataUrl: compressed });
+      patchCurrent({ trialPhotoDataUrl: compressed, trialPhotoRevision: current.recipeRevision });
       setMessage("Cooking-trial photo saved locally with the recipe. It is not uploaded.");
     } catch {
       setMessage("Photo could not be processed in this browser. Try a smaller JPG or PNG.");
@@ -1255,20 +1315,28 @@ export default function Home() {
 
   function markRecipeTested() {
     if (!current) return;
-    if (!current.trialPhotoDataUrl) {
-      setMessage("Add a photo of the dish you actually cooked before marking this recipe Tested.");
+    if (!isValidDateOnly(current.trialDate) || current.trialDate > getLocalDateOnly()) {
+      setMessage("Enter the actual date you cooked this recipe. A future date cannot be marked as a completed trial.");
       return;
     }
-    if (!current.trialRating) {
+    if (current.trialChanges.trim().length < 3) {
+      setMessage("Record what changed during the trial, or explicitly write that you followed the recipe as written.");
+      return;
+    }
+    if (!current.trialPhotoDataUrl || current.trialPhotoRevision !== current.recipeRevision) {
+      setMessage("Add a fresh photo of the dish cooked from this recipe version before marking it Tested.");
+      return;
+    }
+    if (!/^[1-5]$/.test(current.trialRating)) {
       setMessage("Rate your real cooking trial before marking this recipe Tested.");
       return;
     }
-    if (current.trialNotes.trim().length < 10) {
-      setMessage("Add at least a short, useful cooking-trial note (10 characters or more) before marking Tested.");
+    if (current.trialNotesRevision !== current.recipeRevision || current.trialNotes.trim().length < 10) {
+      setMessage("Record at least 10 characters of cooking-trial notes for this recipe version before marking Tested.");
       return;
     }
     patchCurrent({ trialStatus: "tested" });
-    setMessage("Recipe marked Tested from your recorded trial. Any later recipe edits will reset approval.");
+    setMessage("Recipe marked Tested using the current version's dated trial evidence. Any recipe or trial-evidence edits reset Tested and approval.");
   }
 
   async function shareContentPack() {
@@ -1318,7 +1386,15 @@ export default function Home() {
         ingredients: project.ingredients.map((item) => item.id === id ? { ...item, ...patch } : item),
         ...(nutritionOnly
           ? { approved: false, approvedAt: "" }
-          : { trialStatus: "untested" as const, trialRating: "", approved: false, approvedAt: "" }),
+          : {
+              recipeRevision: project.recipeRevision + 1,
+              trialStatus: "untested" as const,
+              trialRating: "",
+              trialDate: "",
+              trialChanges: "",
+              approved: false,
+              approvedAt: "",
+            }),
       };
     }));
   }
@@ -1724,12 +1800,15 @@ export default function Home() {
                 <div className="draft-head"><div><p className="eyebrow">EDITING DRAFT</p><h3>{current.name}</h3></div><span className="draft">NOT PUBLISHED</span></div>
                 <section className="trial-panel">
                   <div className="subsection-head"><div><p className="eyebrow">RECIPE TRUST CHECK</p><h3>Cooking trial & tested status</h3><p className="muted">Only mark Tested after you actually cook this recipe. This is your record, not an independent food-safety certification.</p></div><span className={current.trialStatus === "tested" ? "status" : "status status-warning"}>{current.trialStatus === "tested" ? "TESTED BY YOU" : "UNTESTED"}</span></div>
-                  <div className="trial-photo-field"><label htmlFor="trial-photo">Cooking-trial photo <b>*</b></label><input id="trial-photo" type="file" accept="image/*" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void saveTrialPhoto(file); }} /><small className="hint">Resized on your device and saved locally; no upload. Keep the photo of the dish you actually cooked.</small>{current.trialPhotoDataUrl && <div className="trial-photo-preview"><NextImage src={current.trialPhotoDataUrl} alt={`Your cooking-trial photo for ${current.name}`} width={900} height={900} unoptimized style={{ width: "100%", height: "auto", maxWidth: 280, maxHeight: 260, objectFit: "contain" }} /><button className="text-button" type="button" onClick={() => patchCurrent({ trialPhotoDataUrl: "" })}>Remove photo</button></div>}</div>
+                  <div className="trial-photo-field"><label htmlFor="trial-photo">Cooking-trial photo <b>*</b></label><input id="trial-photo" type="file" accept="image/*" onChange={(event) => { const file = event.currentTarget.files?.[0] ?? null; event.currentTarget.value = ""; void saveTrialPhoto(file); }} /><small className="hint">Resized on your device and saved locally; no upload. Keep the photo of the dish you actually cooked.</small>{current.trialPhotoDataUrl && current.trialPhotoRevision !== current.recipeRevision && <p className="warning">This photo is retained for reference but belongs to an earlier recipe version. Upload a new photo of the current version before marking it Tested.</p>}{current.trialPhotoDataUrl && <div className="trial-photo-preview"><NextImage src={current.trialPhotoDataUrl} alt={`Your cooking-trial photo for ${current.name}`} width={900} height={900} unoptimized style={{ width: "100%", height: "auto", maxWidth: 280, maxHeight: 260, objectFit: "contain" }} /><button className="text-button" type="button" onClick={() => patchCurrent({ trialPhotoDataUrl: "" })}>Remove photo</button></div>}</div>
                   <div className="editor-grid">
-                    <div><label htmlFor="trial-rating">Your trial rating</label><select id="trial-rating" value={current.trialRating} onChange={(event) => patchCurrent({ trialRating: event.target.value })}><option value="">Choose a rating</option><option value="1">1 — Needs work</option><option value="2">2 — Below expectations</option><option value="3">3 — Good</option><option value="4">4 — Very good</option><option value="5">5 — Excellent</option></select></div>
-                    <div><label htmlFor="trial-notes">What happened when you cooked it?</label><textarea id="trial-notes" rows={3} value={current.trialNotes} onChange={(event) => patchCurrent({ trialNotes: event.target.value })} placeholder="Record changes, actual timing, texture, taste, and any safety concerns…" /></div>
+                    <div><label htmlFor="trial-date">Actual cooking-trial date <b>*</b></label><input id="trial-date" type="date" value={current.trialDate} max={getLocalDateOnly()} aria-required="true" onChange={(event) => patchCurrent({ trialDate: event.target.value })} /><small className="hint">Enter the date you actually cooked this version. Future dates are not accepted.</small></div>
+                    <div><label htmlFor="trial-rating">Your trial rating <b>*</b></label><select id="trial-rating" value={current.trialRating} onChange={(event) => patchCurrent({ trialRating: event.target.value })}><option value="">Choose a rating</option><option value="1">1 — Needs work</option><option value="2">2 — Below expectations</option><option value="3">3 — Good</option><option value="4">4 — Very good</option><option value="5">5 — Excellent</option></select></div>
+                    <div><label htmlFor="trial-changes">What changed (or confirm no changes) <b>*</b></label><textarea id="trial-changes" rows={2} value={current.trialChanges} onChange={(event) => patchCurrent({ trialChanges: event.target.value })} placeholder="Record what you changed, or write that you followed the recipe as written." /></div>
+                    <div><label htmlFor="trial-notes">What happened when you cooked it? <b>*</b></label><textarea id="trial-notes" rows={3} value={current.trialNotes} onChange={(event) => patchCurrent({ trialNotes: event.target.value, trialNotesRevision: current.recipeRevision })} placeholder="Record actual timing, texture, taste, result and any safety concerns…" /></div>
+                    {current.trialNotes.trim().length > 0 && current.trialNotesRevision !== current.recipeRevision && <p className="warning">These notes are retained from an earlier recipe version and do not count as current-trial notes. Review and update them after cooking the current version.</p>}
                   </div>
-                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires a real-dish photo, rating, and trial notes. Editing the recipe resets approval.</small></div>
+                  <div className="action-row"><button className="secondary" type="button" onClick={markRecipeTested}>Mark as Tested</button><small className="hint">Requires an actual non-future date, what changed, current-version photo, rating, and notes. Recipe edits invalidate the old trial proof without deleting the previous photo.</small></div>
                 </section>
                 <section className="approval-panel" id="publish-queue">
                   <div className="subsection-head"><div><p className="eyebrow">CREATOR CONTROL</p><h3>Approval before sharing</h3><p className="muted">Nothing is posted automatically. Review the pack, approve it, then choose a destination in Android’s share sheet.</p></div><span className={current.approved ? "status" : "status status-warning"}>{current.approved ? "APPROVED" : "AWAITING APPROVAL"}</span></div>
