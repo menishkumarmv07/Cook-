@@ -44,6 +44,7 @@ export type EditorialIdea = {
   scheduledDate: string;
   audiencePromise: string;
   originalContribution: string;
+  unresolvedQuestions: string;
   hypothesis: string;
   evidenceKind: EditorialEvidenceKind;
   sourceUrl: string;
@@ -64,6 +65,8 @@ export type EditorialWorkspaceBackup = {
   exportedAt: string;
   ideas: EditorialIdea[];
   weights: EditorialScoreWeights;
+  // Parser-only migration warnings; not written into new exports.
+  migrationWarnings?: string[];
 };
 
 export type EditorialMergeResult = {
@@ -199,6 +202,10 @@ export function validateEditorialIdea(value: unknown): string[] {
     errors.push("Published URL must be a safe public HTTP(S) URL.");
   }
   if (!boundedText(value.outcomeNotes, MAX_TEXT, false)) errors.push("Outcome notes must be 2,000 characters or fewer.");
+  if (!boundedText(value.unresolvedQuestions, 1_000, false)) errors.push("Unresolved questions must be 1,000 characters or fewer.");
+  if (value.status === "hold" && typeof value.unresolvedQuestions === "string" && !value.unresolvedQuestions.trim()) {
+    errors.push("Record a concrete unresolved question or blocker before putting an item on Hold.");
+  }
 
   const gateNeedsChecks = value.status === "ready" || value.status === "scheduled" || value.status === "published";
   if (gateNeedsChecks && isReviewChecks(value.reviewChecks) && !reviewChecksComplete(value.reviewChecks)) {
@@ -301,7 +308,23 @@ export function parseEditorialBackupJSON(raw: string): EditorialWorkspaceBackup 
       parsed.ideas.length > MAX_IDEAS ||
       !isWeights(parsed.weights) ||
       parsed.ideas.some((idea) => !isEditorialIdea(idea))) return null;
-  const ideas = parsed.ideas as EditorialIdea[];
+  const migrationWarnings: string[] = [];
+  const normalizedIdeas = (parsed.ideas as unknown[]).map((value) => {
+    if (!isObject(value)) return value;
+    const hasBlockerField = typeof value.unresolvedQuestions === "string";
+    let normalized: Record<string, unknown> = {
+      ...value,
+      unresolvedQuestions: hasBlockerField ? value.unresolvedQuestions : "",
+    };
+    if (!hasBlockerField) migrationWarnings.push("Older editorial records were migrated with an empty blocker-notes field.");
+    if (normalized.status === "hold" && typeof normalized.unresolvedQuestions === "string" && !normalized.unresolvedQuestions.trim()) {
+      normalized = { ...normalized, status: "researching" };
+      migrationWarnings.push("An old Hold status without a recorded blocker was downgraded to Researching for owner review.");
+    }
+    return normalized;
+  });
+  if (normalizedIdeas.some((idea) => !isEditorialIdea(idea))) return null;
+  const ideas = normalizedIdeas as EditorialIdea[];
   if (new Set(ideas.map((idea) => idea.id)).size !== ideas.length) return null;
   if (new Set(ideas.map(editorialIdeaFingerprint)).size !== ideas.length) return null;
   return {
@@ -310,6 +333,7 @@ export function parseEditorialBackupJSON(raw: string): EditorialWorkspaceBackup 
     exportedAt: parsed.exportedAt,
     ideas,
     weights: parsed.weights,
+    ...(migrationWarnings.length ? { migrationWarnings: [...new Set(migrationWarnings)] } : {}),
   };
 }
 
@@ -322,14 +346,14 @@ function csvCell(value: string | number): string {
 export function serializeEditorialIdeasCsv(ideas: EditorialIdea[], weights: EditorialScoreWeights): string {
   const header = [
     "title", "recipe_or_series", "platform", "scheduled_date", "status", "audience_promise",
-    "original_contribution", "hypothesis", "evidence_kind", "source_url", "observed_date",
+    "original_contribution", "unresolved_questions", "hypothesis", "evidence_kind", "source_url", "observed_date",
     "observation_notes", "audience_fit", "originality", "evidence_readiness", "production_effort",
     "seasonal_relevance", "transparent_score_0_100", "published_url", "outcome_notes",
   ];
   const validIdeas = ideas.filter(isEditorialIdea);
   const rows = validIdeas.map((idea) => [
     idea.title, idea.recipeOrSeries, idea.platform, idea.scheduledDate, idea.status,
-    idea.audiencePromise, idea.originalContribution, idea.hypothesis, idea.evidenceKind,
+    idea.audiencePromise, idea.originalContribution, idea.unresolvedQuestions, idea.hypothesis, idea.evidenceKind,
     idea.sourceUrl, idea.observedDate, idea.observationNotes,
     idea.scores.audienceFit, idea.scores.originality, idea.scores.evidenceReadiness,
     idea.scores.productionEffort, idea.scores.seasonalRelevance, scoreEditorialIdea(idea.scores, weights),
