@@ -183,6 +183,9 @@ export function validateEditorialIdea(value: unknown): string[] {
     if (!boundedText(value.observationNotes, 1_000, true)) errors.push("Record what the source actually showed (1,000 characters or fewer).");
   } else {
     if (!boundedText(value.sourceUrl, 2_000, false)) errors.push("Source URL must be 2,000 characters or fewer.");
+    if (typeof value.sourceUrl === "string" && value.sourceUrl.trim() && !isHttpSourceUrl(value.sourceUrl)) {
+      errors.push("Any recorded source URL must be a safe public HTTP(S) URL.");
+    }
     if (!boundedText(value.observedDate, 10, false) ||
       (value.observedDate !== "" && !isValidDateOnly(value.observedDate))) errors.push("Observation date must be blank or a real YYYY-MM-DD date.");
     if (!boundedText(value.observationNotes, 1_000, false)) errors.push("Observation notes must be 1,000 characters or fewer.");
