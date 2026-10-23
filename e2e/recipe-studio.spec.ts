@@ -1626,6 +1626,21 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   expect(backup.metrics.some((item) => item.valueKind === "estimate")).toBe(true);
   expect(backup.partnerships.some((item) => item.status === "paid" && item.amountStage === "received" && item.amountUsd === 85)).toBe(true);
   expect(backup.affiliates.some((item) => item.status === "active")).toBe(true);
+  expect((backup as { readinessChecks?: Array<{ category: string; status: string }> }).readinessChecks?.some((item) => item.category === "originality" && item.status === "reviewed")).toBe(true);
+
+  // Remove this browser's saved copy to prove JSON import restores the workspace rather than relying only on reload persistence.
+  await page.evaluate(() => window.localStorage.removeItem("cooking-creator-monetization-workspace-v1"));
+  await page.reload();
+  await chooseMenuTool(page, "Monetization Readiness");
+  await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
+  await page.locator("#monetization-import-file").setInputFiles({
+    name: "monetization-backup.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(raw, "utf8"),
+  });
+  await expect(page.getByRole("status")).toContainText("restored 1 blank/default readiness check");
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Readiness checklist" }).click();
+  await expect(page.locator(".monetization-readiness-card").filter({ hasText: "Original-content standards" })).toContainText("Reviewed by owner");
 
   await page.reload();
   await chooseMenuTool(page, "Monetization Readiness");
