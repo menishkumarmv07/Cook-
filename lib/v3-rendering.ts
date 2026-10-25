@@ -31,6 +31,8 @@ export type V3MediaAsset = {
 export type V3RenderPreflightIssue = {
   code:
     | "no-scenes"
+    | "too-many-scenes"
+    | "source-library-too-large"
     | "scene-not-reviewed"
     | "missing-scene-clip"
     | "missing-clip-asset"
@@ -43,6 +45,7 @@ export type V3RenderPreflightIssue = {
     | "missing-narration"
     | "narration-not-cleared"
     | "narration-too-short"
+    | "narration-too-long"
     | "caption-timing-invalid"
     | "caption-beyond-video";
   message: string;
@@ -107,6 +110,20 @@ export function preflightV3OwnerFootageRender(
 
   if (scenes.length === 0) {
     issues.push({ code: "no-scenes", message: "The project has no scenes to render." });
+  }
+  if (scenes.length > 12) {
+    issues.push({ code: "too-many-scenes", message: "The first mobile-safe renderer supports at most 12 scenes. Split the project into shorter parts." });
+  }
+  const selectedAssetIds = new Set<string>();
+  for (const scene of scenes) if (scene.sourceMediaId) selectedAssetIds.add(scene.sourceMediaId);
+  if (narrationAssetId) selectedAssetIds.add(narrationAssetId);
+  const selectedAssetBytes = assets.filter((asset) => selectedAssetIds.has(asset.id))
+    .reduce((sum, asset) => sum + asset.byteSize, 0);
+  if (selectedAssetBytes > 100 * 1024 * 1024) {
+    issues.push({
+      code: "source-library-too-large",
+      message: "The combined source footage and narration exceeds the 100 MiB first-render limit. Choose shorter/smaller source files to protect mobile memory.",
+    });
   }
 
   let totalDurationMs = 0;
@@ -214,6 +231,12 @@ export function preflightV3OwnerFootageRender(
       issues.push({
         code: "narration-too-short",
         message: "The narration file is shorter than the assembled video. Trim the video or provide a complete narration track; V3 will not silently time-stretch speech.",
+        assetId: narration.id,
+      });
+    } else if (narration.durationMs > totalDurationMs + 2_500) {
+      issues.push({
+        code: "narration-too-long",
+        message: "Narration is more than 2.5 seconds longer than the edited video. Trim the narration or extend the video so speech is not silently cut off.",
         assetId: narration.id,
       });
     }
