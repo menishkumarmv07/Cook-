@@ -1692,7 +1692,7 @@ async function makeSyntheticWebmFixture(page: import("@playwright/test").Page): 
     });
     const blob = await stopped;
     stream.getTracks().forEach((track) => track.stop());
-    if (blob.size < 32 || blob.type.toLowerCase() !== "video/webm") {
+    if (blob.size < 32 || !blob.type.toLowerCase().startsWith("video/webm")) {
       throw new Error("Synthetic CI video did not produce a valid WebM blob.");
     }
     return { mimeType: blob.type, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) };
@@ -1759,7 +1759,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
       while (current) {
         const style = window.getComputedStyle(current);
         if (style.display === "none" || style.visibility === "hidden" || current.getAttribute("aria-hidden") === "true") {
-          result.push(current.tagName.toLowerCase() + (current.id ? "#" + current.id : "") + (current.className ? "." + String(current.className).replace(/\\s+/g, ".") : ""));
+          result.push(current.tagName.toLowerCase() + (current.id ? "#" + current.id : "") + (current.className ? "." + String(current.className).replace(/\s+/g, ".") : ""));
         }
         current = current.parentElement;
       }
