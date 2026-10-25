@@ -22,7 +22,7 @@ function scene(id: string, sourceStartMs = 0, sourceEndMs = 2_000): V3BlueprintS
     visualCue: "Cooked",
     ingredientIds: ["food"],
     trace: [{ entityType: "step", entityId: id, fields: ["action"] }],
-    reviewStatus: "needs-review",
+    reviewStatus: "approved",
     captionStartMs: sourceStartMs,
     captionEndMs: sourceEndMs,
     sourceMediaId: "video-1",
@@ -75,6 +75,13 @@ test("validates a real owner-footage timeline with cleared clips, narration and 
   assert.equal(report.ok, true);
   assert.equal(report.durationMs, 4_000);
   assert.deepEqual(report.issues, []);
+});
+
+test("blocks a scene until its recipe action and source mapping are explicitly reviewed", () => {
+  const report = preflightV3OwnerFootageRender([
+    { ...scene("needs-review"), reviewStatus: "needs-review" },
+  ], [video, narration], "narration-1");
+  assert.ok(report.issues.some((issue) => issue.code === "scene-not-reviewed"));
 });
 
 test("blocks missing scene footage instead of rendering a still image or fake clip", () => {
