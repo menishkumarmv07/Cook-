@@ -108,6 +108,7 @@ function isStoredProject(value: unknown): value is V3StudioProject {
     typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt)) &&
     typeof value.updatedAt === "string" && Number.isFinite(Date.parse(value.updatedAt)) &&
     typeof value.revision === "number" && Number.isSafeInteger(value.revision) && value.revision >= 1 &&
+    (value.narrationMediaId === null || typeof value.narrationMediaId === "string") &&
     validateV3ContentBlueprint(value.blueprint) &&
     validateV3ContinuityBible(value.referenceBible);
 }
@@ -178,8 +179,9 @@ function normalizeStoredProject(value: unknown): { project: V3StudioProject; mig
       revision: value.revision,
       blueprint: normalizedBlueprint.blueprint,
       referenceBible: bible,
+      narrationMediaId: value.narrationMediaId === undefined ? null : value.narrationMediaId as string | null,
     },
-    migrated,
+    migrated: migrated || value.narrationMediaId === undefined,
   };
 }
 
@@ -1000,6 +1002,7 @@ export default function V3ContentStudio() {
         revision: 1,
         blueprint,
         referenceBible: createEmptyV3ContinuityBible(),
+        narrationMediaId: null,
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
@@ -1093,8 +1096,9 @@ export default function V3ContentStudio() {
         updatedAt: now,
         revision: 1,
         blueprint: restoredBlueprint,
-        // Reference image binaries are deliberately excluded from blueprint JSON backups.
+        // Reference/media binaries are deliberately excluded from blueprint JSON backups.
         referenceBible: createEmptyV3ContinuityBible(),
+        narrationMediaId: null,
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
