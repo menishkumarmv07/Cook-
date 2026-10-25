@@ -1805,11 +1805,12 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeDisabled();
   const bundleDialogPromise = page.waitForEvent("dialog");
   const bundleDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export production bundle ZIP", exact: true }).click();
+  const bundleClickPromise = page.getByRole("button", { name: "Export production bundle ZIP", exact: true }).click();
   const bundleDialog = await bundleDialogPromise;
   expect(bundleDialog.type()).toBe("confirm");
   expect(bundleDialog.message()).toContain("NOT a rendered video");
   await bundleDialog.accept();
+  await bundleClickPromise;
   const bundleDownload = await bundleDownloadPromise;
   expect(bundleDownload.suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*-production-bundle\.zip$/);
   const bundlePath = await bundleDownload.path();
@@ -1911,11 +1912,12 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   // fixture proves the WebM/container path; it does not represent real cooking video.
   const reviewedConfirm = page.waitForEvent("dialog");
   const renderedDownloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
+  const reviewedClickPromise = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
   const reviewedDialog = await reviewedConfirm;
   expect(reviewedDialog.type()).toBe("confirm");
   expect(reviewedDialog.message()).toContain("checked the cooking actions");
   await reviewedDialog.accept();
+  await reviewedClickPromise;
   const renderedDownload = await renderedDownloadPromise;
   expect(renderedDownload.suggestedFilename().toLowerCase().endsWith(".webm")).toBe(true);
   const renderedFilePath = await renderedDownload.path();
