@@ -1759,3 +1759,47 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
   .shell .monetization-record-heading { flex-direction: column; }
   .shell .monetization-pill { max-width: 100%; }
 }
+
+
+/* V3 AI Chef Studio: scoped styles keep existing V1/V2 screens unchanged. */
+.v3-studio{margin:24px 0;min-width:0;overflow-wrap:anywhere}
+.v3-studio-honesty{margin:14px 0;background:#fff6e8;border:1px solid #efd6b2;border-radius:9px;padding:12px 14px;color:#6f4a22;font-size:12px;line-height:1.65}
+.v3-studio-alert{margin:12px 0;background:#fff1ef;border:1px solid #efc5bd;border-radius:8px;padding:11px 13px;color:#8f3428;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.v3-studio-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;margin-top:18px}
+.v3-studio-card,.v3-scene-card{min-width:0;background:var(--cream);border:1px solid var(--line);border-radius:11px;padding:18px}
+.v3-studio-card h3,.v3-scene-card h4{margin:0 0 8px;font-size:15px}
+.v3-studio-card .muted{margin-bottom:14px}
+.v3-source-summary{margin:14px 0;padding:12px;background:#fff;border:1px solid var(--line);border-radius:8px}
+.v3-source-summary p{font-size:11px;line-height:1.6;margin:4px 0;overflow-wrap:anywhere}
+.v3-studio-check{display:flex;align-items:flex-start;gap:9px;line-height:1.5;font-weight:500}
+.v3-studio-check input{width:auto;flex:0 0 auto;margin:2px 0 0;accent-color:var(--forest)}
+.v3-studio-check span{min-width:0}
+.v3-studio-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-top:14px}
+.v3-studio-actions .primary,.v3-studio-actions .secondary{width:auto;margin-top:0}
+.v3-studio-primary{flex:1 1 150px}
+.v3-studio-project-list{display:grid;gap:8px;max-height:280px;overflow:auto;margin:12px 0}
+.v3-studio-project{display:flex;flex-direction:column;align-items:flex-start;gap:5px;width:100%;min-width:0;padding:12px;border-radius:8px;border:1px solid var(--line);background:#fff;text-align:left;cursor:pointer;color:var(--ink)}
+.v3-studio-project strong,.v3-studio-project span{max-width:100%;overflow-wrap:anywhere}
+.v3-studio-project span{font-size:10px;color:var(--muted)}
+.v3-studio-project.is-active{border-color:#b56e43;box-shadow:0 0 0 2px #b56e431c}
+.v3-studio-editor{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);min-width:0}
+.v3-studio-editor .section-head{align-items:center}
+.v3-studio-editor .section-head h3{margin:0 0 6px;font-size:18px;overflow-wrap:anywhere}
+.v3-studio-editor .section-head p:last-child{overflow-wrap:anywhere}
+.v3-studio-dirty{display:inline-flex;align-items:center;white-space:nowrap;background:#fff1d8;color:#80541b;border-radius:6px;padding:8px 10px;font-size:10px;font-weight:700}
+.v3-scene-list{display:grid;gap:13px;margin-top:16px}
+.v3-scene-card{background:#fff}
+.v3-scene-header{display:flex;align-items:center;gap:11px;margin-bottom:12px}
+.v3-scene-number{display:grid;place-items:center;width:34px;height:34px;flex:0 0 auto;border-radius:8px;background:#f5e2d4;color:#81543b;font-weight:700;font-size:11px}
+.v3-scene-header h4{text-transform:capitalize;margin:0 0 3px}
+.v3-scene-header p{margin:0;color:var(--muted);font-size:10px;overflow-wrap:anywhere}
+.v3-scene-card label{margin-top:12px}
+.v3-scene-card textarea,.v3-scene-card input{min-width:0}
+.v3-scene-source-notes{margin-top:12px;padding:11px;background:var(--cream);border-radius:7px;font-size:10px;line-height:1.6;overflow-wrap:anywhere}
+.v3-scene-source-notes p{margin:5px 0 0;overflow-wrap:anywhere}
+.v3-studio-warnings{margin-top:18px;padding:14px;background:#fff6e8;border:1px solid #efd6b2;border-radius:9px}
+.v3-studio-warnings h4{margin:0 0 9px;font-size:13px}
+.v3-studio-warnings ul{padding-left:18px;margin:0}
+.v3-studio-warnings li{margin:7px 0;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
+@media(max-width:760px){.v3-studio-grid{grid-template-columns:minmax(0,1fr)}.v3-studio-card,.v3-scene-card{padding:14px}.v3-studio-editor .section-head{align-items:flex-start;flex-direction:column}.v3-studio-actions{align-items:stretch}.v3-studio-actions .primary,.v3-studio-actions .secondary{flex:1 1 140px}.v3-studio-honesty,.v3-studio-alert{font-size:11px}}
+@media(prefers-reduced-motion:reduce){.v3-studio *{scroll-behavior:auto}}
