@@ -973,7 +973,8 @@ function createRenderPlanKey(project: V3StudioProject, assets: readonly StoredV3
     .sort((a, b) => a.id.localeCompare(b.id));
   return JSON.stringify({
     projectId: project.id,
-    revision: project.revision,
+    projectTitle: project.title,
+    blueprintRecipeTitle: project.blueprint.recipeTitle,
     sourceFingerprints: project.blueprint.fingerprints,
     scenes: project.blueprint.scenes.map((scene) => ({
       id: scene.id,
@@ -1152,6 +1153,7 @@ export default function V3ContentStudio() {
   const visualReviewIsSavedForCurrentClip = Boolean(
     activeProject &&
     renderOutput &&
+    !visualReviewDrafts[renderOutput.sha256] &&
     activeProject.referenceBible.lastReviewedClipIds.includes(renderOutput.sha256)
   );
 
@@ -2339,7 +2341,7 @@ export default function V3ContentStudio() {
               </div>
               <span className="step">REALISM {activeProject.referenceBible.visualRealismStatus.toUpperCase()}</span>
             </div>
-            <p className="hint">{activeProject.referenceBible.referenceIds.length} reference(s) pinned. A pin records the intended source; it does not prove any generated clip matches that source.</p>
+            <p className="hint">{activeProject.referenceBible.referenceIds.length} reference(s) pinned. A pin records the intended source; it does not prove a clip matches it. The status below describes only the most recently reviewed clip, not every clip in this project.</p>
             {activeProject.referenceBible.referenceIds.length > 0 ? (
               <div className="v3-pinned-reference-list">
                 {activeProject.referenceBible.referenceIds.map((id) => {
