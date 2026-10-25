@@ -678,21 +678,24 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
       (typeof scene.captionEndMs !== "number" || !Number.isSafeInteger(scene.captionEndMs) || scene.captionEndMs < 0)) return false;
     if ((scene.captionStartMs === null) !== (scene.captionEndMs === null)) return false;
     if (scene.captionStartMs !== null && scene.captionEndMs !== null && scene.captionEndMs <= scene.captionStartMs) return false;
-    if (scene.sourceMediaId !== null && (typeof scene.sourceMediaId !== "string" || !scene.sourceMediaId.trim())) return false;
-    for (const sourceTime of [scene.sourceMediaStartMs, scene.sourceMediaEndMs]) {
-      if (sourceTime !== null && (typeof sourceTime !== "number" || !Number.isSafeInteger(sourceTime) || sourceTime < 0)) return false;
-    }
-    if (scene.sourceMediaId === null) {
-      if (scene.sourceMediaStartMs !== null || scene.sourceMediaEndMs !== null || scene.targetClipSeconds !== null) return false;
-    } else if (scene.sourceMediaStartMs === null || scene.sourceMediaEndMs === null) {
+    const sourceMediaId = scene.sourceMediaId;
+    const sourceStart = scene.sourceMediaStartMs;
+    const sourceEnd = scene.sourceMediaEndMs;
+    const targetClipSeconds = scene.targetClipSeconds;
+    if (sourceMediaId !== null && (typeof sourceMediaId !== "string" || !sourceMediaId.trim())) return false;
+    if (sourceStart !== null && (typeof sourceStart !== "number" || !Number.isSafeInteger(sourceStart) || sourceStart < 0)) return false;
+    if (sourceEnd !== null && (typeof sourceEnd !== "number" || !Number.isSafeInteger(sourceEnd) || sourceEnd < 0)) return false;
+    if (targetClipSeconds !== null &&
+        (typeof targetClipSeconds !== "number" || !Number.isFinite(targetClipSeconds) || targetClipSeconds <= 0)) return false;
+    if (sourceMediaId === null) {
+      if (sourceStart !== null || sourceEnd !== null || targetClipSeconds !== null) return false;
+    } else if (sourceStart === null || sourceEnd === null) {
       // A draft may select a clip before the owner enters both trim boundaries.
       // Such an incomplete assignment remains valid data but cannot pass render preflight.
-      if (scene.targetClipSeconds !== null) return false;
+      if (targetClipSeconds !== null) return false;
     } else {
-      if (scene.sourceMediaEndMs <= scene.sourceMediaStartMs ||
-          typeof scene.targetClipSeconds !== "number" || !Number.isFinite(scene.targetClipSeconds) ||
-          scene.targetClipSeconds <= 0 ||
-          Math.abs(scene.targetClipSeconds * 1_000 - (scene.sourceMediaEndMs - scene.sourceMediaStartMs)) > 1) return false;
+      if (sourceEnd <= sourceStart || targetClipSeconds === null ||
+          Math.abs(targetClipSeconds * 1_000 - (sourceEnd - sourceStart)) > 1) return false;
     }
     if (!Array.isArray(scene.onScreenText) || !scene.onScreenText.every((item) => typeof item === "string")) return false;
     if (!Array.isArray(scene.ingredientIds) || !scene.ingredientIds.every((item) => typeof item === "string")) return false;
