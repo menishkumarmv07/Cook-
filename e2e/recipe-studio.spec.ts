@@ -1906,4 +1906,25 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.locator(".v3-render-output .v3-reference-meta").filter({ hasText: "video/webm" })).toBeVisible();
   await expect(page.locator(".v3-render-output .v3-studio-honesty")).toContainText("not AI-generated footage");
   await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
+
+  // Test the actual file download, not only the in-memory preview. This synthetic
+  // fixture proves the WebM/container path; it does not represent real cooking video.
+  const reviewedConfirm = page.waitForEvent("dialog");
+  const renderedDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
+  const reviewedDialog = await reviewedConfirm;
+  expect(reviewedDialog.type()).toBe("confirm");
+  expect(reviewedDialog.message()).toContain("checked the cooking actions");
+  await reviewedDialog.accept();
+  const renderedDownload = await renderedDownloadPromise;
+  expect(renderedDownload.suggestedFilename()).toMatch(/\\.webm$/i);
+  const renderedFilePath = await renderedDownload.path();
+  expect(renderedFilePath).toBeTruthy();
+  const renderedBytes = await readFile(renderedFilePath as string);
+  expect(renderedBytes.length).toBeGreaterThan(256);
+  // EBML header signature used by WebM/Matroska containers.
+  expect(Array.from(renderedBytes.subarray(0, 4))).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Reviewed owner-footage video downloaded locally" })).toBeVisible();
+  // Owner download confirmation cannot upgrade the separate visual-realism result.
+  await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
 });
