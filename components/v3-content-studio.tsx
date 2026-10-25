@@ -1584,6 +1584,139 @@ export default function V3ContentStudio() {
     }
   }
 
+  function setSceneOwnerReview(sceneId: string, approved: boolean) {
+    if (!activeProject) return;
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== activeProject.id) return project;
+      const scenes = project.blueprint.scenes.map((scene) => scene.id === sceneId
+        ? { ...scene, reviewStatus: approved ? "approved" as const : "needs-review" as const }
+        : scene);
+      const allApproved = scenes.every((scene) => scene.reviewStatus === "approved");
+      return {
+        ...project,
+        blueprint: {
+          ...project.blueprint,
+          status: allApproved ? "blueprint-reviewed" : "draft",
+          scenes,
+          reviewNotes: Array.from(new Set([
+            ...project.blueprint.reviewNotes,
+            approved
+              ? "Owner marked a scene as reviewed. This confirms manual review only; it is not proof that the final video looks realistic."
+              : "Scene review was reopened. Any earlier approval for this scene no longer applies.",
+          ])),
+        },
+      };
+    }));
+    setDirty(true);
+    setError("");
+    setMessage(approved
+      ? "Scene marked reviewed by you. This is not an automated fact-check or a final-video realism approval."
+      : "Scene review reopened. Review this scene before rendering.");
+  }
+
+  function cancelRender() {
+    renderAbortRef.current?.abort();
+  }
+
+  async function renderOwnerFootage() {
+    if (!activeProject) {
+      setError("Open a V3 project before rendering.");
+      return;
+    }
+    if (dirty) {
+      setError("Save the latest scene, caption and Chef & Kitchen Bible edits before rendering. This keeps the output tied to a saved project revision.");
+      return;
+    }
+    if (!renderPreflight.ok) {
+      setError("Render blocked: " + renderPreflight.issues.map((issue) => issue.message).join(" "));
+      return;
+    }
+    const controller = new AbortController();
+    renderAbortRef.current = controller;
+    setBusy(true);
+    setRendering(true);
+    setRenderProgress("Preparing the local footage and narration…");
+    setError("");
+    setMessage("");
+    try {
+      const result = await renderV3OwnerFootageVideo({
+        scenes: activeProject.blueprint.scenes,
+        assets: mediaAssets.map((asset) => ({ metadata: asset.metadata, file: asset.file })),
+        narrationAssetId: activeProject.narrationMediaId,
+        signal: controller.signal,
+        onProgress: (progress) => {
+          setRenderProgress(progress.message);
+        },
+      });
+      const previewUrl = URL.createObjectURL(result.blob);
+      const fileName = filenameFromTitle(activeProject.title) + "-owner-footage.webm";
+      setRenderOutput({
+        previewUrl,
+        projectId: activeProject.id,
+        projectRevision: activeProject.revision,
+        planKey: createRenderPlanKey(activeProject, mediaAssets),
+        sha256: result.sha256,
+        durationMs: result.durationMs,
+        width: result.width,
+        height: result.height,
+        byteSize: result.blob.size,
+        mimeType: result.mimeType,
+        createdAt: new Date().toISOString(),
+        reviewed: false,
+        fileName,
+      });
+      setMessage("A real playable WebM was recorded and its playback metadata was validated. Review the preview below before downloading. This is an edit of owner-supplied footage, not AI-generated footage.");
+    } catch (caught) {
+      if (caught instanceof DOMException && caught.name === "AbortError") {
+        setMessage("Rendering was cancelled. The saved project and local source assets were preserved; no output was approved or downloaded.");
+      } else {
+        setError(caught instanceof Error ? caught.message : "Video render failed. The source project remains saved.");
+      }
+    } finally {
+      renderAbortRef.current = null;
+      setBusy(false);
+      setRendering(false);
+      setRenderProgress("");
+    }
+  }
+
+  async function downloadReviewedRender() {
+    if (!activeProject || !renderOutput) {
+      setError("There is no validated render preview to download.");
+      return;
+    }
+    if (dirty) {
+      setError("The project has unsaved changes. Save and re-render before downloading this older preview.");
+      return;
+    }
+    if (renderOutput.projectId !== activeProject.id ||
+        renderOutput.projectRevision !== activeProject.revision ||
+        renderOutput.planKey !== createRenderPlanKey(activeProject, mediaAssets)) {
+      setError("This preview belongs to a different project revision or media state. Render the latest saved project again before downloading.");
+      return;
+    }
+    if (!window.confirm("Confirm you watched the rendered video preview, checked the cooking actions, character/kitchen continuity, narration and captions, and want to download this local WebM?")) return;
+
+    setBusy(true);
+    setError("");
+    try {
+      const latestProjects = await loadStoredProjects();
+      const latestProject = latestProjects.find((project) => project.id === renderOutput.projectId);
+      const latestMedia = await loadStoredMedia();
+      if (!latestProject || latestProject.revision !== renderOutput.projectRevision ||
+          createRenderPlanKey(latestProject, latestMedia) !== renderOutput.planKey) {
+        throw new Error("The saved project or one of its source files changed in another tab. Re-render against the latest saved state.");
+      }
+      clickDownloadUrl(renderOutput.previewUrl, renderOutput.fileName);
+      setRenderOutput({ ...renderOutput, reviewed: true });
+      setMessage("Reviewed owner-footage video downloaded locally. SHA-256: " + renderOutput.sha256 + ". This output does not claim AI-generated realism; publishing and platform disclosure remain owner decisions.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The reviewed video could not be downloaded safely.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function generateBlueprint() {
     if (!selectedRecipe) {
       setError("Choose a valid saved V2 recipe first. V3 does not invent a recipe for you.");
