@@ -908,6 +908,15 @@ export default function V3ContentStudio() {
   const [projects, setProjects] = useState<V3StudioProject[]>([]);
   const [references, setReferences] = useState<StoredV3Reference[]>([]);
   const [referencePreviewUrls, setReferencePreviewUrls] = useState<Record<string, string>>({});
+  const [mediaAssets, setMediaAssets] = useState<StoredV3Media[]>([]);
+  const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({});
+  const [mediaRightsNoteDrafts, setMediaRightsNoteDrafts] = useState<Record<string, string>>({});
+  const [mediaKindDraft, setMediaKindDraft] = useState<V3MediaKind>("video");
+  const [mediaLabelDraft, setMediaLabelDraft] = useState("");
+  const [mediaRightsStatusDraft, setMediaRightsStatusDraft] = useState<V3MediaRightsStatus>("unknown");
+  const [mediaRightsNoteDraft, setMediaRightsNoteDraft] = useState("");
+  const [rendering, setRendering] = useState(false);
+  const [renderProgress, setRenderProgress] = useState("");
   const [referenceRoleDraft, setReferenceRoleDraft] = useState<V3ReferenceRole>("chef-identity");
   const [referenceLabelDraft, setReferenceLabelDraft] = useState("");
   const [referenceDetailsDraft, setReferenceDetailsDraft] = useState("");
@@ -943,12 +952,15 @@ export default function V3ContentStudio() {
         const profile = readCreatorProfile();
         const savedProjects = await loadStoredProjects();
         const savedReferences = await loadStoredReferences();
+        const savedMedia = await loadStoredMedia();
         if (cancelled) return;
         setRecipes(saved.recipes);
         setRecipeSkippedCount(saved.skipped);
         setCreatorProfile(profile);
         setProjects(savedProjects);
         setReferences(savedReferences);
+        setMediaAssets(savedMedia);
+        setMediaRightsNoteDrafts(Object.fromEntries(savedMedia.map((item) => [item.metadata.id, item.metadata.rightsNote])));
         setSelectedRecipeId(saved.recipes[0] ? String(saved.recipes[0].id) : "");
         setSelectedProjectId(savedProjects[0]?.id ?? "");
       } catch (caught) {
@@ -973,6 +985,17 @@ export default function V3ContentStudio() {
   }, [references]);
 
   useEffect(() => {
+    const previewUrls: Record<string, string> = {};
+    for (const asset of mediaAssets) {
+      previewUrls[asset.metadata.id] = URL.createObjectURL(asset.file);
+    }
+    setMediaPreviewUrls(previewUrls);
+    return () => {
+      for (const url of Object.values(previewUrls)) URL.revokeObjectURL(url);
+    };
+  }, [mediaAssets]);
+
+  useEffect(() => {
     if (!activeProject) {
       setAppearanceNotesDraft("");
       setKitchenNotesDraft("");
@@ -982,6 +1005,12 @@ export default function V3ContentStudio() {
     setAppearanceNotesDraft(activeProject.referenceBible.ownerConfirmedAppearanceNotes);
     setKitchenNotesDraft(activeProject.referenceBible.ownerConfirmedKitchenNotes);
     setAllowedVariationsDraft(activeProject.referenceBible.allowedVariations);
+  }, [selectedProjectId]);
+
+  useEffect(() => {
+    if (activeProject) {
+      setMediaKindDraft("video");
+    }
   }, [selectedProjectId]);
 
   const captionTimeline = useMemo(
