@@ -126,6 +126,9 @@ export type V3BlueprintScene = {
   ingredientIds: string[];
   trace: V3SceneTrace[];
   reviewStatus: V3SceneReviewStatus;
+  /** Manual timeline values only; null means the owner has not timed this caption. */
+  captionStartMs: number | null;
+  captionEndMs: number | null;
   targetClipSeconds: null;
 };
 
@@ -645,6 +648,12 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
     sceneIds.add(scene.id);
     if (typeof scene.kind !== "string" || !["opening", "ingredient-overview", "cooking-step", "closing"].includes(scene.kind)) return false;
     if (typeof scene.title !== "string" || typeof scene.narrationText !== "string" || typeof scene.captionText !== "string") return false;
+    if (scene.captionStartMs !== null &&
+      (typeof scene.captionStartMs !== "number" || !Number.isSafeInteger(scene.captionStartMs) || scene.captionStartMs < 0)) return false;
+    if (scene.captionEndMs !== null &&
+      (typeof scene.captionEndMs !== "number" || !Number.isSafeInteger(scene.captionEndMs) || scene.captionEndMs < 0)) return false;
+    if ((scene.captionStartMs === null) !== (scene.captionEndMs === null)) return false;
+    if (scene.captionStartMs !== null && scene.captionEndMs !== null && scene.captionEndMs <= scene.captionStartMs) return false;
     if (!Array.isArray(scene.onScreenText) || !scene.onScreenText.every((item) => typeof item === "string")) return false;
     if (!Array.isArray(scene.ingredientIds) || !scene.ingredientIds.every((item) => typeof item === "string")) return false;
     if (typeof scene.visualDirection !== "string") return false;
