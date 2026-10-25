@@ -4,6 +4,7 @@ import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
 import EditorialCalendar from "@/components/editorial-calendar";
 import MonetizationWorkspace from "@/components/monetization-workspace";
+import V3ContentStudio from "@/components/v3-content-studio";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
   buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
@@ -53,7 +54,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial", "monetization"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial", "monetization", "studio"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -80,7 +81,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial" | "monetization";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial" | "monetization" | "studio";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -116,7 +117,7 @@ type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y:
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
-  growth: "Growth Lab", editorial: "Editorial Calendar", monetization: "Monetization Readiness",
+  growth: "Growth Lab", editorial: "Editorial Calendar", monetization: "Monetization Readiness", studio: "AI Chef Studio",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -715,9 +716,10 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization" | "ai-studio") {
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "ai-studio" ? "studio" :
       item === "monetization" ? "monetization" :
       item === "editorial" ? "editorial" :
       item === "growth" ? "growth" :
@@ -727,6 +729,7 @@ export default function Home() {
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "ai-studio" ? "v3-content-studio" :
       item === "monetization" ? "monetization-workspace" :
       item === "editorial" ? "editorial-calendar" :
       item === "growth" ? "growth-lab" :
@@ -850,6 +853,7 @@ export default function Home() {
       }
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
+    if (/ai chef studio|video studio|cooking video|v3 studio/.test(request)) return { tool: "studio", text: responseForTool("studio") };
     if (/editorial calendar|content ideas|idea backlog|idea research|editorial ideas/.test(request)) return { tool: "editorial", text: responseForTool("editorial") };
     if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts." };
     if (/today[’\u0027]s plan|my plan|daily plan|next step/.test(request)) return { tool: "plan", text: responseForTool("plan") };
@@ -1000,6 +1004,7 @@ export default function Home() {
     if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
     if (tool === "editorial") return "Editorial Calendar is open. Record original ideas, separate hypotheses from dated sourced observations, customize transparent scoring weights, and keep unresolved recipe, rights, nutrition or disclosure questions on hold. No live trends are fetched and nothing is published automatically.";
     if (tool === "monetization") return "Monetization Readiness is open. Prepare a media kit from owner-entered records, keep actual USD receipts separate from estimates/offers, review disclosures and rights, and track brand/affiliate commitments locally. The app does not connect accounts, handle payouts, verify legal eligibility or guarantee income.";
+    if (tool === "studio") return "AI Chef Studio is open. Create a local, editable blueprint from a saved V2 recipe, trace steps back to source fields, and review every scene. This first slice does not generate video; realistic AI generation and rendering remain unverified and no paid service is required.";
     return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
@@ -1026,7 +1031,7 @@ export default function Home() {
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" :
-      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : "social-connections";
+      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : tool === "studio" ? "v3-content-studio" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1910,6 +1915,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("editorial")}><span className="nav-icon"><InterfaceIcon name="calendar" /></span>Editorial Calendar</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("monetization")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Monetization Readiness</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("ai-studio")}><span className="nav-icon"><InterfaceIcon name="images" /></span>AI Chef Studio</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
@@ -2163,6 +2169,7 @@ export default function Home() {
 
           {activeTool === "editorial" && <EditorialCalendar />}
           {activeTool === "monetization" && <MonetizationWorkspace />}
+          {activeTool === "studio" && <V3ContentStudio />}
 
           <section className="connection-hub panel" id="social-connections">
             <div className="section-head">
