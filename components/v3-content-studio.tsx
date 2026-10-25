@@ -29,6 +29,7 @@ import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
+  reviewV3ContinuityClip,
   MAX_V3_REFERENCE_BYTES,
   validateV3ContinuityBible,
   validateV3ContinuityReference,
@@ -36,6 +37,7 @@ import {
   type V3ContinuityBible,
   type V3ContinuityReference,
   type V3ReferenceRole,
+  type V3VisualReviewState,
 } from "@/lib/v3-continuity";
 import {
   isV3MediaAsset,
@@ -83,6 +85,32 @@ type StoredV3Media = {
   metadata: V3MediaAsset;
   file: Blob;
 };
+
+type V3VisualReviewChecklist = V3ContinuityBible["reviewChecklist"];
+
+const V3_VISUAL_REVIEW_ITEMS: Array<{ key: keyof V3VisualReviewChecklist; label: string }> = [
+  { key: "chefIdentity", label: "Chef identity matches the approved reference" },
+  { key: "wardrobe", label: "Wardrobe remains consistent" },
+  { key: "kitchenLayout", label: "Kitchen layout and background remain consistent" },
+  { key: "lightingAndProps", label: "Lighting, cookware and props look plausible" },
+  { key: "cookingAction", label: "Hands, tools, heat and cooking actions look physically plausible" },
+  { key: "ingredientAndFoodState", label: "Ingredients and food-state progression match the recipe" },
+  { key: "temporalMotion", label: "Motion is coherent without severe flicker or identity drift" },
+  { key: "audioAndCaptions", label: "Narration and captions are understandable and correctly timed" },
+];
+
+function createUntestedV3VisualChecklist(): V3VisualReviewChecklist {
+  return {
+    chefIdentity: "not-tested",
+    wardrobe: "not-tested",
+    kitchenLayout: "not-tested",
+    lightingAndProps: "not-tested",
+    cookingAction: "not-tested",
+    ingredientAndFoodState: "not-tested",
+    temporalMotion: "not-tested",
+    audioAndCaptions: "not-tested",
+  };
+}
 
 type V3RenderOutputState = {
   previewUrl: string;
@@ -961,7 +989,14 @@ function createRenderPlanKey(project: V3StudioProject, assets: readonly StoredV3
       reviewStatus: scene.reviewStatus,
       visualDirection: scene.visualDirection,
     })),
-    referenceBible: project.referenceBible,
+    referenceBible: {
+      schemaVersion: project.referenceBible.schemaVersion,
+      version: project.referenceBible.version,
+      referenceIds: project.referenceBible.referenceIds,
+      ownerConfirmedAppearanceNotes: project.referenceBible.ownerConfirmedAppearanceNotes,
+      ownerConfirmedKitchenNotes: project.referenceBible.ownerConfirmedKitchenNotes,
+      allowedVariations: project.referenceBible.allowedVariations,
+    },
     narrationMediaId: project.narrationMediaId,
     usedAssets,
   });
@@ -996,6 +1031,7 @@ export default function V3ContentStudio() {
   const [rendering, setRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState("");
   const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
+  const [visualReviewDrafts, setVisualReviewDrafts] = useState<Record<string, V3VisualReviewChecklist>>({});
   const renderAbortRef = useRef<AbortController | null>(null);
   const [referenceRoleDraft, setReferenceRoleDraft] = useState<V3ReferenceRole>("chef-identity");
   const [referenceLabelDraft, setReferenceLabelDraft] = useState("");
@@ -1110,8 +1146,36 @@ export default function V3ContentStudio() {
     renderOutput &&
     !dirty &&
     renderOutput.projectId === activeProject.id &&
-    renderOutput.projectRevision === activeProject.revision &&
     renderOutput.planKey === createRenderPlanKey(activeProject, mediaAssets)
+  );
+
+  const visualReviewIsSavedForCurrentClip = Boolean(
+    activeProject &&
+    renderOutput &&
+    activeProject.referenceBible.lastReviewedClipIds.includes(renderOutput.sha256)
+  );
+
+  const visualReviewChecklist: V3VisualReviewChecklist = activeProject && renderOutput
+    ? visualReviewDrafts[renderOutput.sha256] ??
+      (visualReviewIsSavedForCurrentClip
+        ? activeProject.referenceBible.reviewChecklist
+        : createUntestedV3VisualChecklist())
+    : createUntestedV3VisualChecklist();
+
+  const visualReviewChecklistComplete = V3_VISUAL_REVIEW_ITEMS.every(
+    (item) => visualReviewChecklist[item.key] !== "not-tested",
+  );
+  const visualReviewChecklistAllPass = V3_VISUAL_REVIEW_ITEMS.every(
+    (item) => visualReviewChecklist[item.key] === "pass",
+  );
+  const hasApprovedPinnedReferences = Boolean(
+    activeProject &&
+    activeProject.referenceBible.referenceIds.length > 0 &&
+    activeProject.referenceBible.referenceIds.every((id) =>
+      references.some((reference) =>
+        reference.metadata.id === id && reference.metadata.reviewState === "approved",
+      ),
+    ),
   );
 
   useEffect(() => {
@@ -1746,6 +1810,54 @@ export default function V3ContentStudio() {
     }
   }
 
+  async function saveVisualReview(outcome: "pass" | "fail") {
+    if (!activeProject || !renderOutput || !renderOutputIsCurrent) {
+      setError("Render and save the current clip before recording its visual review.");
+      return;
+    }
+    if (!visualReviewChecklistComplete) {
+      setError("Review all eight criteria as Pass or Fail before saving the checklist.");
+      return;
+    }
+    if (outcome === "pass" && !hasApprovedPinnedReferences) {
+      setError("To record a PASS, pin and approve the actual chef and kitchen reference images first. Without approved references, realism must remain NOT TESTED.");
+      return;
+    }
+
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const reviewedBible = reviewV3ContinuityClip(
+        activeProject.referenceBible,
+        renderOutput.sha256,
+        visualReviewChecklist,
+        outcome,
+      );
+      const candidate: V3StudioProject = {
+        ...activeProject,
+        referenceBible: reviewedBible,
+        updatedAt: new Date().toISOString(),
+        revision: activeProject.revision + 1,
+      };
+      await persistProject(candidate, activeProject.revision);
+      setProjects((existing) => existing.map((project) => project.id === candidate.id ? candidate : project));
+      setDirty(false);
+      setVisualReviewDrafts((existing) => {
+        const next = { ...existing };
+        delete next[renderOutput.sha256];
+        return next;
+      });
+      setMessage(outcome === "pass"
+        ? "Visual continuity review saved for this exact clip. This is an owner-recorded review of the footage, not proof of AI-generated video."
+        : "Visual review saved as FAIL for this clip. Rework or replace the footage and render again before using it.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save the visual continuity review.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function downloadReviewedRender() {
     if (!activeProject || !renderOutput) {
       setError("There is no validated render preview to download.");
@@ -1756,7 +1868,6 @@ export default function V3ContentStudio() {
       return;
     }
     if (renderOutput.projectId !== activeProject.id ||
-        renderOutput.projectRevision !== activeProject.revision ||
         renderOutput.planKey !== createRenderPlanKey(activeProject, mediaAssets)) {
       setError("This preview belongs to a different project revision or media state. Render the latest saved project again before downloading.");
       return;
@@ -1769,7 +1880,7 @@ export default function V3ContentStudio() {
       const latestProjects = await loadStoredProjects();
       const latestProject = latestProjects.find((project) => project.id === renderOutput.projectId);
       const latestMedia = await loadStoredMedia();
-      if (!latestProject || latestProject.revision !== renderOutput.projectRevision ||
+      if (!latestProject ||
           createRenderPlanKey(latestProject, latestMedia) !== renderOutput.planKey) {
         throw new Error("The saved project or one of its source files changed in another tab. Re-render against the latest saved state.");
       }
@@ -1960,7 +2071,7 @@ export default function V3ContentStudio() {
         <span className="step">LOCAL-FIRST</span>
       </div>
 
-      <p className="v3-studio-honesty"><strong>Important:</strong> this first build creates an editable scene plan, not a video or generated footage. The rendering and realistic-AI feasibility stages have not passed yet. Nothing is uploaded by this screen.</p>
+      <p className="v3-studio-honesty"><strong>Important:</strong> V3 can create an editable scene plan and, when device checks pass, assemble actual owner-supplied moving footage with narration and captions into a playable local WebM. It does not generate AI cooking footage. Reference-guided AI generation is unavailable unless a qualifying genuinely free/no-card service is verified. Nothing is uploaded by this screen.</p>
 
       {error && <p className="v3-studio-alert" role="alert">{error}</p>}
       {message && <p className="message" role="status" aria-live="polite">{message}</p>}
@@ -2314,7 +2425,58 @@ export default function V3ContentStudio() {
                     <video className="v3-render-preview" src={renderOutput.previewUrl} controls playsInline preload="metadata" />
                     <p className="v3-reference-meta">{renderOutput.width} × {renderOutput.height} · {(renderOutput.durationMs / 1000).toFixed(1)}s · {(renderOutput.byteSize / 1024 / 1024).toFixed(2)} MiB · {renderOutput.mimeType}</p>
                     <p className="v3-reference-meta">SHA-256 {renderOutput.sha256} · local file · {new Date(renderOutput.createdAt).toLocaleString("en-US")}</p>
-                    <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage, and the Chef &amp; Kitchen Bible&apos;s AI realism status remains NOT TESTED.</p>
+                    <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage. Any review below records what you observed in this exact rendered file; it does not verify AI generation.</p>
+                    <section className="v3-visual-review" aria-labelledby="v3-render-visual-review-title">
+                      <h5 id="v3-render-visual-review-title">Visual continuity &amp; realism checklist</h5>
+                      <p className="hint">Watch this actual preview against your approved chef/kitchen references. Mark each criterion Pass or Fail. A PASS requires all eight criteria to pass and at least one pinned, owner-approved reference. If references or a clip are missing, leave the result NOT TESTED.</p>
+                      <p className="v3-caption-status" role="status">
+                        {visualReviewIsSavedForCurrentClip
+                          ? "Saved review for this exact clip: " + activeProject.referenceBible.visualRealismStatus.toUpperCase() + " · SHA-256 " + renderOutput.sha256
+                          : "NOT TESTED for this exact clip · SHA-256 " + renderOutput.sha256}
+                      </p>
+                      <div className="v3-visual-review-grid">
+                        {V3_VISUAL_REVIEW_ITEMS.map((item) => (
+                          <div key={item.key}>
+                            <label htmlFor={"v3-visual-check-" + item.key}>{item.label}</label>
+                            <select
+                              id={"v3-visual-check-" + item.key}
+                              value={visualReviewChecklist[item.key]}
+                              disabled={busy || rendering}
+                              onChange={(event) => {
+                                const value = event.target.value as V3VisualReviewState;
+                                setVisualReviewDrafts((existing) => ({
+                                  ...existing,
+                                  [renderOutput.sha256]: {
+                                    ...visualReviewChecklist,
+                                    [item.key]: value,
+                                  },
+                                }));
+                              }}
+                            >
+                              <option value="not-tested">Not tested</option>
+                              <option value="pass">Pass</option>
+                              <option value="fail">Fail — needs rework</option>
+                            </select>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="v3-studio-actions">
+                        <button
+                          className="secondary"
+                          type="button"
+                          disabled={busy || rendering || !renderOutputIsCurrent || !visualReviewChecklistComplete}
+                          onClick={() => void saveVisualReview("fail")}
+                        >Save review: FAIL</button>
+                        <button
+                          className="primary"
+                          type="button"
+                          disabled={busy || rendering || !renderOutputIsCurrent || !visualReviewChecklistAllPass || !hasApprovedPinnedReferences}
+                          onClick={() => void saveVisualReview("pass")}
+                        >Save review: PASS</button>
+                      </div>
+                      {!hasApprovedPinnedReferences && <p className="v3-studio-alert">A PASS is blocked until the actual reference images are pinned to this project and marked owner-approved. This review remains not tested for continuity until then.</p>}
+                      <p className="hint">This is a manual owner review—not automatic vision analysis, an AI-generation claim, or a guarantee of perfect continuity.</p>
+                    </section>
                     <button className="primary" type="button" disabled={busy || rendering} onClick={() => void downloadReviewedRender()}>
                       I reviewed the video — download WebM
                     </button>
