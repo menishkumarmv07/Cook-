@@ -3,7 +3,12 @@ import { preflightV3OwnerFootageRender, type V3MediaAsset } from "./v3-rendering
 import { validateV3SubtitleTimeline } from "./v3-captions";
 
 export type V3MediaFile = { metadata: V3MediaAsset; file: Blob };
-export type V3RenderProgress = { stage: "preparing" | "rendering" | "validating"; completedScenes: number; totalScenes: number; message: string };
+export type V3RenderProgress = {
+  stage: "preparing" | "rendering" | "validating";
+  completedScenes: number;
+  totalScenes: number;
+  message: string;
+};
 export type V3OwnerFootageRenderResult = {
   blob: Blob;
   mimeType: string;
@@ -18,6 +23,17 @@ const WIDTH = 720;
 const HEIGHT = 1280;
 const FPS = 30;
 const MAX_OUTPUT_BYTES = 500 * 1024 * 1024;
+const MAX_SCENES = 12;
+const MAX_USED_INPUT_BYTES = 100 * 1024 * 1024;
+
+type PreparedScene = {
+  scene: V3BlueprintScene;
+  video: HTMLVideoElement;
+  url: string;
+  startMs: number;
+  endMs: number;
+  durationMs: number;
+};
 
 function abortError(): DOMException {
   return new DOMException("V3 video rendering was cancelled.", "AbortError");
@@ -27,15 +43,15 @@ function ensureNotAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError();
 }
 
-async function waitForMediaReady(
-  element: HTMLMediaElement,
-  signal?: AbortSignal,
-): Promise<void> {
+async function waitForMediaReady(element: HTMLMediaElement, signal?: AbortSignal): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    let metadataReady = false;
-    let dataReady = element instanceof HTMLAudioElement;
+    let metadataReady = element.readyState >= HTMLMediaElement.HAVE_METADATA;
+    let dataReady = element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA;
     let settled = false;
-    const timeout = window.setTimeout(() => finish(new Error("Media decode timed out. Try a shorter or browser-compatible file.")), 20_000);
+    const timeout = window.setTimeout(
+      () => finish(new Error("Media decode timed out. Try a shorter or browser-compatible file.")),
+      20_000,
+    );
     const cleanup = () => {
       window.clearTimeout(timeout);
       element.removeEventListener("loadedmetadata", handleMetadata);
@@ -67,8 +83,10 @@ async function waitForMediaReady(
     element.addEventListener("loadeddata", handleData);
     element.addEventListener("error", handleError);
     signal?.addEventListener("abort", handleAbort, { once: true });
-    if (element.readyState >= HTMLMediaElement.HAVE_METADATA) metadataReady = true;
-    if (element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) dataReady = true;
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
     maybeFinish();
   });
 }
@@ -77,8 +95,8 @@ async function seekVideo(video: HTMLVideoElement, milliseconds: number, signal?:
   ensureNotAborted(signal);
   if (Math.abs(video.currentTime * 1_000 - milliseconds) <= 25) return;
   await new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => finish(new Error("Seeking within a source clip timed out.")), 10_000);
     let settled = false;
+    const timeout = window.setTimeout(() => finish(new Error("Seeking within a source clip timed out.")), 10_000);
     const cleanup = () => {
       window.clearTimeout(timeout);
       video.removeEventListener("seeked", handleSeeked);
@@ -98,15 +116,15 @@ async function seekVideo(video: HTMLVideoElement, milliseconds: number, signal?:
     video.addEventListener("seeked", handleSeeked);
     video.addEventListener("error", handleError);
     signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
     video.currentTime = milliseconds / 1_000;
   });
 }
 
-function fitCaptionLines(
-  context: CanvasRenderingContext2D,
-  text: string,
-  maxWidth: number,
-): string[] {
+function fitCaptionLines(context: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -121,15 +139,10 @@ function fitCaptionLines(
   }
   if (line) lines.push(line);
   if (lines.length <= 3) return lines;
-  const firstLines = lines.slice(0, 2);
-  firstLines.push(lines.slice(2).join(" ").slice(0, 120) + "…");
-  return firstLines;
+  return [...lines.slice(0, 2), lines.slice(2).join(" ").slice(0, 120) + "…"];
 }
 
-function drawCrop(
-  context: CanvasRenderingContext2D,
-  video: HTMLVideoElement,
-): void {
+function drawCrop(context: CanvasRenderingContext2D, video: HTMLVideoElement): void {
   context.fillStyle = "#211a16";
   context.fillRect(0, 0, WIDTH, HEIGHT);
   if (video.videoWidth < 1 || video.videoHeight < 1) {
@@ -138,16 +151,10 @@ function drawCrop(
   const scale = Math.max(WIDTH / video.videoWidth, HEIGHT / video.videoHeight);
   const width = video.videoWidth * scale;
   const height = video.videoHeight * scale;
-  const x = (WIDTH - width) / 2;
-  const y = (HEIGHT - height) / 2;
-  context.drawImage(video, x, y, width, height);
+  context.drawImage(video, (WIDTH - width) / 2, (HEIGHT - height) / 2, width, height);
 }
 
-function drawCaptionOverlay(
-  context: CanvasRenderingContext2D,
-  scenes: readonly V3BlueprintScene[],
-  timelineMs: number,
-): void {
+function drawCaptionOverlay(context: CanvasRenderingContext2D, scenes: readonly V3BlueprintScene[], timelineMs: number): void {
   const caption = scenes.find((scene) =>
     scene.captionText.trim() &&
     scene.captionStartMs !== null &&
@@ -156,7 +163,6 @@ function drawCaptionOverlay(
     timelineMs < scene.captionEndMs
   );
   if (!caption) return;
-
   context.save();
   context.font = "bold 30px system-ui, sans-serif";
   context.textAlign = "center";
@@ -183,8 +189,12 @@ async function sha256Blob(blob: Blob): Promise<string> {
 
 async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signal?: AbortSignal): Promise<void> {
   ensureNotAborted(signal);
-  if (blob.size <= 0 || blob.size > MAX_OUTPUT_BYTES) throw new Error("Rendered video is empty or exceeds the 500 MiB output limit.");
-  if (!blob.type.toLowerCase().startsWith("video/webm")) throw new Error("The renderer did not produce a WebM video. Output was not accepted.");
+  if (blob.size <= 0 || blob.size > MAX_OUTPUT_BYTES) {
+    throw new Error("Rendered video is empty or exceeds the 500 MiB output limit.");
+  }
+  if (!blob.type.toLowerCase().startsWith("video/webm")) {
+    throw new Error("The renderer did not produce a WebM video. Output was not accepted.");
+  }
   const url = URL.createObjectURL(blob);
   const video = document.createElement("video");
   video.preload = "auto";
@@ -211,6 +221,83 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
   }
 }
 
+function drawFrameAt(
+  context: CanvasRenderingContext2D,
+  video: HTMLVideoElement,
+  scenes: readonly V3BlueprintScene[],
+  timelineMs: number,
+): void {
+  drawCrop(context, video);
+  drawCaptionOverlay(context, scenes, timelineMs);
+}
+
+async function recordPreparedScene(
+  context: CanvasRenderingContext2D,
+  prepared: PreparedScene,
+  scenes: readonly V3BlueprintScene[],
+  timelineOffsetMs: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const { video, startMs, endMs, durationMs } = prepared;
+  ensureNotAborted(signal);
+  video.pause();
+  await seekVideo(video, startMs, signal);
+  try {
+    await video.play();
+  } catch {
+    throw new Error("The browser could not start playback for a selected source scene.");
+  }
+  await new Promise<void>((resolve, reject) => {
+    let finished = false;
+    let frameHandle = 0;
+    const cleanup = () => {
+      cancelAnimationFrame(frameHandle);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      signal?.removeEventListener("abort", handleAbort);
+    };
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      cleanup();
+      video.pause();
+      if (error) reject(error);
+      else resolve();
+    };
+    const handleAbort = () => finish(abortError());
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        finish(new Error("The browser tab went into the background during rendering. The partial output was rejected; keep the tab visible and try again."));
+      }
+    };
+    const frame = () => {
+      if (signal?.aborted) {
+        finish(abortError());
+        return;
+      }
+      if (document.visibilityState === "hidden") {
+        finish(new Error("Keep the V3 tab in the foreground while rendering."));
+        return;
+      }
+      const sourceNowMs = video.currentTime * 1_000;
+      const elapsedMs = Math.max(0, Math.min(durationMs, sourceNowMs - startMs));
+      try {
+        drawFrameAt(context, video, scenes, timelineOffsetMs + elapsedMs);
+      } catch (error) {
+        finish(error instanceof Error ? error : new Error("Could not draw the current video frame."));
+        return;
+      }
+      if (sourceNowMs >= endMs || video.ended) {
+        finish();
+        return;
+      }
+      frameHandle = requestAnimationFrame(frame);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    frameHandle = requestAnimationFrame(frame);
+  });
+}
+
 export async function renderV3OwnerFootageVideo(options: {
   scenes: readonly V3BlueprintScene[];
   assets: readonly V3MediaFile[];
@@ -228,19 +315,43 @@ export async function renderV3OwnerFootageVideo(options: {
   if (!preflight.ok) {
     throw new Error("Render blocked: " + preflight.issues.map((issue) => issue.message).join(" "));
   }
+  if (scenes.length > MAX_SCENES) {
+    throw new Error("The first mobile-safe renderer supports at most " + MAX_SCENES + " scenes.");
+  }
   const narration = assets.find((asset) => asset.metadata.id === narrationAssetId);
-  if (!narration) throw new Error("The selected narration file is not available in the local media library.");
+  if (!narration || narration.metadata.kind !== "narration") {
+    throw new Error("The selected narration file is not available in the local media library.");
+  }
   const mediaById = new Map(assets.map((asset) => [asset.metadata.id, asset]));
   const usedAssets = new Map<string, V3MediaFile>([[narration.metadata.id, narration]]);
+  const plannedScenes: Array<{ scene: V3BlueprintScene; asset: V3MediaFile; startMs: number; endMs: number; durationMs: number }> = [];
   for (const scene of scenes) {
-    if (scene.sourceMediaId) {
-      const asset = mediaById.get(scene.sourceMediaId);
-      if (!asset) throw new Error("A source clip is missing from the local media library.");
-      usedAssets.set(asset.metadata.id, asset);
+    ensureNotAborted(signal);
+    const mediaId = scene.sourceMediaId;
+    const startMs = scene.sourceMediaStartMs;
+    const endMs = scene.sourceMediaEndMs;
+    if (!mediaId || startMs === null || endMs === null) {
+      throw new Error("Every scene must have a source video and explicit trim boundaries.");
     }
+    const asset = mediaById.get(mediaId);
+    if (!asset || asset.metadata.kind !== "video") {
+      throw new Error("A selected scene clip is missing or is not a video.");
+    }
+    const durationMs = endMs - startMs;
+    if (!Number.isSafeInteger(startMs) || !Number.isSafeInteger(endMs) || startMs < 0 ||
+        durationMs <= 0 || endMs > asset.metadata.durationMs) {
+      throw new Error("A source clip trim is invalid. Review its start/end boundaries.");
+    }
+    plannedScenes.push({ scene, asset, startMs, endMs, durationMs });
+    usedAssets.set(asset.metadata.id, asset);
   }
 
-  onProgress?.({ stage: "preparing", completedScenes: 0, totalScenes: scenes.length, message: "Verifying local source file checksums…" });
+  const usedBytes = Array.from(usedAssets.values()).reduce((sum, asset) => sum + asset.file.size, 0);
+  if (usedBytes > MAX_USED_INPUT_BYTES) {
+    throw new Error("Selected media files exceed the 100 MiB mobile-render limit. Choose smaller source files.");
+  }
+
+  onProgress?.({ stage: "preparing", completedScenes: 0, totalScenes: scenes.length, message: "Verifying source files and preparing local footage…" });
   for (const asset of usedAssets.values()) {
     ensureNotAborted(signal);
     if (await sha256Blob(asset.file) !== asset.metadata.sha256) {
@@ -251,14 +362,9 @@ export async function renderV3OwnerFootageVideo(options: {
   if (typeof MediaRecorder === "undefined") {
     throw new Error("MediaRecorder is unavailable in this browser. Use the editable project bundle/another local editor; no paid fallback will be activated.");
   }
-  const canvas = document.createElement("canvas");
-  canvas.width = WIDTH;
-  canvas.height = HEIGHT;
-  const context = canvas.getContext("2d", { alpha: false });
-  if (!context || typeof canvas.captureStream !== "function") {
+  if (!HTMLCanvasElement.prototype.captureStream) {
     throw new Error("This browser cannot capture the portrait canvas into a real video file.");
   }
-
   const mimeCandidates = [
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
@@ -266,32 +372,78 @@ export async function renderV3OwnerFootageVideo(options: {
   ];
   const mimeType = mimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
   if (!mimeType) throw new Error("No supported WebM recorder codec was found on this device. Nothing was exported.");
-
   const AudioContextConstructor = window.AudioContext;
   if (!AudioContextConstructor) throw new Error("Web Audio is unavailable in this browser, so the narration track cannot be mixed.");
-  const audioContext = new AudioContextConstructor();
-  const audio = document.createElement("audio");
-  const audioUrl = URL.createObjectURL(narration.file);
-  audio.preload = "auto";
-  audio.src = audioUrl;
-  const audioSource = audioContext.createMediaElementSource(audio);
-  const audioDestination = audioContext.createMediaStreamDestination();
-  audioSource.connect(audioDestination);
 
-  // Request playback directly during the user's button gesture. It will be paused
-  // and reset once hashes are checked so the exported audio begins at timeline zero.
-  const initialPlay = audio.play();
+  const canvas = document.createElement("canvas");
+  canvas.width = WIDTH;
+  canvas.height = HEIGHT;
+  const context = canvas.getContext("2d", { alpha: false });
+  if (!context) throw new Error("Could not initialize the portrait renderer canvas.");
+
+  const clipUrls: string[] = [];
+  const preparedScenes: PreparedScene[] = [];
+  const audioUrl = URL.createObjectURL(narration.file);
+  const audio = document.createElement("audio");
+  const audioContext = new AudioContextConstructor();
+  let audioDestination: MediaStreamAudioDestinationNode | null = null;
   let stream: MediaStream | null = null;
   let recorder: MediaRecorder | null = null;
   let recordingPromise: Promise<Blob> | null = null;
-  const clipUrls: string[] = [];
+  let recorderStarted = false;
 
   try {
+    audio.preload = "auto";
+    audio.src = audioUrl;
+    audio.load();
+    await waitForMediaReady(audio, signal);
     await audioContext.resume();
-    await initialPlay;
+    const audioSource = audioContext.createMediaElementSource(audio);
+    audioDestination = audioContext.createMediaStreamDestination();
+    audioSource.connect(audioDestination);
+
+    // Load and seek all scenes before recording starts. This prevents a slow
+    // device/file decode from consuming narration time between recorded scenes.
+    for (let index = 0; index < plannedScenes.length; index += 1) {
+      ensureNotAborted(signal);
+      const plan = plannedScenes[index];
+      onProgress?.({
+        stage: "preparing",
+        completedScenes: index,
+        totalScenes: scenes.length,
+        message: "Preparing video scene " + (index + 1) + " of " + scenes.length + "…",
+      });
+      const url = URL.createObjectURL(plan.asset.file);
+      clipUrls.push(url);
+      const video = document.createElement("video");
+      video.preload = "auto";
+      video.muted = true;
+      video.playsInline = true;
+      video.src = url;
+      video.load();
+      await waitForMediaReady(video, signal);
+      if (video.videoWidth * video.videoHeight > 8_500_000) {
+        throw new Error("A source clip is larger than the 8.5-megapixel mobile-safe render limit. Use a smaller source file.");
+      }
+      await seekVideo(video, plan.startMs, signal);
+      video.pause();
+      preparedScenes.push({
+        scene: plan.scene,
+        video,
+        url,
+        startMs: plan.startMs,
+        endMs: plan.endMs,
+        durationMs: plan.durationMs,
+      });
+    }
+
     ensureNotAborted(signal);
+    // Prime audio playback within the click gesture, then reset it to timeline zero.
+    const unlockPlay = audio.play();
+    await unlockPlay;
     audio.pause();
     audio.currentTime = 0;
+    await seekVideo(preparedScenes[0].video, preparedScenes[0].startMs, signal);
 
     stream = canvas.captureStream(FPS);
     for (const track of audioDestination.stream.getAudioTracks()) stream.addTrack(track);
@@ -312,104 +464,51 @@ export async function renderV3OwnerFootageVideo(options: {
         else resolve(blob);
       };
     });
+
+    // Begin both tracks without awaiting one before starting the other.
     recorder.start(1_000);
-    onProgress?.({ stage: "rendering", completedScenes: 0, totalScenes: scenes.length, message: "Recording the 720×1280 montage with owner footage and reviewed narration…" });
-    const narrationPlay = audio.play();
-    await narrationPlay;
+    recorderStarted = true;
+    const audioPlay = audio.play();
+    const firstVideoPlay = preparedScenes[0].video.play();
+    onProgress?.({ stage: "rendering", completedScenes: 0, totalScenes: scenes.length, message: "Recording the 720×1280 montage from local footage and reviewed narration…" });
+    await Promise.all([audioPlay, firstVideoPlay]);
 
     let timelineOffsetMs = 0;
-    for (let index = 0; index < scenes.length; index += 1) {
+    for (let index = 0; index < preparedScenes.length; index += 1) {
       ensureNotAborted(signal);
-      const scene = scenes[index];
-      const mediaId = scene.sourceMediaId;
-      if (!mediaId || scene.sourceMediaStartMs === null || scene.sourceMediaEndMs === null) {
-        throw new Error("Every scene must have a source video and explicit trim boundaries.");
+      const prepared = preparedScenes[index];
+      if (index > 0) {
+        await recordPreparedScene(context, prepared, scenes, timelineOffsetMs, signal);
+      } else {
+        // The first clip was started simultaneously with audio and recording above.
+        await recordPreparedScene(context, prepared, scenes, timelineOffsetMs, signal);
       }
-      const asset = mediaById.get(mediaId);
-      if (!asset || asset.metadata.kind !== "video") throw new Error("A selected scene clip is missing or is not a video.");
-      const clipStartMs = scene.sourceMediaStartMs;
-      const clipEndMs = scene.sourceMediaEndMs;
-      const clipDurationMs = clipEndMs - clipStartMs;
-      if (clipDurationMs <= 0 || clipEndMs > asset.metadata.durationMs) {
-        throw new Error("A source clip trim is invalid. Review its start/end boundaries.");
-      }
+      timelineOffsetMs += prepared.durationMs;
       onProgress?.({
         stage: "rendering",
-        completedScenes: index,
+        completedScenes: index + 1,
         totalScenes: scenes.length,
-        message: "Rendering scene " + (index + 1) + " of " + scenes.length + ": " + scene.title,
+        message: "Finished scene " + (index + 1) + " of " + scenes.length + ".",
       });
-
-      const videoUrl = URL.createObjectURL(asset.file);
-      clipUrls.push(videoUrl);
-      const video = document.createElement("video");
-      video.preload = "auto";
-      video.muted = true;
-      video.playsInline = true;
-      video.src = videoUrl;
-      video.load();
-      await waitForMediaReady(video, signal);
-      await seekVideo(video, clipStartMs, signal);
-      await video.play();
-
-      const sourceOriginMs = video.currentTime * 1_000;
-      await new Promise<void>((resolve, reject) => {
-        let finished = false;
-        let frameHandle = 0;
-        const finish = (error?: Error) => {
-          if (finished) return;
-          finished = true;
-          cancelAnimationFrame(frameHandle);
-          if (error) reject(error);
-          else resolve();
-        };
-        const frame = () => {
-          if (signal?.aborted) {
-            finish(abortError());
-            return;
-          }
-          const sourceNowMs = video.currentTime * 1_000;
-          const elapsedMs = Math.max(0, Math.min(clipDurationMs, sourceNowMs - clipStartMs));
-          try {
-            drawCrop(context, video);
-            drawCaptionOverlay(context, scenes, timelineOffsetMs + elapsedMs);
-          } catch (error) {
-            finish(error instanceof Error ? error : new Error("Could not draw the current video frame."));
-            return;
-          }
-          if (sourceNowMs >= clipEndMs || video.ended) {
-            finish();
-            return;
-          }
-          frameHandle = requestAnimationFrame(frame);
-        };
-        frameHandle = requestAnimationFrame(frame);
-      });
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-      timelineOffsetMs += clipDurationMs;
-      onProgress?.({ stage: "rendering", completedScenes: index + 1, totalScenes: scenes.length, message: "Finished scene " + (index + 1) + " of " + scenes.length + "." });
     }
 
     audio.pause();
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
-    onProgress?.({ stage: "validating", completedScenes: scenes.length, totalScenes: scenes.length, message: "Validating the actual recorded video file…" });
-    if (recorder.state !== "inactive") {
-      recorder.stop();
-    }
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
+    onProgress?.({ stage: "validating", completedScenes: scenes.length, totalScenes: scenes.length, message: "Validating the recorded WebM file and playback…" });
+    if (recorder.state !== "inactive") recorder.stop();
     const blob = await recordingPromise;
     ensureNotAborted(signal);
-    if (timelineOffsetMs !== preflight.durationMs) throw new Error("The rendered timeline no longer matches its preflight duration.");
+    if (timelineOffsetMs !== preflight.durationMs) {
+      throw new Error("The rendered timeline no longer matches its preflight duration.");
+    }
     await verifyRecordedVideo(blob, preflight.durationMs, signal);
-    const sha256 = await sha256Blob(blob);
     return {
       blob,
       mimeType: blob.type || mimeType,
       width: WIDTH,
       height: HEIGHT,
       durationMs: preflight.durationMs,
-      sha256,
+      sha256: await sha256Blob(blob),
       sceneCount: scenes.length,
     };
   } catch (error) {
@@ -417,8 +516,8 @@ export async function renderV3OwnerFootageVideo(options: {
     if (recorder && recorder.state !== "inactive") {
       try { recorder.stop(); } catch { /* preserve the original error */ }
     }
-    if (recordingPromise) {
-      try { await recordingPromise; } catch { /* the source project remains saved */ }
+    if (recordingPromise && recorderStarted) {
+      try { await recordingPromise; } catch { /* preserve the source project and original error */ }
     }
     throw error;
   } finally {
@@ -426,9 +525,14 @@ export async function renderV3OwnerFootageVideo(options: {
     audio.removeAttribute("src");
     audio.load();
     URL.revokeObjectURL(audioUrl);
+    for (const item of preparedScenes) {
+      item.video.pause();
+      item.video.removeAttribute("src");
+      item.video.load();
+    }
     for (const url of clipUrls) URL.revokeObjectURL(url);
     if (stream) for (const track of stream.getTracks()) track.stop();
-    for (const track of audioDestination.stream.getTracks()) track.stop();
+    if (audioDestination) for (const track of audioDestination.stream.getTracks()) track.stop();
     await audioContext.close().catch(() => undefined);
   }
 }
