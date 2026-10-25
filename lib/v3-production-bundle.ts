@@ -151,6 +151,13 @@ function writeUint32(view: DataView, offset: number, value: number): void {
   view.setUint32(offset, value >>> 0, true);
 }
 
+/** Return an owned ArrayBuffer so BlobPart stays compatible with strict TS typed-array generics. */
+function copyBytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 async function zipStoredEntries(entries: readonly ZipEntry[], timestamp: string): Promise<Blob> {
   if (entries.length === 0 || entries.length > MAX_BUNDLE_FILES) {
     throw new Error("The production bundle must contain between 1 and 100 files.");
@@ -168,7 +175,7 @@ async function zipStoredEntries(entries: readonly ZipEntry[], timestamp: string)
   }
   const stamp = dosDateTime(timestamp);
   const localParts: BlobPart[] = [];
-  const centralParts: Uint8Array[] = [];
+  const centralParts: ArrayBuffer[] = [];
   let localOffset = 0;
   let centralSize = 0;
 
@@ -190,7 +197,7 @@ async function zipStoredEntries(entries: readonly ZipEntry[], timestamp: string)
     writeUint16(localView, 26, nameBytes.byteLength);
     writeUint16(localView, 28, 0);
     localHeader.set(nameBytes, 30);
-    localParts.push(localHeader, entry.blob);
+    localParts.push(copyBytesToArrayBuffer(localHeader), entry.blob);
 
     const centralHeader = new Uint8Array(46 + nameBytes.byteLength);
     const centralView = new DataView(centralHeader.buffer);
@@ -212,7 +219,7 @@ async function zipStoredEntries(entries: readonly ZipEntry[], timestamp: string)
     writeUint32(centralView, 38, 0);
     writeUint32(centralView, 42, localOffset);
     centralHeader.set(nameBytes, 46);
-    centralParts.push(centralHeader);
+    centralParts.push(copyBytesToArrayBuffer(centralHeader));
     centralSize += centralHeader.byteLength;
     localOffset += localHeader.byteLength + size;
   }
@@ -228,7 +235,7 @@ async function zipStoredEntries(entries: readonly ZipEntry[], timestamp: string)
   writeUint32(endView, 16, localOffset);
   writeUint16(endView, 20, 0);
 
-  return new Blob([...localParts, ...centralParts, endRecord], { type: "application/zip" });
+  return new Blob([...localParts, ...centralParts, copyBytesToArrayBuffer(endRecord)], { type: "application/zip" });
 }
 
 async function sha256Blob(blob: Blob): Promise<string> {
