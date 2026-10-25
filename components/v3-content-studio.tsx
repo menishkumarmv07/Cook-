@@ -109,6 +109,22 @@ function normalizeStoredBlueprint(value: unknown): { blueprint: V3ContentBluepri
       nextScene.captionEndMs = null;
       migrated = true;
     }
+    if (nextScene.sourceMediaId === undefined) {
+      nextScene.sourceMediaId = null;
+      migrated = true;
+    }
+    if (nextScene.sourceMediaStartMs === undefined) {
+      nextScene.sourceMediaStartMs = null;
+      migrated = true;
+    }
+    if (nextScene.sourceMediaEndMs === undefined) {
+      nextScene.sourceMediaEndMs = null;
+      migrated = true;
+    }
+    if (nextScene.targetClipSeconds === undefined) {
+      nextScene.targetClipSeconds = null;
+      migrated = true;
+    }
     return nextScene;
   });
   const candidate = { ...value, scenes };
