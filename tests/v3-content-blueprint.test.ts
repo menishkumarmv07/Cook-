@@ -364,6 +364,53 @@ test("invalid timestamps and oversized recipe arrays fail safely", async () => {
   );
 });
 
+test("an empty or omitted Research Studio archive is identified explicitly", async () => {
+  const omitted = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    now: fixedNow,
+  });
+  assert.ok(omitted.warnings.some((warning) => warning.code === "research-archive-not-included"));
+
+  const empty = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    researchEvidence: { version: 1, updatedAt: fixedNow, sources: [], claims: [] },
+    now: fixedNow,
+  });
+  assert.ok(empty.warnings.some((warning) => warning.code === "research-archive-empty"));
+});
+
+test("oversized source text is rejected rather than silently truncated", async () => {
+  await assert.rejects(
+    () => buildV3ContentBlueprint({
+      recipe: recipe({
+        steps: [{
+          id: "step-too-long",
+          action: "x".repeat(2_001),
+          duration: "",
+          heat: "",
+          cue: "",
+        }],
+      }),
+      creatorProfile: DEFAULT_CREATOR_PROFILE,
+      now: fixedNow,
+    }),
+    V3BlueprintInputError,
+  );
+});
+
+test("backup parser rejects malformed nested recipe records", async () => {
+  const blueprint = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    now: fixedNow,
+  });
+  const candidate = JSON.parse(createV3ContentBlueprintBackupJSON(blueprint)) as typeof blueprint;
+  candidate.sourceSnapshot.recipe.ingredients = [null] as unknown as typeof candidate.sourceSnapshot.recipe.ingredients;
+  assert.equal(validateV3ContentBlueprint(candidate), false);
+});
+
 test("control characters are removed from snapshot text without inventing recipe facts", async () => {
   const source = recipe({
     name: "Tomato\u0000 pasta",
