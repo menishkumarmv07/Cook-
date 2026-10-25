@@ -112,6 +112,12 @@ test("requires a narration track long enough for the edited timeline", () => {
   assert.ok(report.issues.some((issue) => issue.code === "narration-too-short"));
 });
 
+test("blocks narration that would be silently cut off after the last scene", () => {
+  const longNarration = { ...narration, durationMs: 10_000 };
+  const report = preflightV3OwnerFootageRender([scene("one", 0, 4_000)], [video, longNarration], "narration-1");
+  assert.ok(report.issues.some((issue) => issue.code === "narration-too-long"));
+});
+
 test("blocks un-timed captions, overlapping caption intervals and captions after video end", () => {
   const untimed = { ...scene("one"), captionStartMs: null, captionEndMs: null };
   const untimedReport = preflightV3OwnerFootageRender([untimed], [video, narration], "narration-1");
