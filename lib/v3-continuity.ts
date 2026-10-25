@@ -145,9 +145,10 @@ export function validateV3ContinuityBible(value: unknown): value is V3Continuity
     !boundedString(value.ownerConfirmedKitchenNotes, 4_000) ||
     !boundedString(value.allowedVariations, 4_000)) return false;
   if (!isRecord(value.reviewChecklist)) return false;
+  const checklist = value.reviewChecklist;
   if (!CHECKLIST_KEYS.every((key) =>
-    typeof value.reviewChecklist[key] === "string" &&
-    VISUAL_REVIEW_STATES.includes(value.reviewChecklist[key] as V3VisualReviewState)
+    typeof checklist[key] === "string" &&
+    VISUAL_REVIEW_STATES.includes(checklist[key] as V3VisualReviewState)
   )) return false;
   if (typeof value.visualRealismStatus !== "string" ||
     !VISUAL_REVIEW_STATES.includes(value.visualRealismStatus as V3VisualReviewState)) return false;
