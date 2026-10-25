@@ -1097,10 +1097,11 @@ export default function V3ContentStudio() {
   );
 
   useEffect(() => {
+    const previewUrl = renderOutput?.previewUrl;
     return () => {
-      if (renderOutput?.previewUrl) URL.revokeObjectURL(renderOutput.previewUrl);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, [renderOutput]);
+  }, [renderOutput?.previewUrl]);
 
   function updateScene(sceneId: string, field: "title" | "narrationText" | "captionText" | "visualDirection", value: string) {
     if (!activeProject) return;
