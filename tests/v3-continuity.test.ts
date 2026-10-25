@@ -85,6 +85,23 @@ test("cannot mark a clip passed while any criterion is untested or failed", () =
   const recorded = reviewV3ContinuityClip(bible, "clip-2", failed, "fail");
   assert.equal(recorded.visualRealismStatus, "fail");
   assert.deepEqual(recorded.lastReviewedClipIds, ["clip-2"]);
+
+  // The Bible stores only the most recent clip's checklist; a prior clip must not
+  // inherit the latest clip's PASS/FAIL status because historical per-clip checklists
+  // are not stored.
+  const priorPass = reviewV3ContinuityClip(bible, "clip-1", ({
+    chefIdentity: "pass",
+    wardrobe: "pass",
+    kitchenLayout: "pass",
+    lightingAndProps: "pass",
+    cookingAction: "pass",
+    ingredientAndFoodState: "pass",
+    temporalMotion: "pass",
+    audioAndCaptions: "pass",
+  }), "pass");
+  const latestFail = reviewV3ContinuityClip(priorPass, "clip-2", failed, "fail");
+  assert.deepEqual(latestFail.lastReviewedClipIds, ["clip-2"]);
+  assert.equal(latestFail.visualRealismStatus, "fail");
 });
 
 test("Bible IDs and review states are validated rather than silently normalized", () => {
