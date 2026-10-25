@@ -1670,9 +1670,12 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
 
   await chooseMenuTool(page, "AI Chef Studio");
   await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" })).toBeVisible();
-  await page.getByLabel("Saved recipe").selectOption({ label: /V3 blueprint QA recipe/ });
+  const savedRecipeOption = page.locator("#v3-recipe-select option").filter({ hasText: "V3 blueprint QA recipe" }).first();
+  const savedRecipeId = await savedRecipeOption.getAttribute("value");
+  expect(savedRecipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(savedRecipeId as string);
   await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Blueprint saved locally");
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Blueprint saved locally" })).toBeVisible();
   await expect(page.locator(".v3-scene-card")).toHaveCount(4);
   await expect(page.locator(".v3-studio-editor")).toContainText("V3 blueprint QA recipe");
   await expect(page.locator(".v3-scene-source-notes")).toContainText("step:");
@@ -1686,7 +1689,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
     await endInputs.nth(index).fill(String(index + 1));
   }
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Edits saved locally");
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible();
   const subtitleDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export SRT", exact: true }).click();
   expect((await subtitleDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.srt$/);
@@ -1694,5 +1697,5 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   const backupDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
   expect((await backupDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.v3-blueprint\.json$/);
-  await expect(page.locator(".v3-studio-honesty")).toContainText("NOT TESTED");
+  await expect(page.locator(".v3-studio-editor .v3-studio-honesty")).toContainText("NOT TESTED");
 });
