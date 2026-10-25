@@ -35,6 +35,16 @@ import {
   type V3ContinuityReference,
   type V3ReferenceRole,
 } from "@/lib/v3-continuity";
+import {
+  isV3MediaAsset,
+  MAX_V3_MEDIA_ASSETS,
+  MAX_V3_MEDIA_FILE_BYTES,
+  MAX_V3_MEDIA_LIBRARY_BYTES,
+  preflightV3OwnerFootageRender,
+  type V3MediaAsset,
+  type V3MediaKind,
+  type V3MediaRightsStatus,
+} from "@/lib/v3-rendering";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -43,9 +53,10 @@ const EVIDENCE_DATABASE_VERSION = 1;
 const EVIDENCE_STORE = "archives";
 const EVIDENCE_ARCHIVE_KEY = "primary";
 const PROJECT_DATABASE_NAME = "cooking-creator-v3-content-studio";
-const PROJECT_DATABASE_VERSION = 2;
+const PROJECT_DATABASE_VERSION = 3;
 const PROJECT_STORE = "projects";
 const REFERENCE_STORE = "references";
+const MEDIA_STORE = "media";
 const MAX_V3_REFERENCE_COUNT = 20;
 const MAX_V3_REFERENCE_TOTAL_BYTES = 80 * 1024 * 1024;
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024;
