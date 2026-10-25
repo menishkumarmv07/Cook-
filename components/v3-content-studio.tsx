@@ -163,6 +163,10 @@ function normalizeStoredBlueprint(value: unknown): { blueprint: V3ContentBluepri
     return nextScene;
   });
   const candidate = { ...value, scenes };
+  if (candidate.schemaVersion === 1) {
+    candidate.schemaVersion = 2;
+    migrated = true;
+  }
   if (!validateV3ContentBlueprint(candidate)) return null;
   return { blueprint: candidate, migrated };
 }
