@@ -1957,6 +1957,115 @@ export default function V3ContentStudio() {
         </section>
       </div>
 
+      <section className="v3-media-library" aria-labelledby="v3-media-library-title">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">LOCAL FOOTAGE & NARRATION</p>
+            <h3 id="v3-media-library-title">Video and audio library</h3>
+            <p>Use footage you recorded or have rights to use, and narration you recorded or have permission to use. Imported media is stored locally in this browser.</p>
+          </div>
+          <span className="step">{mediaAssets.length}/30 MEDIA FILES</span>
+        </div>
+        <p className="v3-studio-honesty"><strong>Realism distinction:</strong> this editor assembles owner-supplied moving footage. It does not generate an AI chef or AI cooking animation. No media is uploaded to a provider.</p>
+        <div className="v3-media-import-form">
+          <div>
+            <label htmlFor="v3-media-kind">What are you importing?</label>
+            <select id="v3-media-kind" value={mediaKindDraft} onChange={(event) => setMediaKindDraft(event.target.value as V3MediaKind)} disabled={busy}>
+              <option value="video">Cooking video footage</option>
+              <option value="narration">Narration audio</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="v3-media-label">File label (optional)</label>
+            <input id="v3-media-label" value={mediaLabelDraft} maxLength={240} onChange={(event) => setMediaLabelDraft(event.target.value)} placeholder={mediaKindDraft === "video" ? "e.g. Chef stirring the pan" : "e.g. Narration take 1"} disabled={busy} />
+          </div>
+          <div>
+            <label htmlFor="v3-media-rights">Usage-rights status</label>
+            <select id="v3-media-rights" value={mediaRightsStatusDraft} onChange={(event) => setMediaRightsStatusDraft(event.target.value as V3MediaRightsStatus)} disabled={busy}>
+              <option value="unknown">Not confirmed yet</option>
+              <option value="owner-recorded">Recorded by me</option>
+              <option value="owner-has-rights">I have usage rights</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="v3-media-rights-note">Rights note (required before use)</label>
+            <textarea id="v3-media-rights-note" rows={2} maxLength={2_000} value={mediaRightsNoteDraft} onChange={(event) => setMediaRightsNoteDraft(event.target.value)} placeholder="Briefly record why you may use this file." disabled={busy} />
+          </div>
+          <div className="v3-media-file-row">
+            <label htmlFor="v3-media-file">Select a local file (up to 100 MiB)</label>
+            <input
+              id="v3-media-file"
+              type="file"
+              accept={mediaKindDraft === "video" ? "video/mp4,video/webm,video/quicktime,video/ogg,.mp4,.webm,.mov,.ogv,.ogg" : "audio/mpeg,audio/wav,audio/webm,audio/ogg,audio/mp4,.mp3,.wav,.webm,.ogg,.m4a,.mp4"}
+              onChange={(event) => void importMediaFile(event)}
+              disabled={busy || mediaAssets.length >= MAX_V3_MEDIA_ASSETS}
+            />
+          </div>
+        </div>
+        {mediaAssets.length === 0 ? (
+          <p className="empty-inline">No footage or narration has been imported. Import a short clip and a suitable narration track to start the owner-footage render path.</p>
+        ) : (
+          <div className="v3-media-grid">
+            {mediaAssets.map((asset) => {
+              const metadata = asset.metadata;
+              const usedInProject = projects.some((project) =>
+                project.narrationMediaId === metadata.id ||
+                project.blueprint.scenes.some((scene) => scene.sourceMediaId === metadata.id)
+              );
+              return (
+                <article className="v3-media-card" key={metadata.id}>
+                  {metadata.kind === "video" ? (
+                    mediaPreviewUrls[metadata.id]
+                      ? <video className="v3-media-preview" src={mediaPreviewUrls[metadata.id]} controls preload="metadata" playsInline />
+                      : <div className="v3-media-preview v3-media-preview-empty">Video preview loading…</div>
+                  ) : (
+                    <audio className="v3-audio-preview" src={mediaPreviewUrls[metadata.id]} controls preload="metadata" />
+                  )}
+                  <div className="v3-media-card-body">
+                    <span className={metadata.reviewState === "owner-cleared" ? "v3-reference-badge is-approved" : "v3-reference-badge"}>
+                      {metadata.reviewState === "owner-cleared" ? "OWNER-CLEARED" : metadata.reviewState.toUpperCase().replace(/-/g, " ")}
+                    </span>
+                    <h4>{metadata.label}</h4>
+                    <p className="v3-reference-meta">{metadata.kind === "video" ? "Video" : "Narration"} · {Math.round(metadata.durationMs / 100) / 10}s · {(metadata.byteSize / 1024 / 1024).toFixed(2)} MiB</p>
+                    {metadata.width && metadata.height && <p className="v3-reference-meta">{metadata.width} × {metadata.height}</p>}
+                    <p className="v3-reference-meta">{metadata.originalFileName} · SHA-256 {metadata.sha256.slice(0, 12)}…</p>
+                    <label htmlFor={"v3-asset-rights-status-" + metadata.id}>Rights status</label>
+                    <select
+                      id={"v3-asset-rights-status-" + metadata.id}
+                      value={metadata.rightsStatus}
+                      disabled={busy}
+                      onChange={(event) => void changeMediaRightsStatus(asset, event.target.value as V3MediaRightsStatus)}
+                    >
+                      <option value="unknown">Not confirmed</option>
+                      <option value="owner-recorded">Recorded by me</option>
+                      <option value="owner-has-rights">I have usage rights</option>
+                    </select>
+                    <label htmlFor={"v3-asset-rights-note-" + metadata.id}>Rights note</label>
+                    <textarea
+                      id={"v3-asset-rights-note-" + metadata.id}
+                      rows={2}
+                      maxLength={2_000}
+                      value={mediaRightsNoteDrafts[metadata.id] ?? metadata.rightsNote}
+                      disabled={busy}
+                      onChange={(event) => setMediaRightsNoteDrafts((existing) => ({ ...existing, [metadata.id]: event.target.value }))}
+                    />
+                    <div className="v3-reference-actions">
+                      <button className="secondary" type="button" disabled={busy} onClick={() => void saveMediaRightsNote(asset)}>Save rights note</button>
+                      {metadata.reviewState !== "owner-cleared" && (
+                        <button className="secondary" type="button" disabled={busy} onClick={() => void clearMediaForUse(asset)}>I reviewed and clear it</button>
+                      )}
+                      <button className="secondary" type="button" disabled={busy || usedInProject} onClick={() => void removeMediaAsset(asset)}>{usedInProject ? "In use by project" : "Remove media"}</button>
+                    </div>
+                    <p className="v3-reference-meta">Rights review is an owner record, not an independent legal assessment. Stored locally only.</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+        <p className="hint">Safety limits: maximum 30 files / 400 MiB total storage / 100 MiB per file; the first render path also limits the combined selected source files to 100 MiB, the output to 180 seconds, and a video to 8.5 megapixels. Unsupported codecs are rejected rather than renamed.</p>
+      </section>
+
       <section className="v3-continuity-library" aria-labelledby="v3-continuity-library-title">
         <div className="section-head">
           <div>
