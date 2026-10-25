@@ -23,6 +23,7 @@ import {
   type V3ContentBlueprint,
   type V3BlueprintScene,
 } from "@/lib/v3-content-blueprint";
+import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat } from "@/lib/v3-captions";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -321,6 +322,11 @@ export default function V3ContentStudio() {
     return () => { cancelled = true; };
   }, []);
 
+  const captionTimeline = useMemo(
+    () => validateV3SubtitleTimeline(activeProject?.blueprint.scenes ?? []),
+    [activeProject],
+  );
+
   function updateScene(sceneId: string, field: "title" | "narrationText" | "captionText" | "visualDirection", value: string) {
     if (!activeProject) return;
     setProjects((existing) => existing.map((project) => {
@@ -340,6 +346,55 @@ export default function V3ContentStudio() {
     }));
     setDirty(true);
     setMessage("Unsaved scene edit. Review it against the source recipe before exporting.");
+  }
+
+  function updateCaptionTiming(sceneId: string, field: "captionStartMs" | "captionEndMs", value: string) {
+    if (!activeProject) return;
+    let milliseconds: number | null = null;
+    if (value.trim()) {
+      const seconds = Number(value);
+      if (!Number.isFinite(seconds) || seconds < 0 || seconds > 86_400) {
+        setError("Caption times must be between 0 and 86,400 seconds.");
+        return;
+      }
+      milliseconds = Math.round(seconds * 1_000);
+    }
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== activeProject.id) return project;
+      return {
+        ...project,
+        blueprint: {
+          ...project.blueprint,
+          status: "draft",
+          scenes: project.blueprint.scenes.map((scene) => scene.id === sceneId
+            ? { ...scene, [field]: milliseconds, reviewStatus: "needs-review" as const }
+            : scene),
+          reviewNotes: Array.from(new Set([
+            ...project.blueprint.reviewNotes,
+            "Caption timing was edited by the owner. Confirm it against the real audio before subtitle export.",
+          ])),
+        },
+      };
+    }));
+    setDirty(true);
+    setError("");
+    setMessage("Unsaved caption timing. Times are owner-entered and have not been checked against audio.");
+  }
+
+  function exportSubtitles(format: V3SubtitleFormat) {
+    if (!activeProject) return;
+    try {
+      const content = buildV3SubtitleFile(activeProject.blueprint.scenes, format);
+      downloadLocalFile(
+        filenameFromTitle(activeProject.title) + "." + format,
+        content,
+        format === "srt" ? "application/x-subrip;charset=utf-8" : "text/vtt;charset=utf-8",
+      );
+      setError("");
+      setMessage("Subtitle file downloaded locally. Playback timing still needs owner review against the final audio.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Subtitle export failed validation.");
+    }
   }
 
   async function generateBlueprint() {
