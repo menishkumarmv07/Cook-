@@ -1648,3 +1648,51 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 blueprint QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 blueprint QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByLabel("Ingredient 1 prep").fill("rinsed");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Boil the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" })).toBeVisible();
+  await page.getByLabel("Saved recipe").selectOption({ label: /V3 blueprint QA recipe/ });
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Blueprint saved locally");
+  await expect(page.locator(".v3-scene-card")).toHaveCount(4);
+  await expect(page.locator(".v3-studio-editor")).toContainText("V3 blueprint QA recipe");
+  await expect(page.locator(".v3-scene-source-notes")).toContainText("step:");
+
+  const startInputs = page.locator('input[id^="v3-caption-start-"]');
+  const endInputs = page.locator('input[id^="v3-caption-end-"]');
+  await expect(startInputs).toHaveCount(4);
+  await expect(endInputs).toHaveCount(4);
+  for (let index = 0; index < 4; index += 1) {
+    await startInputs.nth(index).fill(String(index));
+    await endInputs.nth(index).fill(String(index + 1));
+  }
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("Edits saved locally");
+  const subtitleDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export SRT", exact: true }).click();
+  expect((await subtitleDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.srt$/);
+
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  expect((await backupDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.v3-blueprint\.json$/);
+  await expect(page.locator(".v3-studio-honesty")).toContainText("NOT TESTED");
+});
