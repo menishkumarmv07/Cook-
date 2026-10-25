@@ -110,7 +110,7 @@ export function getV3CreatorReadinessIssues(readiness: V3CreatorReadiness): stri
   if (!readiness.caption.trim()) issues.push("Add and review the target platform's caption/description.");
   if (!readiness.callToAction.trim()) issues.push("Add a clear, honest call to action.");
   if (readiness.mediaOrigin === "uncertain") {
-    issues.push("Confirm whether the project uses owner footage, realistic AI-generated/altered media, or a mixture. Do not guess.");
+    issues.push("Confirm the media origin: owner footage, realistic AI-generated/altered media, or a mixture. Do not guess.");
   }
   for (const item of V3_CREATOR_REVIEW_CHECKS) {
     if (!readiness.checks[item.key]) issues.push(item.label);
