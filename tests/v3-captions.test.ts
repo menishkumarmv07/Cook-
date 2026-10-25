@@ -23,6 +23,9 @@ function scene(overrides: Partial<V3BlueprintScene> = {}): V3BlueprintScene {
     reviewStatus: "needs-review",
     captionStartMs: 0,
     captionEndMs: 1_500,
+    sourceMediaId: null,
+    sourceMediaStartMs: null,
+    sourceMediaEndMs: null,
     targetClipSeconds: null,
     ...overrides,
   };
