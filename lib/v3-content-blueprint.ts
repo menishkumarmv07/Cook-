@@ -643,11 +643,12 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
     if (scene.targetClipSeconds !== null) return false;
   }
   if (!isRecord(value.creatorProfile)) return false;
+  const profileRecord = value.creatorProfile;
   const profileKeys = [
     "tone", "catchphrases", "language", "cuisineFocus", "skillLevel", "equipment", "budget",
     "dietLimits", "units", "usualCookingTime", "platforms", "neverSay", "sampleCaptions",
   ];
-  if (!profileKeys.every((key) => typeof value.creatorProfile[key] === "string")) return false;
+  if (!profileKeys.every((key) => typeof profileRecord[key] === "string")) return false;
   if (!Array.isArray(value.reviewNotes) || !value.reviewNotes.every((note) => typeof note === "string")) return false;
   if (!value.warnings.every((warning) => {
     if (!isRecord(warning)) return false;
