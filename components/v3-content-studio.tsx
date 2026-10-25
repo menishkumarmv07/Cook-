@@ -992,6 +992,7 @@ export default function V3ContentStudio() {
   const [appearanceNotesDraft, setAppearanceNotesDraft] = useState("");
   const [kitchenNotesDraft, setKitchenNotesDraft] = useState("");
   const [allowedVariationsDraft, setAllowedVariationsDraft] = useState("");
+  const bibleDraftProjectIdRef = useRef<string | null>(null);
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [omitResearchLedger, setOmitResearchLedger] = useState(false);
@@ -1066,21 +1067,18 @@ export default function V3ContentStudio() {
 
   useEffect(() => {
     if (!activeProject) {
+      bibleDraftProjectIdRef.current = null;
       setAppearanceNotesDraft("");
       setKitchenNotesDraft("");
       setAllowedVariationsDraft("");
       return;
     }
+    if (bibleDraftProjectIdRef.current === activeProject.id) return;
+    bibleDraftProjectIdRef.current = activeProject.id;
     setAppearanceNotesDraft(activeProject.referenceBible.ownerConfirmedAppearanceNotes);
     setKitchenNotesDraft(activeProject.referenceBible.ownerConfirmedKitchenNotes);
     setAllowedVariationsDraft(activeProject.referenceBible.allowedVariations);
-  }, [selectedProjectId]);
-
-  useEffect(() => {
-    if (activeProject) {
-      setMediaKindDraft("video");
-    }
-  }, [selectedProjectId]);
+  }, [activeProject, selectedProjectId]);
 
   const captionTimeline = useMemo(
     () => validateV3SubtitleTimeline(activeProject?.blueprint.scenes ?? []),
@@ -1323,10 +1321,9 @@ export default function V3ContentStudio() {
     try {
       await deleteStoredMedia(asset.metadata.id, asset.metadata.sha256);
       setMediaAssets((existing) => existing.filter((item) => item.metadata.id !== asset.metadata.id));
-      setMediaRightsNoteDrafts((existing) => {
-        const { [asset.metadata.id]: _removed, ...remaining } = existing;
-        return remaining;
-      });
+      setMediaRightsNoteDrafts((existing) => Object.fromEntries(
+        Object.entries(existing).filter(([id]) => id !== asset.metadata.id),
+      ));
       setMessage("Media removed from local browser storage.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not remove local media.");
@@ -1869,6 +1866,7 @@ export default function V3ContentStudio() {
       return;
     }
     setSelectedProjectId(id);
+    setMediaKindDraft("video");
     setDirty(false);
     setError("");
     setMessage("");
@@ -2117,7 +2115,7 @@ export default function V3ContentStudio() {
               return (
                 <article className="v3-reference-card" key={metadata.id}>
                   {referencePreviewUrls[metadata.id]
-                    ? <img className="v3-reference-preview" src={referencePreviewUrls[metadata.id]} alt={"Local preview: " + metadata.label} />
+                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="v3-reference-preview" src={referencePreviewUrls[metadata.id]} alt={"Local preview: " + metadata.label} />
                     : <div className="v3-reference-preview v3-reference-preview-empty" aria-label="Reference preview loading">Preview loading…</div>}
                   <div className="v3-reference-card-body">
                     <span className={metadata.reviewState === "approved" ? "v3-reference-badge is-approved" : "v3-reference-badge"}>
@@ -2248,7 +2246,7 @@ export default function V3ContentStudio() {
                     <video className="v3-render-preview" src={renderOutput.previewUrl} controls playsInline preload="metadata" />
                     <p className="v3-reference-meta">{renderOutput.width} × {renderOutput.height} · {(renderOutput.durationMs / 1000).toFixed(1)}s · {(renderOutput.byteSize / 1024 / 1024).toFixed(2)} MiB · {renderOutput.mimeType}</p>
                     <p className="v3-reference-meta">SHA-256 {renderOutput.sha256} · local file · {new Date(renderOutput.createdAt).toLocaleString("en-US")}</p>
-                    <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage, and the Chef & Kitchen Bible's AI realism status remains NOT TESTED.</p>
+                    <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage, and the Chef &amp; Kitchen Bible&apos;s AI realism status remains NOT TESTED.</p>
                     <button className="primary" type="button" disabled={busy || rendering} onClick={() => void downloadReviewedRender()}>
                       I reviewed the video — download WebM
                     </button>
@@ -2351,7 +2349,7 @@ export default function V3ContentStudio() {
                   >
                     {scene.reviewStatus === "approved" ? "Reopen scene review" : "I reviewed this scene"}
                   </button>
-                  <p className="hint">Only mark reviewed after checking this scene's narration, ingredients, source steps and footage. This manual scene review is separate from final video/visual realism review.</p>
+                  <p className="hint">Only mark reviewed after checking this scene&apos;s narration, ingredients, source steps and footage. This manual scene review is separate from final video/visual realism review.</p>
                 </div>
                 <label htmlFor={"v3-scene-title-" + scene.id}>Scene title</label>
                 <input
