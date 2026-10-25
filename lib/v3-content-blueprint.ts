@@ -763,5 +763,25 @@ export function parseV3ContentBlueprintBackupJSON(raw: string): V3ContentBluepri
   } catch {
     return null;
   }
+
+  // Additive migration from early, unreleased V3 backups: no timing is inferred.
+  if (isRecord(parsed) && Array.isArray(parsed.scenes)) {
+    let needsTimingMigration = false;
+    const scenes = parsed.scenes.map((scene) => {
+      if (!isRecord(scene)) return scene;
+      const migratedScene = { ...scene };
+      if (migratedScene.captionStartMs === undefined) {
+        migratedScene.captionStartMs = null;
+        needsTimingMigration = true;
+      }
+      if (migratedScene.captionEndMs === undefined) {
+        migratedScene.captionEndMs = null;
+        needsTimingMigration = true;
+      }
+      return migratedScene;
+    });
+    if (needsTimingMigration) parsed = { ...parsed, scenes };
+  }
+
   return validateV3ContentBlueprint(parsed) ? parsed : null;
 }
