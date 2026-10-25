@@ -25,6 +25,7 @@ import {
 } from "@/lib/v3-content-blueprint";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat } from "@/lib/v3-captions";
 import { renderV3OwnerFootageVideo } from "@/lib/v3-owner-footage-renderer";
+import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
@@ -920,6 +921,12 @@ function clickDownloadUrl(url: string, filename: string): void {
   anchor.remove();
 }
 
+function downloadLocalBlob(filename: string, blob: Blob): void {
+  const objectUrl = URL.createObjectURL(blob);
+  clickDownloadUrl(objectUrl, filename);
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
 function createRenderPlanKey(project: V3StudioProject, assets: readonly StoredV3Media[]): string {
   const usedIds = new Set<string>();
   for (const scene of project.blueprint.scenes) {
@@ -1627,6 +1634,54 @@ export default function V3ContentStudio() {
 
   function cancelRender() {
     renderAbortRef.current?.abort();
+  }
+
+  async function exportProductionBundle() {
+    if (!activeProject) {
+      setError("Open a V3 project before creating its production bundle.");
+      return;
+    }
+    if (dirty) {
+      setError("Save the latest scene and continuity edits before creating a bundle.");
+      return;
+    }
+    const accepted = window.confirm(
+      "Create a local production bundle ZIP? It may include the selected video clips, narration audio and pinned chef/kitchen reference images. The ZIP stays on this device unless you choose to share it. It is NOT a rendered video."
+    );
+    if (!accepted) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const latestProjects = await loadStoredProjects();
+      const latestProject = latestProjects.find((project) => project.id === activeProject.id);
+      const latestMedia = await loadStoredMedia();
+      const latestReferences = await loadStoredReferences();
+      if (!latestProject || latestProject.revision !== activeProject.revision ||
+          createRenderPlanKey(latestProject, latestMedia) !== createRenderPlanKey(activeProject, mediaAssets)) {
+        throw new Error("The saved project or a source file changed in another tab. Reload the project before creating the bundle.");
+      }
+      const result = await createV3ProductionBundle({
+        project: latestProject,
+        mediaAssets: latestMedia,
+        references: latestReferences,
+      });
+      const fileName = filenameFromTitle(latestProject.title) + "-production-bundle.zip";
+      downloadLocalBlob(fileName, result.blob);
+      const notes = [
+        "Production bundle downloaded locally (not a rendered video).",
+        result.fileCount + " files · " + (result.byteSize / 1024 / 1024).toFixed(2) + " MiB.",
+        result.subtitleFilesIncluded ? "SRT and WebVTT captions included." : "Subtitle files omitted because timings are missing or invalid.",
+        result.missingMediaIds.length ? result.missingMediaIds.length + " assigned media file(s) were unavailable." : "",
+        result.missingReferenceIds.length ? result.missingReferenceIds.length + " pinned reference(s) were unavailable." : "",
+      ].filter(Boolean);
+      setMessage(notes.join(" "));
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The production bundle could not be created. Your saved project remains intact.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function renderOwnerFootage() {
