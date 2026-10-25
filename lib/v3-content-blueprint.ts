@@ -1,4 +1,4 @@
-import type { CreatorProfile, RecipeProject } from "./recipe";
+import { isCreatorProfile, type CreatorProfile, type RecipeProject } from "./recipe";
 import {
   isHttpSourceUrl,
   parseResearchEvidenceArchive,
@@ -93,6 +93,8 @@ export type V3BlueprintWarningCode =
   | "dangling-ingredient-reference"
   | "duplicate-source-id"
   | "evidence-archive-invalid"
+  | "research-archive-not-included"
+  | "research-archive-empty"
   | "evidence-claim-not-accepted"
   | "evidence-source-not-usable"
   | "source-url-unusable"
@@ -172,10 +174,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function cleanText(value: unknown, maxLength = MAX_FIELD_LENGTH): string {
   if (typeof value !== "string") return "";
+  if (value.length > maxLength) {
+    throw new V3BlueprintInputError(
+      "A source field exceeds V3's safe text limit of " + maxLength.toLocaleString("en-US") +
+      " characters. Nothing was truncated; shorten or split that field and retry.",
+    );
+  }
   return value
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .replace(/\r\n?/g, "\n")
-    .slice(0, maxLength)
     .trim();
 }
 
@@ -528,7 +535,12 @@ export async function buildV3ContentBlueprint(
 
   const rawEvidence = input.researchEvidence;
   const evidenceArchive = rawEvidence === undefined ? null : parseResearchEvidenceArchive(rawEvidence);
-  if (rawEvidence !== undefined && !evidenceArchive) {
+  if (rawEvidence === undefined) {
+    warnings.push({
+      code: "research-archive-not-included",
+      message: "The separate Research Studio ledger was not included. Source notes attached to the V2 recipe remain in the snapshot, but a separate evidence archive was not pinned.",
+    });
+  } else if (!evidenceArchive) {
     warnings.push({
       code: "evidence-archive-invalid",
       message: "The supplied research archive could not be validated; it was not included in the snapshot.",
@@ -538,6 +550,12 @@ export async function buildV3ContentBlueprint(
     const bytes = new TextEncoder().encode(stableStringify(toJsonValue(evidenceArchive))).byteLength;
     if (bytes > MAX_EVIDENCE_BYTES) {
       throw new V3BlueprintInputError("The research evidence snapshot exceeds the 10 MiB safety limit.");
+    }
+    if (evidenceArchive.sources.length === 0 && evidenceArchive.claims.length === 0) {
+      warnings.push({
+        code: "research-archive-empty",
+        message: "The separate Research Studio ledger is empty. This is not proof that recipe claims were independently verified.",
+      });
     }
     addEvidenceWarnings(evidenceArchive, warnings);
   }
@@ -642,13 +660,7 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
     if (scene.reviewStatus !== "needs-review" && scene.reviewStatus !== "approved" && scene.reviewStatus !== "rejected") return false;
     if (scene.targetClipSeconds !== null) return false;
   }
-  if (!isRecord(value.creatorProfile)) return false;
-  const profileRecord = value.creatorProfile;
-  const profileKeys = [
-    "tone", "catchphrases", "language", "cuisineFocus", "skillLevel", "equipment", "budget",
-    "dietLimits", "units", "usualCookingTime", "platforms", "neverSay", "sampleCaptions",
-  ];
-  if (!profileKeys.every((key) => typeof profileRecord[key] === "string")) return false;
+  if (!isCreatorProfile(value.creatorProfile)) return false;
   if (!Array.isArray(value.reviewNotes) || !value.reviewNotes.every((note) => typeof note === "string")) return false;
   if (!value.warnings.every((warning) => {
     if (!isRecord(warning)) return false;
@@ -658,12 +670,36 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
   if (value.sourceSnapshot.researchEvidence !== null &&
     !parseResearchEvidenceArchive(value.sourceSnapshot.researchEvidence)) return false;
   const recipe = value.sourceSnapshot.recipe;
+  const stringRecipeFields = [
+    "name", "url", "notes", "sourceEvidence", "servings", "trialDate", "trialChanges",
+    "trialNotes", "evidenceReviewedAt", "approvedAt",
+  ];
   if (
     typeof recipe.id !== "number" || !Number.isSafeInteger(recipe.id) ||
     typeof recipe.recipeRevision !== "number" || !Number.isSafeInteger(recipe.recipeRevision) ||
-    typeof recipe.name !== "string" || typeof recipe.url !== "string" ||
+    !stringRecipeFields.every((key) => typeof recipe[key] === "string") ||
+    (recipe.trialStatus !== "tested" && recipe.trialStatus !== "untested") ||
+    typeof recipe.approved !== "boolean" || typeof recipe.hasCurrentTrialPhoto !== "boolean" ||
+    typeof recipe.trialPhotoRevision !== "number" || !Number.isSafeInteger(recipe.trialPhotoRevision) ||
+    typeof recipe.trialNotesRevision !== "number" || !Number.isSafeInteger(recipe.trialNotesRevision) ||
     !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.steps) || !Array.isArray(recipe.sourceReferences)
   ) return false;
+  const sourceFields = ["id", "url", "kind", "checked", "notes", "ingredientFindings", "methodFindings", "timingFindings", "safetyStorageFindings"];
+  if (!recipe.sourceReferences.every((source) =>
+    isRecord(source) && sourceFields.every((key) => typeof source[key] === "string")
+  )) return false;
+  const ingredientFields = [
+    "id", "amount", "unit", "name", "prep", "nutritionCalories", "nutritionProteinG",
+    "nutritionCarbsG", "nutritionFatG", "nutritionBasis", "nutritionSourceUrl",
+  ];
+  if (!recipe.ingredients.every((ingredient) =>
+    isRecord(ingredient) && ingredientFields.every((key) => typeof ingredient[key] === "string")
+  )) return false;
+  const stepFields = ["id", "action", "duration", "heat", "cue"];
+  if (!recipe.steps.every((step) =>
+    isRecord(step) && stepFields.every((key) => typeof step[key] === "string") &&
+    Array.isArray(step.ingredientIds) && step.ingredientIds.every((id) => typeof id === "string")
+  )) return false;
   return true;
 }
 
