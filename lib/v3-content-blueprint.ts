@@ -129,7 +129,11 @@ export type V3BlueprintScene = {
   /** Manual timeline values only; null means the owner has not timed this caption. */
   captionStartMs: number | null;
   captionEndMs: number | null;
-  targetClipSeconds: null;
+  /** Points to a local owner-supplied clip, never a remote URL or embedded binary. */
+  sourceMediaId: string | null;
+  sourceMediaStartMs: number | null;
+  sourceMediaEndMs: number | null;
+  targetClipSeconds: number | null;
 };
 
 export type V3ContentBlueprint = {
@@ -440,6 +444,9 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
     reviewStatus: "needs-review",
     captionStartMs: null,
     captionEndMs: null,
+    sourceMediaId: null,
+    sourceMediaStartMs: null,
+    sourceMediaEndMs: null,
     targetClipSeconds: null,
   });
 
@@ -463,6 +470,9 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
     reviewStatus: "needs-review",
     captionStartMs: null,
     captionEndMs: null,
+    sourceMediaId: null,
+    sourceMediaStartMs: null,
+    sourceMediaEndMs: null,
     targetClipSeconds: null,
   });
 
@@ -505,6 +515,9 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
       reviewStatus: "needs-review",
       captionStartMs: null,
       captionEndMs: null,
+      sourceMediaId: null,
+      sourceMediaStartMs: null,
+      sourceMediaEndMs: null,
       targetClipSeconds: null,
     });
   });
@@ -525,6 +538,9 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
     reviewStatus: "needs-review",
     captionStartMs: null,
     captionEndMs: null,
+    sourceMediaId: null,
+    sourceMediaStartMs: null,
+    sourceMediaEndMs: null,
     targetClipSeconds: null,
   });
 
@@ -662,6 +678,19 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
       (typeof scene.captionEndMs !== "number" || !Number.isSafeInteger(scene.captionEndMs) || scene.captionEndMs < 0)) return false;
     if ((scene.captionStartMs === null) !== (scene.captionEndMs === null)) return false;
     if (scene.captionStartMs !== null && scene.captionEndMs !== null && scene.captionEndMs <= scene.captionStartMs) return false;
+    if (scene.sourceMediaId !== null && (typeof scene.sourceMediaId !== "string" || !scene.sourceMediaId.trim())) return false;
+    for (const sourceTime of [scene.sourceMediaStartMs, scene.sourceMediaEndMs]) {
+      if (sourceTime !== null && (typeof sourceTime !== "number" || !Number.isSafeInteger(sourceTime) || sourceTime < 0)) return false;
+    }
+    if (scene.sourceMediaId === null) {
+      if (scene.sourceMediaStartMs !== null || scene.sourceMediaEndMs !== null || scene.targetClipSeconds !== null) return false;
+    } else {
+      if (scene.sourceMediaStartMs === null || scene.sourceMediaEndMs === null ||
+          scene.sourceMediaEndMs <= scene.sourceMediaStartMs ||
+          typeof scene.targetClipSeconds !== "number" || !Number.isFinite(scene.targetClipSeconds) ||
+          scene.targetClipSeconds <= 0 ||
+          Math.abs(scene.targetClipSeconds * 1_000 - (scene.sourceMediaEndMs - scene.sourceMediaStartMs)) > 1) return false;
+    }
     if (!Array.isArray(scene.onScreenText) || !scene.onScreenText.every((item) => typeof item === "string")) return false;
     if (!Array.isArray(scene.ingredientIds) || !scene.ingredientIds.every((item) => typeof item === "string")) return false;
     if (typeof scene.visualDirection !== "string") return false;
@@ -778,6 +807,10 @@ export function parseV3ContentBlueprintBackupJSON(raw: string): V3ContentBluepri
         migratedScene.captionEndMs = null;
         needsTimingMigration = true;
       }
+      if (migratedScene.sourceMediaId === undefined) migratedScene.sourceMediaId = null;
+      if (migratedScene.sourceMediaStartMs === undefined) migratedScene.sourceMediaStartMs = null;
+      if (migratedScene.sourceMediaEndMs === undefined) migratedScene.sourceMediaEndMs = null;
+      if (migratedScene.targetClipSeconds === undefined) migratedScene.targetClipSeconds = null;
       return migratedScene;
     });
     if (needsTimingMigration) parsed = { ...parsed, scenes };
