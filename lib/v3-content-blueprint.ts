@@ -5,7 +5,7 @@ import {
   type ResearchEvidenceArchive,
 } from "./research-evidence";
 
-export const V3_CONTENT_BLUEPRINT_SCHEMA_VERSION = 1 as const;
+export const V3_CONTENT_BLUEPRINT_SCHEMA_VERSION = 2 as const;
 const MAX_INGREDIENTS = 500;
 const MAX_STEPS = 500;
 const MAX_SOURCES = 100;
@@ -800,26 +800,22 @@ export function parseV3ContentBlueprintBackupJSON(raw: string): V3ContentBluepri
   }
 
   // Additive migration from early, unreleased V3 backups: no timing is inferred.
-  if (isRecord(parsed) && Array.isArray(parsed.scenes)) {
-    let needsTimingMigration = false;
+  if (isRecord(parsed) && Array.isArray(parsed.scenes) &&
+      (parsed.schemaVersion === 1 || parsed.schemaVersion === V3_CONTENT_BLUEPRINT_SCHEMA_VERSION)) {
     const scenes = parsed.scenes.map((scene) => {
       if (!isRecord(scene)) return scene;
-      const migratedScene = { ...scene };
-      if (migratedScene.captionStartMs === undefined) {
-        migratedScene.captionStartMs = null;
-        needsTimingMigration = true;
-      }
-      if (migratedScene.captionEndMs === undefined) {
-        migratedScene.captionEndMs = null;
-        needsTimingMigration = true;
-      }
-      if (migratedScene.sourceMediaId === undefined) migratedScene.sourceMediaId = null;
-      if (migratedScene.sourceMediaStartMs === undefined) migratedScene.sourceMediaStartMs = null;
-      if (migratedScene.sourceMediaEndMs === undefined) migratedScene.sourceMediaEndMs = null;
-      if (migratedScene.targetClipSeconds === undefined) migratedScene.targetClipSeconds = null;
-      return migratedScene;
+      return {
+        ...scene,
+        // Missing fields mean "not supplied"; never invent timings or footage.
+        captionStartMs: scene.captionStartMs === undefined ? null : scene.captionStartMs,
+        captionEndMs: scene.captionEndMs === undefined ? null : scene.captionEndMs,
+        sourceMediaId: scene.sourceMediaId === undefined ? null : scene.sourceMediaId,
+        sourceMediaStartMs: scene.sourceMediaStartMs === undefined ? null : scene.sourceMediaStartMs,
+        sourceMediaEndMs: scene.sourceMediaEndMs === undefined ? null : scene.sourceMediaEndMs,
+        targetClipSeconds: scene.targetClipSeconds === undefined ? null : scene.targetClipSeconds,
+      };
     });
-    if (needsTimingMigration) parsed = { ...parsed, scenes };
+    parsed = { ...parsed, schemaVersion: V3_CONTENT_BLUEPRINT_SCHEMA_VERSION, scenes };
   }
 
   return validateV3ContentBlueprint(parsed) ? parsed : null;
