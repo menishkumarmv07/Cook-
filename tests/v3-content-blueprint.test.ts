@@ -320,6 +320,26 @@ test("blueprint backup round-trips and rejects invalid JSON or oversized input",
   assert.equal(parseV3ContentBlueprintBackupJSON("x".repeat(15 * 1024 * 1024 + 1)), null);
 });
 
+test("older V3 backups migrate missing caption timing to unknown rather than inventing times", async () => {
+  const blueprint = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    now: fixedNow,
+  });
+  const legacy = JSON.parse(createV3ContentBlueprintBackupJSON(blueprint)) as {
+    scenes: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  for (const scene of legacy.scenes) {
+    delete scene.captionStartMs;
+    delete scene.captionEndMs;
+  }
+  const restored = parseV3ContentBlueprintBackupJSON(JSON.stringify(legacy));
+  assert.ok(restored);
+  assert.ok(restored.scenes.every((scene) => scene.captionStartMs === null && scene.captionEndMs === null));
+  assert.equal(await verifyV3ContentBlueprintFingerprints(restored), true);
+});
+
 test("backup structure is validated and altered snapshots fail integrity verification", async () => {
   const blueprint = await buildV3ContentBlueprint({ recipe: recipe(), creatorProfile: DEFAULT_CREATOR_PROFILE, now: fixedNow });
   const raw = createV3ContentBlueprintBackupJSON(blueprint);
