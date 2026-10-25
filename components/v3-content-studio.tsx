@@ -2018,6 +2018,53 @@ export default function V3ContentStudio() {
     }
   }
 
+  function exportCreatorCopy() {
+    if (!activeProject) return;
+    const readiness = activeProject.creatorReadiness;
+    const issues = getV3CreatorReadinessIssues(readiness);
+    const platformLabel = readiness.platform === "youtube-shorts"
+      ? "YouTube Shorts"
+      : readiness.platform === "instagram-reels"
+        ? "Instagram Reels"
+        : "TikTok";
+    const lines = [
+      "COOKING CREATOR — PLATFORM COPY",
+      "",
+      "Project: " + activeProject.title,
+      "Target platform: " + platformLabel,
+      "Status: " + (issues.length === 0 ? "OWNER CHECKLIST COMPLETE — NOT PLATFORM APPROVED" : "NOT READY — " + issues.length + " review item(s) remain"),
+      "Media origin: " + readiness.mediaOrigin,
+      "",
+      "TITLE / HOOK",
+      readiness.title || "[add a distinct title or hook]",
+      "",
+      "CAPTION / DESCRIPTION",
+      readiness.caption || "[add a reviewed caption or description]",
+      "",
+      "CALL TO ACTION",
+      readiness.callToAction || "[add an honest call to action]",
+      "",
+      "HASHTAGS",
+      readiness.hashtags || "[none added]",
+      "",
+      "OWNER REVIEW NOTES",
+      readiness.notes || "[none added]",
+      "",
+      "PENDING REVIEW ITEMS",
+      ...(issues.length ? issues.map((issue) => "- " + issue) : ["- No app checklist items remain; independently confirm the platform's current rules and requirements."]),
+      "",
+      "This file was exported locally. Nothing was published or uploaded by this action.",
+      "Exporting this copy is not a claim of platform approval, monetization eligibility, reach or income.",
+      "Reference-guided AI video generation is not enabled in this version. Do not describe owner-footage montages as AI-generated video.",
+    ];
+    downloadLocalFile(
+      filenameFromTitle(activeProject.title) + ".creator-copy.txt",
+      lines.join("\n"),
+      "text/plain;charset=utf-8",
+    );
+    setMessage("Creator copy exported locally. This action did not publish or upload anything.");
+  }
+
   async function importBlueprint(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -2779,6 +2826,10 @@ export default function V3ContentStudio() {
             {(activeProject.creatorReadiness.mediaOrigin === "ai-generated-or-altered" || activeProject.creatorReadiness.mediaOrigin === "mixed") && (
               <p className="v3-studio-alert">This app does not generate AI clips or apply platform labels. When the media requires disclosure, add the correct label in the platform&apos;s own upload flow.</p>
             )}
+            <div className="v3-studio-actions">
+              <button className="secondary" type="button" disabled={busy} onClick={exportCreatorCopy}>Export creator copy</button>
+              <span className="hint">Downloads title, caption, CTA, hashtags, platform and pending owner checks as a local text file.</span>
+            </div>
           </section>
 
           {activeProject.blueprint.warnings.length > 0 && (

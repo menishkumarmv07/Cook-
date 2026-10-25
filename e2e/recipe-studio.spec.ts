@@ -1836,6 +1836,19 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.getByLabel("Title / hook (up to 100 characters)")).toHaveValue("V3 QA recipe title");
   await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
 
+  const creatorCopyPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export creator copy", exact: true }).click();
+  const creatorCopy = await creatorCopyPromise;
+  expect(creatorCopy.suggestedFilename().toLowerCase().endsWith(".creator-copy.txt")).toBe(true);
+  const creatorCopyPath = await creatorCopy.path();
+  expect(creatorCopyPath).toBeTruthy();
+  const creatorCopyText = await readFile(creatorCopyPath as string, "utf8");
+  expect(creatorCopyText).toContain("Instagram Reels");
+  expect(creatorCopyText).toContain("V3 QA recipe title");
+  expect(creatorCopyText).toContain("A recipe-specific caption for review.");
+  expect(creatorCopyText).toContain("NOT READY");
+  expect(creatorCopyText).toContain("Nothing was published or uploaded");
+
   // Integration smoke: render a tiny procedurally-created QA clip plus a test-tone
   // WAV locally. These fixtures are generated at runtime and are never committed.
   // The output proves browser encoding/playback only; it is not cooking footage,
