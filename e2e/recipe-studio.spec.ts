@@ -1649,6 +1649,82 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
+async function makeSyntheticWebmFixture(page: import("@playwright/test").Page): Promise<Buffer> {
+  const generated = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 568;
+    const context = canvas.getContext("2d");
+    if (!context || typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+      throw new Error("CI browser does not support a local video fixture for the V3 render smoke test.");
+    }
+    const mimeType = ["video/webm;codecs=vp8", "video/webm"].find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    if (!mimeType) throw new Error("CI browser has no WebM encoder for the V3 render smoke test.");
+    const stream = canvas.captureStream(15);
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 350_000 });
+    const chunks: Blob[] = [];
+    const stopped = new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onerror = () => reject(new Error("Synthetic CI video recording failed."));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || mimeType }));
+    });
+    recorder.start();
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const draw = () => {
+        const elapsedMs = performance.now() - startedAt;
+        context.fillStyle = `hsl(${Math.floor(elapsedMs / 8) % 360} 35% 42%)`;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#ffffff";
+        context.font = "bold 22px sans-serif";
+        context.fillText("SYNTHETIC CI FOOTAGE", 15, 50);
+        context.fillText(Math.round(elapsedMs) + " ms", 15, 88);
+        if (elapsedMs >= 2_400) {
+          recorder.stop();
+          resolve();
+        } else {
+          requestAnimationFrame(draw);
+        }
+      };
+      draw();
+    });
+    const blob = await stopped;
+    stream.getTracks().forEach((track) => track.stop());
+    if (blob.size < 32 || blob.type.toLowerCase() !== "video/webm") {
+      throw new Error("Synthetic CI video did not produce a valid WebM blob.");
+    }
+    return { mimeType: blob.type, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) };
+  });
+  return Buffer.from(generated.bytes);
+}
+
+function makeSyntheticWavFixture(durationSeconds = 1.8, sampleRate = 22_050): Buffer {
+  const sampleCount = Math.round(durationSeconds * sampleRate);
+  const dataSize = sampleCount * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM.
+  buffer.writeUInt16LE(1, 22); // Mono.
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const fade = Math.min(1, index / (sampleRate * 0.03), (sampleCount - index) / (sampleRate * 0.03));
+    const sample = Math.sin((2 * Math.PI * 220 * index) / sampleRate) * 0.06 * Math.max(0, fade);
+    buffer.writeInt16LE(Math.round(sample * 32_767), 44 + index * 2);
+  }
+  return buffer;
+}
+
 test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
   const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.stack ?? error.message));
@@ -1703,7 +1779,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Blueprint saved locally" })).toBeVisible();
   await expect(page.locator(".v3-scene-card")).toHaveCount(4);
   await expect(page.locator(".v3-studio-editor")).toContainText("V3 blueprint QA recipe");
-  await expect(page.locator(".v3-scene-source-notes")).toContainText("step:");
+  await expect(page.locator(".v3-scene-source-notes").filter({ hasText: "step:" })).toHaveCount(1);
 
   const startInputs = page.locator('input[id^="v3-caption-start-"]');
   const endInputs = page.locator('input[id^="v3-caption-end-"]');
@@ -1741,4 +1817,76 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   const bundleBytes = await readFile(bundlePath as string);
   expect(Array.from(bundleBytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Production bundle downloaded locally" })).toBeVisible();
+
+  // Integration smoke: render a tiny procedurally-created QA clip plus a test-tone
+  // WAV locally. These fixtures are generated at runtime and are never committed.
+  // The output proves browser encoding/playback only; it is not cooking footage,
+  // human narration, or a visual-realism acceptance test.
+  const syntheticVideo = await makeSyntheticWebmFixture(page);
+  await page.locator("#v3-media-label").fill("Synthetic CI footage — do not publish");
+  await page.locator("#v3-media-rights").selectOption("owner-recorded");
+  await page.locator("#v3-media-rights-note").fill("Procedurally generated CI fixture for local encoder testing only; not for publishing.");
+  await page.locator("#v3-media-file").setInputFiles({
+    name: "v3-ci-footage.webm",
+    mimeType: "video/webm",
+    buffer: syntheticVideo,
+  });
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Video clip imported into this browser only" })).toBeVisible({ timeout: 15_000 });
+  const videoCard = page.locator(".v3-media-card").filter({ hasText: "Synthetic CI footage — do not publish" });
+  await videoCard.getByRole("button", { name: "I reviewed and clear it", exact: true }).click();
+  await expect(videoCard.locator(".v3-reference-badge")).toContainText("OWNER-CLEARED");
+
+  await page.locator("#v3-media-kind").selectOption("narration");
+  await page.locator("#v3-media-label").fill("Synthetic CI QA tone — not speech");
+  await page.locator("#v3-media-rights").selectOption("owner-recorded");
+  await page.locator("#v3-media-rights-note").fill("Synthetic tone fixture generated only to test audio mixing; not speech and not for publishing.");
+  await page.locator("#v3-media-file").setInputFiles({
+    name: "v3-ci-test-tone.wav",
+    mimeType: "audio/wav",
+    buffer: makeSyntheticWavFixture(),
+  });
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Narration imported into this browser only" })).toBeVisible({ timeout: 15_000 });
+  const audioCard = page.locator(".v3-media-card").filter({ hasText: "Synthetic CI QA tone — not speech" });
+  await audioCard.getByRole("button", { name: "I reviewed and clear it", exact: true }).click();
+  await expect(audioCard.locator(".v3-reference-badge")).toContainText("OWNER-CLEARED");
+
+  const narrationOption = page.locator("#v3-project-narration option").filter({ hasText: "Synthetic CI QA tone — not speech" }).first();
+  const narrationId = await narrationOption.getAttribute("value");
+  expect(narrationId).toBeTruthy();
+  await page.locator("#v3-project-narration").selectOption(narrationId as string);
+
+  const sceneCards = page.locator(".v3-scene-card");
+  await expect(sceneCards).toHaveCount(4);
+  const videoOption = sceneCards.first().locator('select[id^="v3-scene-video-"] option').filter({ hasText: "Synthetic CI footage — do not publish" }).first();
+  const videoId = await videoOption.getAttribute("value");
+  expect(videoId).toBeTruthy();
+  for (let index = 0; index < 4; index += 1) {
+    const scene = sceneCards.nth(index);
+    await scene.locator('select[id^="v3-scene-video-"]').selectOption(videoId as string);
+    await scene.locator('input[id^="v3-source-start-"]').fill("0");
+    await scene.locator('input[id^="v3-source-end-"]').fill("0.4");
+    await scene.locator(".v3-scene-review-button").click();
+    await scene.locator('textarea[id^="v3-scene-caption-"]').fill("Synthetic QA test clip — not for publishing");
+    await scene.locator('input[id^="v3-caption-start-"]').fill(String(index * 0.4));
+    await scene.locator('input[id^="v3-caption-end-"]').fill(String((index + 1) * 0.4));
+  }
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".v3-render-preflight")).toContainText("Ready for a short owner-footage render");
+  await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Render real owner footage", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Rendered video preview", exact: true })).toBeVisible({ timeout: 45_000 });
+  const renderPreview = page.locator("#v3-content-studio video.v3-render-preview");
+  await expect(renderPreview).toHaveCount(1);
+  await expect.poll(() => renderPreview.evaluate((element) => {
+    const video = element as HTMLVideoElement;
+    return video.videoWidth === 720 &&
+      video.videoHeight === 1280 &&
+      Number.isFinite(video.duration) &&
+      video.duration > 0 &&
+      video.currentSrc.startsWith("blob:");
+  }), { timeout: 15_000 }).toBe(true);
+  await expect(page.locator(".v3-render-output .v3-reference-meta").filter({ hasText: "video/webm" })).toBeVisible();
+  await expect(page.locator(".v3-render-output .v3-studio-honesty")).toContainText("not AI-generated footage");
+  await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
 });
