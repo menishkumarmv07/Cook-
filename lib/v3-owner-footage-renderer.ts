@@ -237,15 +237,18 @@ async function recordPreparedScene(
   scenes: readonly V3BlueprintScene[],
   timelineOffsetMs: number,
   signal?: AbortSignal,
+  alreadyPlaying = false,
 ): Promise<void> {
   const { video, startMs, endMs, durationMs } = prepared;
   ensureNotAborted(signal);
-  video.pause();
-  await seekVideo(video, startMs, signal);
-  try {
-    await video.play();
-  } catch {
-    throw new Error("The browser could not start playback for a selected source scene.");
+  if (!alreadyPlaying) {
+    video.pause();
+    await seekVideo(video, startMs, signal);
+    try {
+      await video.play();
+    } catch {
+      throw new Error("The browser could not start playback for a selected source scene.");
+    }
   }
   await new Promise<void>((resolve, reject) => {
     let finished = false;
@@ -477,12 +480,10 @@ export async function renderV3OwnerFootageVideo(options: {
     for (let index = 0; index < preparedScenes.length; index += 1) {
       ensureNotAborted(signal);
       const prepared = preparedScenes[index];
-      if (index > 0) {
-        await recordPreparedScene(context, prepared, scenes, timelineOffsetMs, signal);
-      } else {
-        // The first clip was started simultaneously with audio and recording above.
-        await recordPreparedScene(context, prepared, scenes, timelineOffsetMs, signal);
-      }
+      // The first clip is already playing in sync with the narration/recorder start.
+      // Following clips were decoded and seeked before recording, so their starts should
+      // not lose speech time to a slow file load.
+      await recordPreparedScene(context, prepared, scenes, timelineOffsetMs, signal, index === 0);
       timelineOffsetMs += prepared.durationMs;
       onProgress?.({
         stage: "rendering",
