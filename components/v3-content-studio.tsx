@@ -609,6 +609,14 @@ export default function V3ContentStudio() {
   const [recipes, setRecipes] = useState<RecipeProject[]>([]);
   const [creatorProfile, setCreatorProfile] = useState<CreatorProfile>(DEFAULT_CREATOR_PROFILE);
   const [projects, setProjects] = useState<V3StudioProject[]>([]);
+  const [references, setReferences] = useState<StoredV3Reference[]>([]);
+  const [referencePreviewUrls, setReferencePreviewUrls] = useState<Record<string, string>>({});
+  const [referenceRoleDraft, setReferenceRoleDraft] = useState<V3ReferenceRole>("chef-identity");
+  const [referenceLabelDraft, setReferenceLabelDraft] = useState("");
+  const [referenceDetailsDraft, setReferenceDetailsDraft] = useState("");
+  const [appearanceNotesDraft, setAppearanceNotesDraft] = useState("");
+  const [kitchenNotesDraft, setKitchenNotesDraft] = useState("");
+  const [allowedVariationsDraft, setAllowedVariationsDraft] = useState("");
   const [selectedRecipeId, setSelectedRecipeId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [omitResearchLedger, setOmitResearchLedger] = useState(false);
@@ -637,11 +645,13 @@ export default function V3ContentStudio() {
         const saved = readSavedRecipes();
         const profile = readCreatorProfile();
         const savedProjects = await loadStoredProjects();
+        const savedReferences = await loadStoredReferences();
         if (cancelled) return;
         setRecipes(saved.recipes);
         setRecipeSkippedCount(saved.skipped);
         setCreatorProfile(profile);
         setProjects(savedProjects);
+        setReferences(savedReferences);
         setSelectedRecipeId(saved.recipes[0] ? String(saved.recipes[0].id) : "");
         setSelectedProjectId(savedProjects[0]?.id ?? "");
       } catch (caught) {
@@ -653,6 +663,29 @@ export default function V3ContentStudio() {
     void initialize();
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const previewUrls: Record<string, string> = {};
+    for (const reference of references) {
+      previewUrls[reference.metadata.id] = URL.createObjectURL(reference.file);
+    }
+    setReferencePreviewUrls(previewUrls);
+    return () => {
+      for (const url of Object.values(previewUrls)) URL.revokeObjectURL(url);
+    };
+  }, [references]);
+
+  useEffect(() => {
+    if (!activeProject) {
+      setAppearanceNotesDraft("");
+      setKitchenNotesDraft("");
+      setAllowedVariationsDraft("");
+      return;
+    }
+    setAppearanceNotesDraft(activeProject.referenceBible.ownerConfirmedAppearanceNotes);
+    setKitchenNotesDraft(activeProject.referenceBible.ownerConfirmedKitchenNotes);
+    setAllowedVariationsDraft(activeProject.referenceBible.allowedVariations);
+  }, [selectedProjectId]);
 
   const captionTimeline = useMemo(
     () => validateV3SubtitleTimeline(activeProject?.blueprint.scenes ?? []),
