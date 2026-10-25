@@ -87,7 +87,9 @@ export function validateV3CreatorReadiness(value: unknown): value is V3CreatorRe
       !isRecord(value.checks)) {
     return false;
   }
-  return V3_CREATOR_REVIEW_CHECKS.every((item) => typeof value.checks[item.key] === "boolean");
+  const checks = value.checks;
+  if (!isRecord(checks)) return false;
+  return V3_CREATOR_REVIEW_CHECKS.every((item) => typeof checks[item.key] === "boolean");
 }
 
 /**
