@@ -405,6 +405,245 @@ async function deleteStoredReference(referenceId: string, expectedSha256: string
   }
 }
 
+function mediaExtensionMatches(fileName: string, kind: V3MediaKind, mimeType: string): boolean {
+  const extension = fileName.toLowerCase().split(".").pop() || "";
+  const videoTypes: Record<string, string> = {
+    mp4: "video/mp4",
+    webm: "video/webm",
+    mov: "video/quicktime",
+    ogv: "video/ogg",
+    ogg: "video/ogg",
+  };
+  const audioTypes: Record<string, string> = {
+    mp3: "audio/mpeg",
+    wav: "audio/wav",
+    webm: "audio/webm",
+    ogg: "audio/ogg",
+    m4a: "audio/mp4",
+    mp4: "audio/mp4",
+  };
+  return (kind === "video" ? videoTypes : audioTypes)[extension] === mimeType;
+}
+
+function mediaSignatureMatches(file: File, bytes: Uint8Array, kind: V3MediaKind): boolean {
+  const ascii = (start: number, end: number) => String.fromCharCode(...bytes.slice(start, end));
+  if (file.type === "video/webm" || file.type === "audio/webm") {
+    return bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3;
+  }
+  if (file.type === "video/mp4" || file.type === "video/quicktime" || file.type === "audio/mp4") {
+    return bytes.length >= 12 && ascii(4, 8) === "ftyp";
+  }
+  if (file.type === "video/ogg" || file.type === "audio/ogg") {
+    return bytes.length >= 4 && ascii(0, 4) === "OggS";
+  }
+  if (file.type === "audio/wav") {
+    return bytes.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WAVE";
+  }
+  if (file.type === "audio/mpeg") {
+    return bytes.length >= 3 && (ascii(0, 3) === "ID3" || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0));
+  }
+  return false;
+}
+
+async function readMediaFileMetadata(file: File, kind: V3MediaKind): Promise<{
+  durationMs: number; width: number | null; height: number | null;
+}> {
+  const objectUrl = URL.createObjectURL(file);
+  const element = kind === "video" ? document.createElement("video") : document.createElement("audio");
+  element.preload = "auto";
+  if (element instanceof HTMLVideoElement) {
+    element.muted = true;
+    element.playsInline = true;
+  }
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let metadataReady = false;
+      let decodeReady = kind === "narration";
+      let settled = false;
+      const timeout = window.setTimeout(() => finish(new Error("Browser media metadata/decode check timed out. Try a shorter clip or a supported format.")), 20_000);
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        if (error) reject(error);
+        else resolve();
+      };
+      const maybeFinish = () => {
+        if (metadataReady && decodeReady) finish();
+      };
+      element.onloadedmetadata = () => {
+        metadataReady = true;
+        maybeFinish();
+      };
+      element.onloadeddata = () => {
+        decodeReady = true;
+        maybeFinish();
+      };
+      element.onerror = () => finish(new Error("This browser could not decode the selected media. Try a different MP4/WebM or WAV/MP3 file."));
+      element.src = objectUrl;
+      element.load();
+    });
+
+    const durationMs = Math.round(element.duration * 1_000);
+    if (!Number.isSafeInteger(durationMs) || durationMs < 1) throw new Error("Media duration is missing or invalid.");
+    if (kind === "video") {
+      const video = element as HTMLVideoElement;
+      if (durationMs > 5 * 60 * 1_000) throw new Error("Each imported source clip is limited to five minutes for safe browser rendering.");
+      if (!Number.isSafeInteger(video.videoWidth) || !Number.isSafeInteger(video.videoHeight) ||
+          video.videoWidth < 1 || video.videoHeight < 1 ||
+          video.videoWidth > 20_000 || video.videoHeight > 20_000 ||
+          video.videoWidth * video.videoHeight > 30_000_000) {
+        throw new Error("The source video dimensions exceed V3's 30-megapixel safety limit.");
+      }
+      return { durationMs, width: video.videoWidth, height: video.videoHeight };
+    }
+    if (durationMs > 10 * 60 * 1_000) throw new Error("Narration files are limited to ten minutes; shorten the audio before importing.");
+    return { durationMs, width: null, height: null };
+  } finally {
+    element.pause();
+    element.removeAttribute("src");
+    element.load();
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function loadStoredMedia(): Promise<StoredV3Media[]> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, MEDIA_STORE, "id");
+  try {
+    const records = await new Promise<unknown[]>((resolve, reject) => {
+      const transaction = database.transaction(MEDIA_STORE, "readonly");
+      const request = transaction.objectStore(MEDIA_STORE).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error ?? new Error("Could not load local video and narration assets."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Loading local media was interrupted."));
+    });
+    if (records.length > MAX_V3_MEDIA_ASSETS) throw new Error("The local media library exceeds its 30-asset safety limit.");
+    let totalBytes = 0;
+    const valid: StoredV3Media[] = [];
+    for (const record of records) {
+      if (!isStoredMedia(record)) throw new Error("A saved media asset failed metadata/file validation. Nothing was overwritten.");
+      totalBytes += record.file.size;
+      if (totalBytes > MAX_V3_MEDIA_LIBRARY_BYTES) throw new Error("The local media library exceeds its 400 MiB safety limit.");
+      if (await hashBlobSha256(record.file) !== record.metadata.sha256) {
+        throw new Error("A saved media asset failed SHA-256 integrity verification. Keep the project data and investigate before exporting.");
+      }
+      valid.push(record);
+    }
+    return valid.sort((a, b) => b.metadata.importedAt.localeCompare(a.metadata.importedAt));
+  } finally {
+    database.close();
+  }
+}
+
+async function persistNewMedia(asset: StoredV3Media, current: readonly StoredV3Media[]): Promise<void> {
+  if (!isStoredMedia(asset)) throw new Error("The selected media failed metadata/file validation.");
+  if (current.length >= MAX_V3_MEDIA_ASSETS) throw new Error("The media library supports up to 30 source clips/narration files.");
+  const currentBytes = current.reduce((sum, item) => sum + item.file.size, 0);
+  if (currentBytes + asset.file.size > MAX_V3_MEDIA_LIBRARY_BYTES) throw new Error("The 400 MiB local media limit would be exceeded.");
+  if (current.some((item) => item.metadata.sha256 === asset.metadata.sha256 && item.metadata.kind === asset.metadata.kind)) {
+    throw new Error("This exact media file is already imported in the same role. No duplicate was added.");
+  }
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, MEDIA_STORE, "id");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(MEDIA_STORE, "readwrite");
+      const store = transaction.objectStore(MEDIA_STORE);
+      const request = store.get(asset.metadata.id);
+      let safeError: Error | null = null;
+      request.onsuccess = () => {
+        if (request.result !== undefined) {
+          safeError = new Error("This media ID already exists. Nothing was overwritten.");
+          transaction.abort();
+          return;
+        }
+        store.add(asset);
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not check this media ID. Nothing was saved.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not save media locally."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Media import was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function updateStoredMediaMetadata(
+  mediaId: string,
+  expectedSha256: string,
+  update: (metadata: V3MediaAsset) => V3MediaAsset,
+): Promise<StoredV3Media> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, MEDIA_STORE, "id");
+  try {
+    return await new Promise<StoredV3Media>((resolve, reject) => {
+      const transaction = database.transaction(MEDIA_STORE, "readwrite");
+      const store = transaction.objectStore(MEDIA_STORE);
+      const request = store.get(mediaId);
+      let safeError: Error | null = null;
+      let result: StoredV3Media | null = null;
+      request.onsuccess = () => {
+        if (!isStoredMedia(request.result) || request.result.metadata.sha256 !== expectedSha256) {
+          safeError = new Error("This media asset changed in another tab. Reload before changing its review status.");
+          transaction.abort();
+          return;
+        }
+        const updated = { ...request.result, metadata: update(request.result.metadata) };
+        if (!isStoredMedia(updated)) {
+          safeError = new Error("The proposed media metadata failed validation. No change was saved.");
+          transaction.abort();
+          return;
+        }
+        store.put(updated);
+        result = updated;
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not read the media asset before updating its metadata.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => {
+        if (result) resolve(result);
+        else reject(new Error("Media metadata update completed without a result."));
+      };
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not update media metadata."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Media metadata update was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function deleteStoredMedia(mediaId: string, expectedSha256: string): Promise<void> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, MEDIA_STORE, "id");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(MEDIA_STORE, "readwrite");
+      const store = transaction.objectStore(MEDIA_STORE);
+      const request = store.get(mediaId);
+      let safeError: Error | null = null;
+      request.onsuccess = () => {
+        if (!isStoredMedia(request.result) || request.result.metadata.sha256 !== expectedSha256) {
+          safeError = new Error("The media asset changed in another tab. Reload before removing it.");
+          transaction.abort();
+          return;
+        }
+        store.delete(mediaId);
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not verify the media asset before removal.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not remove local media."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Media removal was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
 async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
   let width = 0;
   let height = 0;
