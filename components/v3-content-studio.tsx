@@ -440,17 +440,27 @@ export default function V3ContentStudio() {
       }
       const blueprint = parseV3ContentBlueprintBackupJSON(raw);
       if (!blueprint || !(await verifyV3ContentBlueprintFingerprints(blueprint))) {
-        setError("The backup failed schema or SHA-256 verification. Existing projects were not changed.");
+        setError("The backup failed schema or source-fingerprint verification. Existing projects were not changed.");
         return;
       }
+      // Restored files are treated as new drafts; old approvals never transfer automatically.
+      const restoredBlueprint: V3ContentBlueprint = {
+        ...blueprint,
+        status: "draft",
+        scenes: blueprint.scenes.map((scene) => ({ ...scene, reviewStatus: "needs-review" as const })),
+        reviewNotes: Array.from(new Set([
+          ...blueprint.reviewNotes,
+          "Imported from a backup: re-review every scene, source note and disclosure before use. Previous scene approvals were reset.",
+        ])),
+      };
       const now = new Date().toISOString();
       const project: V3StudioProject = {
         id: makeId(),
-        title: blueprint.recipeTitle || "Imported cooking project",
+        title: restoredBlueprint.recipeTitle || "Imported cooking project",
         createdAt: now,
         updatedAt: now,
         revision: 1,
-        blueprint,
+        blueprint: restoredBlueprint,
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
@@ -562,7 +572,7 @@ export default function V3ContentStudio() {
           )}
           <label htmlFor="v3-blueprint-import">Restore a V3 blueprint backup</label>
           <input id="v3-blueprint-import" type="file" accept="application/json,.json" onChange={(event) => void importBlueprint(event)} disabled={busy} />
-          <p className="hint">Restore checks the blueprint schema and SHA-256 fingerprints. A backup is added as a new local project; it does not overwrite existing ones.</p>
+          <p className="hint">Restore checks the blueprint schema and source snapshot SHA-256 fingerprints, then resets scene approvals. A backup is added as a new local project; it does not overwrite existing ones.</p>
         </section>
       </div>
 
