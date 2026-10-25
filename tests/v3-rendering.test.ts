@@ -56,7 +56,7 @@ const narration: V3MediaAsset = {
   mimeType: "audio/wav",
   byteSize: 500_000,
   sha256: "b".repeat(64),
-  durationMs: 20_000,
+  durationMs: 4_000,
   width: null,
   height: null,
   importedAt: "2026-10-25T16:00:00.000Z",
