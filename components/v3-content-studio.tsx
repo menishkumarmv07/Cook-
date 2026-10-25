@@ -1168,6 +1168,79 @@ export default function V3ContentStudio() {
         </section>
       </div>
 
+      <section className="v3-continuity-library" aria-labelledby="v3-continuity-library-title">
+        <div className="section-head">
+          <div>
+            <p className="eyebrow">CHEF & KITCHEN BIBLE</p>
+            <h3 id="v3-continuity-library-title">Reference library</h3>
+            <p>Import the actual references you approve for your male chef and kitchen. Original image files stay in this browser and are never committed to the repository or uploaded by this screen.</p>
+          </div>
+          <span className="step">{references.length}/20 LOCAL REFERENCES</span>
+        </div>
+        <p className="v3-studio-honesty"><strong>Reference status:</strong> importing an image is not the same as approving it. A generated video cannot be marked realistic until actual clips are compared with the approved references. Current visual realism status: <strong>{activeProject?.referenceBible.visualRealismStatus.toUpperCase() ?? "NOT TESTED"}</strong>.</p>
+        <div className="v3-reference-import-form">
+          <div>
+            <label htmlFor="v3-reference-role">Reference role</label>
+            <select id="v3-reference-role" value={referenceRoleDraft} onChange={(event) => setReferenceRoleDraft(event.target.value as V3ReferenceRole)} disabled={busy}>
+              {V3_REFERENCE_ROLE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+            <p className="hint">{V3_REFERENCE_ROLE_OPTIONS.find((option) => option.value === referenceRoleDraft)?.description}</p>
+          </div>
+          <div>
+            <label htmlFor="v3-reference-label">Reference label (optional)</label>
+            <input id="v3-reference-label" value={referenceLabelDraft} maxLength={240} onChange={(event) => setReferenceLabelDraft(event.target.value)} placeholder="e.g. Approved chef front view" disabled={busy} />
+          </div>
+          <div>
+            <label htmlFor="v3-reference-details">Details you personally confirm (optional)</label>
+            <textarea id="v3-reference-details" value={referenceDetailsDraft} maxLength={2_000} rows={2} onChange={(event) => setReferenceDetailsDraft(event.target.value)} placeholder="Describe only the details you know are correct." disabled={busy} />
+          </div>
+          <div>
+            <label htmlFor="v3-reference-file">Import reference image (JPEG, PNG or WebP; up to 10 MiB)</label>
+            <input id="v3-reference-file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => void importReference(event)} disabled={busy || references.length >= 20} />
+          </div>
+        </div>
+        {references.length === 0 ? (
+          <p className="empty-inline">No reference images imported yet. The original chef and kitchen references are not available in this repository; import them from your own device when ready.</p>
+        ) : (
+          <div className="v3-reference-grid">
+            {references.map((reference) => {
+              const metadata = reference.metadata;
+              const isPinned = Boolean(activeProject?.referenceBible.referenceIds.includes(metadata.id));
+              const roleLabel = V3_REFERENCE_ROLE_OPTIONS.find((option) => option.value === metadata.role)?.label ?? metadata.role;
+              return (
+                <article className="v3-reference-card" key={metadata.id}>
+                  {referencePreviewUrls[metadata.id]
+                    ? <img className="v3-reference-preview" src={referencePreviewUrls[metadata.id]} alt={"Local preview: " + metadata.label} />
+                    : <div className="v3-reference-preview v3-reference-preview-empty" aria-label="Reference preview loading">Preview loading…</div>}
+                  <div className="v3-reference-card-body">
+                    <span className={metadata.reviewState === "approved" ? "v3-reference-badge is-approved" : "v3-reference-badge"}>
+                      {metadata.reviewState === "approved" ? "OWNER-APPROVED" : "NOT REVIEWED"}
+                    </span>
+                    <h4>{metadata.label}</h4>
+                    <p className="v3-reference-role">{roleLabel}</p>
+                    {metadata.ownerConfirmedDetails && <p className="v3-reference-notes">{metadata.ownerConfirmedDetails}</p>}
+                    <p className="v3-reference-meta">{metadata.width} × {metadata.height} · {(metadata.byteSize / 1024).toFixed(0)} KiB · SHA-256 {metadata.sha256.slice(0, 12)}…</p>
+                    <p className="v3-reference-meta">Local only · {metadata.originalFileName}</p>
+                    <div className="v3-reference-actions">
+                      {metadata.reviewState !== "approved" && (
+                        <button className="secondary" type="button" disabled={busy} onClick={() => void markReferenceReviewed(reference)}>I reviewed this reference</button>
+                      )}
+                      {activeProject && (
+                        <button className="secondary" type="button" disabled={busy || (!isPinned && metadata.reviewState !== "approved")} onClick={() => togglePinnedReference(reference)}>
+                          {isPinned ? "Unpin from project" : "Pin to current project"}
+                        </button>
+                      )}
+                      <button className="secondary" type="button" disabled={busy} onClick={() => void removeReference(reference)}>Remove</button>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+        {references.length > 0 && <p className="hint">Library storage limit: 20 references / 80 MiB total. Stored image files are checked for extension, MIME type, file signature, decoding, dimensions and SHA-256 integrity. They stay in local IndexedDB; preview URLs are revoked when replaced.</p>}
+      </section>
+
       {activeProject && (
         <section className="v3-studio-editor" aria-labelledby="v3-studio-editor-heading">
           <div className="section-head">
@@ -1183,6 +1256,34 @@ export default function V3ContentStudio() {
             <button className="secondary" type="button" onClick={exportCurrentProject} disabled={busy}>Export JSON backup</button>
           </div>
           <p className="hint">Manual text edits require fresh review. Saving does not approve a scene, verify facts or generate footage.</p>
+          <section className="v3-bible-editor" aria-labelledby="v3-bible-editor-title">
+            <div className="section-head">
+              <div>
+                <h4 id="v3-bible-editor-title">Pinned Chef & Kitchen Bible · Version {activeProject.referenceBible.version}</h4>
+                <p>Only owner-confirmed notes are stored here. Updating the Bible invalidates earlier visual reviews.</p>
+              </div>
+              <span className="step">REALISM {activeProject.referenceBible.visualRealismStatus.toUpperCase()}</span>
+            </div>
+            <p className="hint">{activeProject.referenceBible.referenceIds.length} reference(s) pinned. A pin records the intended source; it does not prove any generated clip matches that source.</p>
+            {activeProject.referenceBible.referenceIds.length > 0 ? (
+              <div className="v3-pinned-reference-list">
+                {activeProject.referenceBible.referenceIds.map((id) => {
+                  const reference = references.find((item) => item.metadata.id === id);
+                  return <p key={id}>{reference ? reference.metadata.label + " — " + reference.metadata.role : id + " (reference unavailable on this device)"}</p>;
+                })}
+              </div>
+            ) : <p className="v3-studio-alert">No references are pinned to this project. Import and owner-approve the actual chef and kitchen images above.</p>}
+            <label htmlFor="v3-bible-appearance">Owner-confirmed chef appearance / wardrobe</label>
+            <textarea id="v3-bible-appearance" rows={3} maxLength={4_000} value={appearanceNotesDraft} onChange={(event) => setAppearanceNotesDraft(event.target.value)} placeholder="Record only appearance and wardrobe details you confirm from your reference." />
+            <label htmlFor="v3-bible-kitchen">Owner-confirmed kitchen / lighting / props</label>
+            <textarea id="v3-bible-kitchen" rows={3} maxLength={4_000} value={kitchenNotesDraft} onChange={(event) => setKitchenNotesDraft(event.target.value)} placeholder="Record the kitchen layout, lighting, counter and props shown in your real reference." />
+            <label htmlFor="v3-bible-variations">Allowed variations (optional)</label>
+            <textarea id="v3-bible-variations" rows={2} maxLength={4_000} value={allowedVariationsDraft} onChange={(event) => setAllowedVariationsDraft(event.target.value)} placeholder="List only variations you explicitly allow." />
+            <div className="v3-studio-actions">
+              <button className="secondary" type="button" onClick={saveContinuityNotes} disabled={busy}>Save Bible notes</button>
+            </div>
+            <p className="v3-studio-honesty"><strong>Visual realism: NOT TESTED.</strong> No actual generated clip has yet passed a clip-by-clip comparison against your approved reference images. Do not mark the realism claim passed on the basis of imported references or this checklist alone.</p>
+          </section>
           <section className="v3-subtitle-export" aria-labelledby="v3-subtitle-export-title">
             <h4 id="v3-subtitle-export-title">Manual subtitle timing</h4>
             <p className="hint">Enter start/end times for each caption from a real narration/audio track. V3 will not guess speech timing. Values are seconds with millisecond precision.</p>
