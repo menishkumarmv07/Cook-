@@ -434,6 +434,7 @@ export default function Home() {
   const [copiedToast, setCopiedToast] = useState(false);
   const [command, setCommand] = useState("");
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
+  const activeToolInteractedRef = useRef(false);
   const [activeToolReady, setActiveToolReady] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
@@ -545,7 +546,7 @@ export default function Home() {
   useEffect(() => {
     try {
       const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
-      if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
+      if (!activeToolInteractedRef.current && savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
         setActiveTool(savedTool as WorkspaceTool);
       }
     } catch {
@@ -707,6 +708,7 @@ export default function Home() {
   }
 
   function openSettingsView() {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     setActiveTool("profile");
     window.requestAnimationFrame(() => {
@@ -717,6 +719,7 @@ export default function Home() {
   }
 
   function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization" | "ai-studio") {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     const tool: WorkspaceTool =
       item === "ai-studio" ? "studio" :
@@ -880,6 +883,7 @@ export default function Home() {
     const result = replyForEditedRequest(raw);
     const answer: ChatMessage = { id: makeId(), role: "assistant", text: result.text, timestamp: new Date().toISOString() };
     setChatMessages([...prefix, editedUser, answer].slice(-MAX_CHAT_HISTORY_MESSAGES));
+    activeToolInteractedRef.current = true;
     setActiveTool(result.tool);
     setEditingMessageId(null);
     setEditDraft("");
@@ -914,6 +918,7 @@ export default function Home() {
   }
 
   function startNewChat() {
+    activeToolInteractedRef.current = true;
     const id = makeId();
     const now = new Date().toISOString();
     setChatConversations((previous) => [{
@@ -933,6 +938,7 @@ export default function Home() {
   }
 
   function openConversation(conversation: ChatConversation) {
+    activeToolInteractedRef.current = true;
     setActiveConversationId(conversation.id);
     setChatMessages(conversation.messages);
     setCommand("");
@@ -953,6 +959,7 @@ export default function Home() {
       const nextConversation = remaining[0] || null;
       setActiveConversationId(nextConversation?.id ?? null);
       setChatMessages(nextConversation?.messages ?? []);
+      activeToolInteractedRef.current = true;
       setActiveTool("home");
       setCommand("");
     }
@@ -1011,6 +1018,7 @@ export default function Home() {
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
     ensureActiveChat();
+    activeToolInteractedRef.current = true;
     setActiveTool(tool);
     closeOverlays();
     setCommand("");
@@ -1038,6 +1046,7 @@ export default function Home() {
   }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     setActiveTool(
       section === "plan" ? "plan" : section === "research" ? "research" :
@@ -1899,7 +1908,7 @@ export default function Home() {
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}
         onTouchStart={handleDrawerTouchStart} onTouchEnd={handleDrawerTouchEnd}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); closeOverlays(); setActiveTool("home"); }}>
+          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); activeToolInteractedRef.current = true; closeOverlays(); setActiveTool("home"); }}>
             <span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span>
             <span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span>
           </a>
@@ -1945,7 +1954,7 @@ export default function Home() {
           {activeTool === "home" ? (
             <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
           ) : (
-            <button className="page-back-trigger" type="button" aria-label="Back to chat home" title="Back" onClick={() => { closeOverlays(); setActiveTool("home"); }}><InterfaceIcon name="arrow-left" /></button>
+            <button className="page-back-trigger" type="button" aria-label="Back to chat home" title="Back" onClick={() => { activeToolInteractedRef.current = true; closeOverlays(); setActiveTool("home"); }}><InterfaceIcon name="arrow-left" /></button>
           )}
           <span className="top-context"><strong>{activeTool === "home" ? "Cooking Creator" : WORKSPACE_TOOL_LABELS[activeTool]}</strong><small>{activeTool === "home" ? "AI Cooking Content App" : "Cooking Creator"}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
