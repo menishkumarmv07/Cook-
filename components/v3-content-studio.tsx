@@ -163,13 +163,13 @@ function normalizeStoredBlueprint(value: unknown): { blueprint: V3ContentBluepri
     }
     return nextScene;
   });
-  const candidate = { ...value, scenes };
+  const candidate: Record<string, unknown> = { ...value, scenes };
   if (candidate.schemaVersion === 1) {
     candidate.schemaVersion = 2;
     migrated = true;
   }
   if (!validateV3ContentBlueprint(candidate)) return null;
-  return { blueprint: candidate, migrated };
+  return { blueprint: candidate as unknown as V3ContentBlueprint, migrated };
 }
 
 function normalizeStoredProject(value: unknown): { project: V3StudioProject; migrated: boolean } | null {
