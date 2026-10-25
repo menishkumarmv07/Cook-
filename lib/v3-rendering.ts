@@ -31,6 +31,7 @@ export type V3MediaAsset = {
 export type V3RenderPreflightIssue = {
   code:
     | "no-scenes"
+    | "scene-not-reviewed"
     | "missing-scene-clip"
     | "missing-clip-asset"
     | "wrong-media-kind"
@@ -110,6 +111,13 @@ export function preflightV3OwnerFootageRender(
 
   let totalDurationMs = 0;
   for (const scene of scenes) {
+    if (scene.reviewStatus !== "approved") {
+      issues.push({
+        code: "scene-not-reviewed",
+        message: "Review and approve the scene text and its mapped cooking action before rendering.",
+        sceneId: scene.id,
+      });
+    }
     const mediaId = scene.sourceMediaId;
     if (!mediaId) {
       issues.push({
