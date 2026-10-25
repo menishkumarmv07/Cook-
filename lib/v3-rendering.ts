@@ -233,10 +233,10 @@ export function preflightV3OwnerFootageRender(
         message: "The narration file is shorter than the assembled video. Trim the video or provide a complete narration track; V3 will not silently time-stretch speech.",
         assetId: narration.id,
       });
-    } else if (narration.durationMs > totalDurationMs + 2_500) {
+    } else if (narration.durationMs > totalDurationMs + 250) {
       issues.push({
         code: "narration-too-long",
-        message: "Narration is more than 2.5 seconds longer than the edited video. Trim the narration or extend the video so speech is not silently cut off.",
+        message: "Narration is more than 250 ms longer than the edited video. Trim the narration or extend the video so speech is not silently cut off.",
         assetId: narration.id,
       });
     }
