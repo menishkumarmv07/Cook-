@@ -2777,7 +2777,7 @@ export default function V3ContentStudio() {
               </div>
             )}
             {(activeProject.creatorReadiness.mediaOrigin === "ai-generated-or-altered" || activeProject.creatorReadiness.mediaOrigin === "mixed") && (
-              <p className="v3-studio-alert">This app does not generate AI clips or apply platform labels. When the media requires disclosure, add the correct label in the platform's own upload flow.</p>
+              <p className="v3-studio-alert">This app does not generate AI clips or apply platform labels. When the media requires disclosure, add the correct label in the platform&apos;s own upload flow.</p>
             )}
           </section>
 
