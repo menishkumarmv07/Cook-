@@ -1650,6 +1650,8 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
 });
 
 test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
+  const runtimeErrors: string[] = [];
+  page.on("pageerror", (error) => runtimeErrors.push(error.stack ?? error.message));
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
   await page.locator("#name").fill("V3 blueprint QA recipe");
@@ -1670,6 +1672,28 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
 
   await chooseMenuTool(page, "AI Chef Studio");
   await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "studio");
+  const studioMount = await page.evaluate(() => ({
+    activeTool: document.querySelector(".shell")?.getAttribute("data-active-tool"),
+    sectionCount: document.querySelectorAll("#v3-content-studio").length,
+    headingTexts: Array.from(document.querySelectorAll("h1,h2,h3,h4,h5")).map((node) => node.textContent?.trim() ?? ""),
+    hiddenAncestors: (() => {
+      const node = document.querySelector("#v3-content-studio");
+      const result: string[] = [];
+      let current: Element | null = node;
+      while (current) {
+        const style = window.getComputedStyle(current);
+        if (style.display === "none" || style.visibility === "hidden" || current.getAttribute("aria-hidden") === "true") {
+          result.push(current.tagName.toLowerCase() + (current.id ? "#" + current.id : "") + (current.className ? "." + String(current.className).replace(/\\s+/g, ".") : ""));
+        }
+        current = current.parentElement;
+      }
+      return result;
+    })(),
+    bodyTail: document.body.innerText.slice(-2_500),
+  }));
+  if (studioMount.sectionCount !== 1 || !studioMount.headingTexts.includes("Create a cooking-video blueprint")) {
+    throw new Error("V3 studio failed to mount after navigation: " + JSON.stringify({ studioMount, runtimeErrors }));
+  }
   await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" })).toBeVisible();
   const savedRecipeOption = page.locator("#v3-recipe-select option").filter({ hasText: "V3 blueprint QA recipe" }).first();
   const savedRecipeId = await savedRecipeOption.getAttribute("value");
