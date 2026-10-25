@@ -755,6 +755,7 @@ export default function V3ContentStudio() {
         updatedAt: now,
         revision: 1,
         blueprint,
+        referenceBible: createEmptyV3ContinuityBible(),
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
@@ -848,6 +849,8 @@ export default function V3ContentStudio() {
         updatedAt: now,
         revision: 1,
         blueprint: restoredBlueprint,
+        // Reference image binaries are deliberately excluded from blueprint JSON backups.
+        referenceBible: createEmptyV3ContinuityBible(),
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
