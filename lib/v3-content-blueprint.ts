@@ -438,6 +438,8 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
     ingredientIds: [],
     trace: [{ entityType: "recipe", entityId: String(snapshot.id), fields: ["name", "url", "notes"] }],
     reviewStatus: "needs-review",
+    captionStartMs: null,
+    captionEndMs: null,
     targetClipSeconds: null,
   });
 
@@ -459,6 +461,8 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
       fields: ["amount", "unit", "name", "prep"],
     })),
     reviewStatus: "needs-review",
+    captionStartMs: null,
+    captionEndMs: null,
     targetClipSeconds: null,
   });
 
@@ -499,6 +503,8 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
         })),
       ],
       reviewStatus: "needs-review",
+      captionStartMs: null,
+      captionEndMs: null,
       targetClipSeconds: null,
     });
   });
@@ -517,6 +523,8 @@ function makeScenes(snapshot: V3RecipeSnapshot, warnings: V3BlueprintWarning[]):
     ingredientIds: [],
     trace: [{ entityType: "recipe", entityId: String(snapshot.id), fields: ["name", "servings", "trialStatus", "approved"] }],
     reviewStatus: "needs-review",
+    captionStartMs: null,
+    captionEndMs: null,
     targetClipSeconds: null,
   });
 
