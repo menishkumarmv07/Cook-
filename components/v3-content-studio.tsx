@@ -95,6 +95,61 @@ function isStoredProject(value: unknown): value is V3StudioProject {
     validateV3ContinuityBible(value.referenceBible);
 }
 
+function normalizeStoredBlueprint(value: unknown): { blueprint: V3ContentBlueprint; migrated: boolean } | null {
+  if (!isRecord(value) || !Array.isArray(value.scenes)) return null;
+  let migrated = false;
+  const scenes = value.scenes.map((scene) => {
+    if (!isRecord(scene)) return scene;
+    const nextScene = { ...scene };
+    if (nextScene.captionStartMs === undefined) {
+      nextScene.captionStartMs = null;
+      migrated = true;
+    }
+    if (nextScene.captionEndMs === undefined) {
+      nextScene.captionEndMs = null;
+      migrated = true;
+    }
+    return nextScene;
+  });
+  const candidate = { ...value, scenes };
+  if (!validateV3ContentBlueprint(candidate)) return null;
+  return { blueprint: candidate, migrated };
+}
+
+function normalizeStoredProject(value: unknown): { project: V3StudioProject; migrated: boolean } | null {
+  if (!isRecord(value)) return null;
+  if (typeof value.id !== "string" || !value.id ||
+      typeof value.title !== "string" ||
+      typeof value.createdAt !== "string" || !Number.isFinite(Date.parse(value.createdAt)) ||
+      typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt)) ||
+      typeof value.revision !== "number" || !Number.isSafeInteger(value.revision) || value.revision < 1) {
+    return null;
+  }
+  const normalizedBlueprint = normalizeStoredBlueprint(value.blueprint);
+  if (!normalizedBlueprint) return null;
+  let bible: V3ContinuityBible;
+  let migrated = normalizedBlueprint.migrated;
+  if (value.referenceBible === undefined) {
+    bible = createEmptyV3ContinuityBible();
+    migrated = true;
+  } else {
+    if (!validateV3ContinuityBible(value.referenceBible)) return null;
+    bible = value.referenceBible;
+  }
+  return {
+    project: {
+      id: value.id,
+      title: value.title,
+      createdAt: value.createdAt,
+      updatedAt: value.updatedAt,
+      revision: value.revision,
+      blueprint: normalizedBlueprint.blueprint,
+      referenceBible: bible,
+    },
+    migrated,
+  };
+}
+
 function isStoredReference(value: unknown): value is StoredV3Reference {
   if (!isRecord(value) || !(value.file instanceof Blob)) return false;
   if (!validateV3ContinuityReference(value.metadata)) return false;
@@ -369,27 +424,65 @@ async function readEvidenceArchive(): Promise<ResearchEvidenceArchive> {
   }
 }
 
-async function loadStoredProjects(): Promise<V3StudioProject[]> {
+async function persistMigratedProjectIfUnchanged(
+  original: unknown,
+  migrated: V3StudioProject,
+): Promise<void> {
   const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, PROJECT_STORE, "id");
   try {
-    const records = await new Promise<unknown[]>((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(PROJECT_STORE, "readwrite");
+      const store = transaction.objectStore(PROJECT_STORE);
+      const request = store.get(migrated.id);
+      let safeError: Error | null = null;
+      request.onsuccess = () => {
+        if (JSON.stringify(request.result) !== JSON.stringify(original)) {
+          safeError = new Error("A saved project changed during schema migration. No newer data was overwritten; reload V3 and retry.");
+          transaction.abort();
+          return;
+        }
+        store.put(migrated);
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not verify a project before migration. No project was changed.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not migrate a V3 project."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("V3 project migration was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function loadStoredProjects(): Promise<V3StudioProject[]> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, PROJECT_STORE, "id");
+  let records: unknown[];
+  try {
+    records = await new Promise<unknown[]>((resolve, reject) => {
       const transaction = database.transaction(PROJECT_STORE, "readonly");
       const request = transaction.objectStore(PROJECT_STORE).getAll();
       request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
       request.onerror = () => reject(request.error ?? new Error("Could not list saved V3 projects."));
       transaction.onabort = () => reject(transaction.error ?? new Error("Listing V3 projects was interrupted."));
     });
-    const projects: V3StudioProject[] = [];
-    for (const record of records) {
-      if (!isStoredProject(record) || !(await verifyV3ContentBlueprintFingerprints(record.blueprint))) {
-        throw new Error("A saved V3 project failed validation or fingerprint verification. No saved project was overwritten; keep a backup and investigate this record.");
-      }
-      projects.push(record);
-    }
-    return projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   } finally {
     database.close();
   }
+
+  const projects: V3StudioProject[] = [];
+  for (const record of records) {
+    const normalized = normalizeStoredProject(record);
+    if (!normalized || !(await verifyV3ContentBlueprintFingerprints(normalized.project.blueprint))) {
+      throw new Error("A saved V3 project failed schema or source-fingerprint verification. No saved project was overwritten; keep a backup and investigate this record.");
+    }
+    if (normalized.migrated) {
+      await persistMigratedProjectIfUnchanged(record, normalized.project);
+    }
+    projects.push(normalized.project);
+  }
+  return projects.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
 /**
