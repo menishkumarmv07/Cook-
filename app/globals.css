@@ -1828,7 +1828,7 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-reference-import-form input,.v3-reference-import-form select,.v3-reference-import-form textarea{min-width:0;max-width:100%}
 .v3-reference-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:16px}
 .v3-reference-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#fff}
-.v3-reference-preview{display:block;width:100%;height:220px;object-fit:contain;background:#f0e7dc;border-bottom:1px solid var(--line)}
+.v3-reference-preview{display:block;width:100%;height:220px;background-color:#f0e7dc;background-size:contain;background-repeat:no-repeat;background-position:center;border-bottom:1px solid var(--line)}
 .v3-reference-preview-empty{display:grid;place-items:center;color:var(--muted);font-size:11px}
 .v3-reference-card-body{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:13px;min-width:0}
 .v3-reference-card-body h4{margin:0;font-size:13px;overflow-wrap:anywhere}
