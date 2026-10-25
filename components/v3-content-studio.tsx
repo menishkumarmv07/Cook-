@@ -226,7 +226,12 @@ function readSavedRecipes(): { recipes: RecipeProject[]; skipped: number } {
   const recipes: RecipeProject[] = [];
   let skipped = 0;
   for (const item of parsed) {
-    const validated = parseRecipeProjectJSON(JSON.stringify(item));
+    const serialized = JSON.stringify(item);
+    if (typeof serialized !== "string") {
+      skipped += 1;
+      continue;
+    }
+    const validated = parseRecipeProjectJSON(serialized);
     if (validated) recipes.push(validated);
     else skipped += 1;
   }
