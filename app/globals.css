@@ -1894,3 +1894,23 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-visual-review-grid select{width:100%;min-width:0;max-width:100%;margin:0}
 .v3-visual-review .v3-studio-alert{margin-top:10px}
 @media(max-width:560px){.v3-visual-review{padding:11px}.v3-visual-review-grid{grid-template-columns:minmax(0,1fr);gap:8px}.v3-visual-review-grid>div{padding:10px}}
+
+/* V3 US-first creator readiness. Keep the checklist legible on small Android screens. */
+.v3-publish-readiness{margin:16px 0;padding:15px;background:var(--cream);border:1px solid var(--line);border-radius:10px;min-width:0;overflow-wrap:anywhere}
+.v3-publish-readiness>.section-head{margin-bottom:12px}
+.v3-publish-readiness>.section-head h4{margin:0 0 5px}
+.v3-publish-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.v3-publish-fields>div{min-width:0}
+.v3-publish-fields label,.v3-publish-wide>label{display:block;margin:0 0 6px;font-size:12px;font-weight:700}
+.v3-publish-fields input,.v3-publish-fields textarea,.v3-publish-fields select,.v3-publish-wide textarea{width:100%;min-width:0;max-width:100%}
+.v3-publish-wide{grid-column:1/-1;min-width:0}
+.v3-publish-checks{margin:14px 0;padding:12px;border:1px solid var(--line);border-radius:8px;min-width:0}
+.v3-publish-checks legend{padding:0 6px;font-size:12px;font-weight:800}
+.v3-publish-check{display:flex;align-items:flex-start;gap:9px;margin:10px 0;font-size:12px;line-height:1.5}
+.v3-publish-check input{flex:0 0 auto;margin-top:3px}
+.v3-publish-check span{min-width:0}
+.v3-publish-status{padding:12px;margin:12px 0;border:1px solid var(--line);border-radius:8px;line-height:1.6;font-size:12px}
+.v3-publish-status.is-warning{background:#fff8e9;border-color:#d9b46a}
+.v3-publish-status ul{margin:8px 0 0;padding-left:20px}
+.v3-publish-status li{margin:4px 0}
+@media(max-width:560px){.v3-publish-readiness{padding:11px}.v3-publish-fields{grid-template-columns:minmax(0,1fr)}.v3-publish-wide{grid-column:auto}.v3-publish-checks{padding:10px}}

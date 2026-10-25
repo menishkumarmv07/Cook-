@@ -10,6 +10,7 @@ import {
   type V3ContinuityReference,
 } from "./v3-continuity";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline } from "./v3-captions";
+import { getV3CreatorReadinessIssues, validateV3CreatorReadiness, type V3CreatorReadiness } from "./v3-creator-readiness";
 import { isV3MediaAsset, type V3MediaAsset } from "./v3-rendering";
 
 export const V3_PRODUCTION_BUNDLE_SCHEMA_VERSION = 1 as const;
@@ -27,6 +28,7 @@ export type V3ProductionBundleProject = {
   blueprint: V3ContentBlueprint;
   referenceBible: V3ContinuityBible;
   narrationMediaId: string | null;
+  creatorReadiness: V3CreatorReadiness;
 };
 
 export type V3ProductionBundleResult = {
@@ -64,6 +66,7 @@ type BundleManifest = {
     visualRealismStatus: "not-tested" | "pass" | "fail";
     continuityBibleVersion: number;
   };
+  creatorReadiness: V3CreatorReadiness;
   assets: Array<{
     path: string;
     id: string;
@@ -253,7 +256,8 @@ export async function createV3ProductionBundle(input: {
   const { project } = input;
   if (!project.id || !Number.isSafeInteger(project.revision) || project.revision < 1 ||
       typeof project.title !== "string" || !validateV3ContentBlueprint(project.blueprint) ||
-      !validateV3ContinuityBible(project.referenceBible)) {
+      !validateV3ContinuityBible(project.referenceBible) ||
+      !validateV3CreatorReadiness(project.creatorReadiness)) {
     throw new Error("The selected V3 project failed validation. No production bundle was created.");
   }
   if (!(await verifyV3ContentBlueprintFingerprints(project.blueprint))) {
@@ -270,6 +274,8 @@ export async function createV3ProductionBundle(input: {
     "Review every scene and check cooking safety, rights and platform disclosure before publishing.",
     "Visual realism is not proven by references, metadata or a production bundle.",
   ];
+  const readinessIssues = getV3CreatorReadinessIssues(project.creatorReadiness);
+  warnings.push(...readinessIssues.map((issue) => "Creator-readiness review: " + issue));
   const mediaById = new Map<string, V3BundleMediaAsset>();
   for (const item of input.mediaAssets) {
     if (!isV3MediaAsset(item.metadata) || item.file.size !== item.metadata.byteSize ||
@@ -431,6 +437,7 @@ export async function createV3ProductionBundle(input: {
       visualRealismStatus: project.referenceBible.visualRealismStatus,
       continuityBibleVersion: project.referenceBible.version,
     },
+    creatorReadiness: project.creatorReadiness,
     assets: filesManifest,
     missingMediaIds: missingMediaIds.sort(),
     missingReferenceIds: missingReferenceIds.sort(),
@@ -438,11 +445,13 @@ export async function createV3ProductionBundle(input: {
   };
   files.push({ path: "timeline-manifest.json", blob: new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json;charset=utf-8" }) });
   files.push({ path: "chef-kitchen-bible.json", blob: new Blob([JSON.stringify(project.referenceBible, null, 2)], { type: "application/json;charset=utf-8" }) });
+  files.push({ path: "creator-readiness.json", blob: new Blob([JSON.stringify(project.creatorReadiness, null, 2)], { type: "application/json;charset=utf-8" }) });
   files.push({
     path: "README.txt",
     blob: new Blob([
       "COOKING CREATOR V3 PRODUCTION BUNDLE\n\n" +
-      "This archive is NOT a rendered video. It contains an editable recipe-specific scene plan, local footage/narration assets that were selected for this project, pinned reference images that were available locally, manual captions when valid, and a provenance/timeline manifest.\n\n" +
+      "This archive is NOT a rendered video. It contains an editable recipe-specific scene plan, local footage/narration assets that were selected for this project, pinned reference images that were available locally, manual captions when valid, and a provenance/timeline manifest.\n" +
+      "Target platform: " + project.creatorReadiness.platform + ". See creator-readiness.json and timeline-manifest.json for the editable posting copy, selected media origin and pending owner checklist items. A complete checklist is not platform approval.\n\n" +
       "No media was uploaded by V3 to create this archive. The archive can contain personal reference images and source footage. Store and share it carefully.\n\n" +
       warnings.map((warning) => "- " + warning).join("\n") + "\n",
     ], { type: "text/plain;charset=utf-8" }),

@@ -24,6 +24,13 @@ import {
   type V3BlueprintScene,
 } from "@/lib/v3-content-blueprint";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat } from "@/lib/v3-captions";
+import {
+  createEmptyV3CreatorReadiness,
+  getV3CreatorReadinessIssues,
+  normalizeV3CreatorReadiness,
+  type V3CreatorReadiness,
+  type V3CreatorReviewCheckKey,
+} from "@/lib/v3-creator-readiness";
 import { renderV3OwnerFootageVideo } from "@/lib/v3-owner-footage-renderer";
 import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
@@ -74,6 +81,7 @@ type V3StudioProject = {
   blueprint: V3ContentBlueprint;
   referenceBible: V3ContinuityBible;
   narrationMediaId: string | null;
+  creatorReadiness: V3CreatorReadiness;
 };
 
 type StoredV3Reference = {
@@ -210,9 +218,10 @@ function normalizeStoredProject(value: unknown): { project: V3StudioProject; mig
     return null;
   }
   const normalizedBlueprint = normalizeStoredBlueprint(value.blueprint);
-  if (!normalizedBlueprint) return null;
+  const normalizedCreatorReadiness = normalizeV3CreatorReadiness(value.creatorReadiness);
+  if (!normalizedBlueprint || !normalizedCreatorReadiness) return null;
   let bible: V3ContinuityBible;
-  let migrated = normalizedBlueprint.migrated;
+  let migrated = normalizedBlueprint.migrated || normalizedCreatorReadiness.migrated;
   if (value.referenceBible === undefined) {
     bible = createEmptyV3ContinuityBible();
     migrated = true;
@@ -230,8 +239,9 @@ function normalizeStoredProject(value: unknown): { project: V3StudioProject; mig
       blueprint: normalizedBlueprint.blueprint,
       referenceBible: bible,
       narrationMediaId: value.narrationMediaId === undefined ? null : value.narrationMediaId as string | null,
+      creatorReadiness: normalizedCreatorReadiness.readiness,
     },
-    migrated: migrated || value.narrationMediaId === undefined,
+    migrated: migrated || value.narrationMediaId === undefined || normalizedCreatorReadiness.migrated,
   };
 }
 
@@ -1142,6 +1152,10 @@ export default function V3ContentStudio() {
     [activeProject, mediaAssets],
   );
 
+  const creatorReadinessIssues = activeProject
+    ? getV3CreatorReadinessIssues(activeProject.creatorReadiness)
+    : [];
+
   const renderOutputIsCurrent = Boolean(
     activeProject &&
     renderOutput &&
@@ -1924,6 +1938,7 @@ export default function V3ContentStudio() {
         blueprint,
         referenceBible: createEmptyV3ContinuityBible(),
         narrationMediaId: null,
+        creatorReadiness: createEmptyV3CreatorReadiness(),
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
@@ -1937,6 +1952,32 @@ export default function V3ContentStudio() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function updateCreatorReadiness(
+    patch: Partial<Pick<V3CreatorReadiness, "platform" | "title" | "caption" | "callToAction" | "hashtags" | "mediaOrigin" | "notes">>,
+  ) {
+    if (!activeProject) return;
+    setProjects((existing) => existing.map((project) => project.id === activeProject.id
+      ? { ...project, creatorReadiness: { ...project.creatorReadiness, ...patch } }
+      : project));
+    setDirty(true);
+    setMessage("");
+  }
+
+  function updateCreatorReadinessCheck(key: V3CreatorReviewCheckKey, checked: boolean) {
+    if (!activeProject) return;
+    setProjects((existing) => existing.map((project) => project.id === activeProject.id
+      ? {
+          ...project,
+          creatorReadiness: {
+            ...project.creatorReadiness,
+            checks: { ...project.creatorReadiness.checks, [key]: checked },
+          },
+        }
+      : project));
+    setDirty(true);
+    setMessage("");
   }
 
   async function saveCurrentProject() {
@@ -2020,6 +2061,7 @@ export default function V3ContentStudio() {
         // Reference/media binaries are deliberately excluded from blueprint JSON backups.
         referenceBible: createEmptyV3ContinuityBible(),
         narrationMediaId: null,
+        creatorReadiness: createEmptyV3CreatorReadiness(),
       };
       await persistProject(project, null);
       setProjects((existing) => [project, ...existing]);
@@ -2652,6 +2694,92 @@ export default function V3ContentStudio() {
               </article>
             ))}
           </div>
+
+          <section className="v3-publish-readiness" aria-labelledby="v3-publish-readiness-title">
+            <div className="section-head">
+              <div>
+                <h4 id="v3-publish-readiness-title">US-first creator checklist</h4>
+                <p className="hint">Prepare platform-specific copy and manually review safety, rights and disclosure before you post.</p>
+              </div>
+            </div>
+            <div className="v3-publish-fields">
+              <div>
+                <label htmlFor="v3-target-platform">Target platform</label>
+                <select id="v3-target-platform" value={activeProject.creatorReadiness.platform} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ platform: event.target.value as V3CreatorReadiness["platform"] })}>
+                  <option value="youtube-shorts">YouTube Shorts</option>
+                  <option value="instagram-reels">Instagram Reels</option>
+                  <option value="tiktok">TikTok</option>
+                </select>
+                <p className="hint">Suggested starting format: vertical 9:16. Check current upload limits and safe areas in the platform app before posting.</p>
+              </div>
+              <div>
+                <label htmlFor="v3-platform-title">Title / hook (up to 100 characters)</label>
+                <input id="v3-platform-title" maxLength={100} value={activeProject.creatorReadiness.title} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ title: event.target.value })} />
+                <p className="hint">{activeProject.creatorReadiness.title.length}/100 characters</p>
+              </div>
+              <div className="v3-publish-wide">
+                <label htmlFor="v3-platform-caption">Caption / description (up to 4,000 characters)</label>
+                <textarea id="v3-platform-caption" rows={4} maxLength={4_000} value={activeProject.creatorReadiness.caption} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ caption: event.target.value })} />
+                <p className="hint">{activeProject.creatorReadiness.caption.length}/4,000 characters. A platform may enforce a lower limit.</p>
+              </div>
+              <div>
+                <label htmlFor="v3-platform-cta">Call to action</label>
+                <input id="v3-platform-cta" maxLength={300} value={activeProject.creatorReadiness.callToAction} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ callToAction: event.target.value })} placeholder="e.g. Save this recipe for later." />
+              </div>
+              <div>
+                <label htmlFor="v3-platform-hashtags">Hashtags (optional)</label>
+                <textarea id="v3-platform-hashtags" rows={2} maxLength={1_000} value={activeProject.creatorReadiness.hashtags} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ hashtags: event.target.value })} placeholder="#cooking #recipe" />
+              </div>
+              <div className="v3-publish-wide">
+                <label htmlFor="v3-media-origin">What kind of media is in this project?</label>
+                <select id="v3-media-origin" value={activeProject.creatorReadiness.mediaOrigin} disabled={busy || rendering}
+                  onChange={(event) => updateCreatorReadiness({ mediaOrigin: event.target.value as V3CreatorReadiness["mediaOrigin"] })}>
+                  <option value="uncertain">Not confirmed — blocks readiness</option>
+                  <option value="owner-footage-only">Owner-supplied real footage only</option>
+                  <option value="ai-generated-or-altered">Realistic AI-generated or altered media</option>
+                  <option value="mixed">A mixture of owner footage and AI-generated/altered media</option>
+                </select>
+              </div>
+            </div>
+            <fieldset className="v3-publish-checks">
+              <legend>Owner review — check only after reviewing this project</legend>
+              {[
+                { key: "recipeFactsReviewed", label: "Recipe facts, quantities and steps match the current saved recipe and reviewed evidence." },
+                { key: "foodSafetyReviewed", label: "Food-safety, allergen and cross-contact details are appropriate for this recipe." },
+                { key: "assetRightsReviewed", label: "I checked the usage rights for every video, image, voice, music and other asset." },
+                { key: "originalityReviewed", label: "The content includes recipe-specific educational value and is not repetitive filler." },
+                { key: "platformDisclosureReviewed", label: "I checked current platform AI/disclosure rules and will add any required label manually when posting." },
+              ].map((item) => (
+                <label key={item.key} className="v3-publish-check">
+                  <input type="checkbox" checked={activeProject.creatorReadiness.checks[item.key as V3CreatorReviewCheckKey]}
+                    disabled={busy || rendering}
+                    onChange={(event) => updateCreatorReadinessCheck(item.key as V3CreatorReviewCheckKey, event.target.checked)} />
+                  <span>{item.label}</span>
+                </label>
+              ))}
+            </fieldset>
+            <div className="v3-publish-wide">
+              <label htmlFor="v3-publish-review-notes">Owner review notes (optional)</label>
+              <textarea id="v3-publish-review-notes" rows={2} maxLength={2_000} value={activeProject.creatorReadiness.notes} disabled={busy || rendering}
+                onChange={(event) => updateCreatorReadiness({ notes: event.target.value })} />
+            </div>
+            {creatorReadinessIssues.length === 0 ? (
+              <p className="v3-publish-status" role="status">Owner checklist complete for {activeProject.creatorReadiness.platform}. This is not platform approval or a monetization guarantee. Verify current platform rules and post manually. Nothing is published by this app.</p>
+            ) : (
+              <div className="v3-publish-status is-warning" role="status">
+                NOT READY — {creatorReadinessIssues.length} requirement(s) remain.
+                <ul>{creatorReadinessIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul>
+              </div>
+            )}
+            {(activeProject.creatorReadiness.mediaOrigin === "ai-generated-or-altered" || activeProject.creatorReadiness.mediaOrigin === "mixed") && (
+              <p className="v3-studio-alert">This app does not generate AI clips or apply platform labels. When the media requires disclosure, add the correct label in the platform's own upload flow.</p>
+            )}
+          </section>
 
           {activeProject.blueprint.warnings.length > 0 && (
             <section className="v3-studio-warnings" aria-labelledby="v3-studio-warnings-heading">

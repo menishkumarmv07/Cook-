@@ -1816,7 +1816,24 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   expect(bundlePath).toBeTruthy();
   const bundleBytes = await readFile(bundlePath as string);
   expect(Array.from(bundleBytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+  expect(bundleBytes.includes(Buffer.from("creator-readiness.json"))).toBe(true);
+  expect(bundleBytes.includes(Buffer.from("youtube-shorts"))).toBe(true);
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Production bundle downloaded locally" })).toBeVisible();
+
+  // The selected platform copy is saved as part of the local project and remains
+  // NOT READY until the owner identifies the real media origin and completes reviews.
+  await page.locator("#v3-target-platform").selectOption("instagram-reels");
+  await page.locator("#v3-platform-title").fill("V3 QA recipe title");
+  await page.locator("#v3-platform-caption").fill("A recipe-specific caption for review.");
+  await page.locator("#v3-platform-cta").fill("Save this for later.");
+  await page.locator("#v3-platform-hashtags").fill("#cooking #recipe");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Target platform")).toHaveValue("instagram-reels");
+  await expect(page.getByLabel("Title / hook (up to 100 characters)")).toHaveValue("V3 QA recipe title");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
 
   // Integration smoke: render a tiny procedurally-created QA clip plus a test-tone
   // WAV locally. These fixtures are generated at runtime and are never committed.
