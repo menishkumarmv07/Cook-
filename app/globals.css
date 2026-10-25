@@ -1803,3 +1803,15 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-studio-warnings li{margin:7px 0;font-size:11px;line-height:1.55;overflow-wrap:anywhere}
 @media(max-width:760px){.v3-studio-grid{grid-template-columns:minmax(0,1fr)}.v3-studio-card,.v3-scene-card{padding:14px}.v3-studio-editor .section-head{align-items:flex-start;flex-direction:column}.v3-studio-actions{align-items:stretch}.v3-studio-actions .primary,.v3-studio-actions .secondary{flex:1 1 140px}.v3-studio-honesty,.v3-studio-alert{font-size:11px}}
 @media(prefers-reduced-motion:reduce){.v3-studio *{scroll-behavior:auto}}
+
+
+.v3-subtitle-export{margin:18px 0;padding:15px;background:var(--cream);border:1px solid var(--line);border-radius:9px;min-width:0}
+.v3-subtitle-export h4{margin:0 0 6px;font-size:13px}
+.v3-caption-status{margin:10px 0;font-size:11px;color:#356347;line-height:1.55}
+.v3-caption-status.is-warning{color:#80541b}
+.v3-caption-issues{padding-left:18px;margin:8px 0 0}
+.v3-caption-issues li{margin:5px 0;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.v3-caption-timing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.v3-caption-timing-grid label{margin-top:10px}
+.v3-caption-timing-grid input{min-width:0}
+@media(max-width:480px){.v3-caption-timing-grid{grid-template-columns:minmax(0,1fr);gap:4px}}
