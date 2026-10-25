@@ -69,10 +69,16 @@ type V3StudioProject = {
   revision: number;
   blueprint: V3ContentBlueprint;
   referenceBible: V3ContinuityBible;
+  narrationMediaId: string | null;
 };
 
 type StoredV3Reference = {
   metadata: V3ContinuityReference;
+  file: Blob;
+};
+
+type StoredV3Media = {
+  metadata: V3MediaAsset;
   file: Blob;
 };
 
@@ -183,6 +189,12 @@ function isStoredReference(value: unknown): value is StoredV3Reference {
   return value.file.size === value.metadata.byteSize && value.file.type === value.metadata.mimeType;
 }
 
+function isStoredMedia(value: unknown): value is StoredV3Media {
+  if (!isRecord(value) || !(value.file instanceof Blob)) return false;
+  if (!isV3MediaAsset(value.metadata)) return false;
+  return value.file.size === value.metadata.byteSize && value.file.type === value.metadata.mimeType;
+}
+
 function openDatabase(
   name: string,
   version: number,
@@ -203,6 +215,9 @@ function openDatabase(
         }
         if (!database.objectStoreNames.contains(REFERENCE_STORE)) {
           database.createObjectStore(REFERENCE_STORE, { keyPath: "metadata.id" });
+        }
+        if (!database.objectStoreNames.contains(MEDIA_STORE)) {
+          database.createObjectStore(MEDIA_STORE, { keyPath: "metadata.id" });
         }
       } else if (!database.objectStoreNames.contains(storeName)) {
         database.createObjectStore(storeName, keyPath ? { keyPath } : undefined);
