@@ -2294,8 +2294,17 @@ export default function V3ContentStudio() {
               >
                 Render real owner footage
               </button>
+              <button
+                className="secondary"
+                type="button"
+                disabled={busy || rendering || dirty}
+                onClick={() => void exportProductionBundle()}
+              >
+                Export production bundle ZIP
+              </button>
               {rendering && <button className="secondary" type="button" onClick={cancelRender}>Cancel render</button>}
             </div>
+            <p className="hint">The ZIP fallback contains an editable scene script, source/provenance manifest, timeline, valid subtitles (when timing is complete), selected local footage/audio and available pinned reference files. It is clearly labelled as a production bundle, not a rendered video.</p>
             {rendering && <p className="v3-caption-status" role="status" aria-live="polite">{renderProgress || "Preparing local render…"}</p>}
             {renderOutput && (
               <div className="v3-render-output">
