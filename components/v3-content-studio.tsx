@@ -24,6 +24,17 @@ import {
   type V3BlueprintScene,
 } from "@/lib/v3-content-blueprint";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat } from "@/lib/v3-captions";
+import {
+  createEmptyV3ContinuityBible,
+  incrementV3ContinuityBibleVersion,
+  MAX_V3_REFERENCE_BYTES,
+  validateV3ContinuityBible,
+  validateV3ContinuityReference,
+  V3_REFERENCE_IMAGE_MIME_TYPES,
+  type V3ContinuityBible,
+  type V3ContinuityReference,
+  type V3ReferenceRole,
+} from "@/lib/v3-continuity";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -32,8 +43,11 @@ const EVIDENCE_DATABASE_VERSION = 1;
 const EVIDENCE_STORE = "archives";
 const EVIDENCE_ARCHIVE_KEY = "primary";
 const PROJECT_DATABASE_NAME = "cooking-creator-v3-content-studio";
-const PROJECT_DATABASE_VERSION = 1;
+const PROJECT_DATABASE_VERSION = 2;
 const PROJECT_STORE = "projects";
+const REFERENCE_STORE = "references";
+const MAX_V3_REFERENCE_COUNT = 20;
+const MAX_V3_REFERENCE_TOTAL_BYTES = 80 * 1024 * 1024;
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024;
 
 type V3StudioProject = {
@@ -43,7 +57,28 @@ type V3StudioProject = {
   updatedAt: string;
   revision: number;
   blueprint: V3ContentBlueprint;
+  referenceBible: V3ContinuityBible;
 };
+
+type StoredV3Reference = {
+  metadata: V3ContinuityReference;
+  file: Blob;
+};
+
+type V3ReferenceRoleOption = {
+  value: V3ReferenceRole;
+  label: string;
+  description: string;
+};
+
+const V3_REFERENCE_ROLE_OPTIONS: readonly V3ReferenceRoleOption[] = [
+  { value: "chef-identity", label: "Chef identity", description: "An owner-approved reference for the chef's appearance." },
+  { value: "chef-wardrobe", label: "Chef wardrobe", description: "Approved clothing/hat/wardrobe reference." },
+  { value: "kitchen-wide", label: "Kitchen wide view", description: "Overall layout and background." },
+  { value: "kitchen-detail", label: "Kitchen detail", description: "Counter, lighting, cupboards or fixed background details." },
+  { value: "cookware-prop", label: "Cookware / prop", description: "Specific cookware or props to preserve." },
+  { value: "finished-dish", label: "Finished dish", description: "A reference dish image; not proof that the recipe result is correct." },
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -56,7 +91,14 @@ function isStoredProject(value: unknown): value is V3StudioProject {
     typeof value.createdAt === "string" && Number.isFinite(Date.parse(value.createdAt)) &&
     typeof value.updatedAt === "string" && Number.isFinite(Date.parse(value.updatedAt)) &&
     typeof value.revision === "number" && Number.isSafeInteger(value.revision) && value.revision >= 1 &&
-    validateV3ContentBlueprint(value.blueprint);
+    validateV3ContentBlueprint(value.blueprint) &&
+    validateV3ContinuityBible(value.referenceBible);
+}
+
+function isStoredReference(value: unknown): value is StoredV3Reference {
+  if (!isRecord(value) || !(value.file instanceof Blob)) return false;
+  if (!validateV3ContinuityReference(value.metadata)) return false;
+  return value.file.size === value.metadata.byteSize && value.file.type === value.metadata.mimeType;
 }
 
 function openDatabase(
@@ -73,7 +115,14 @@ function openDatabase(
     let settled = false;
     request.onupgradeneeded = () => {
       const database = request.result;
-      if (!database.objectStoreNames.contains(storeName)) {
+      if (name === PROJECT_DATABASE_NAME) {
+        if (!database.objectStoreNames.contains(PROJECT_STORE)) {
+          database.createObjectStore(PROJECT_STORE, { keyPath: "id" });
+        }
+        if (!database.objectStoreNames.contains(REFERENCE_STORE)) {
+          database.createObjectStore(REFERENCE_STORE, { keyPath: "metadata.id" });
+        }
+      } else if (!database.objectStoreNames.contains(storeName)) {
         database.createObjectStore(storeName, keyPath ? { keyPath } : undefined);
       }
     };
