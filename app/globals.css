@@ -1879,3 +1879,14 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-scene-footage-controls label{margin-top:9px}
 .v3-scene-review-button{width:auto!important;margin-top:10px!important}
 @media(max-width:760px){.v3-media-import-form,.v3-media-grid{grid-template-columns:minmax(0,1fr)}.v3-media-library,.v3-footage-editor{padding:13px}.v3-media-file-row{grid-column:auto}.v3-media-card-body .v3-reference-actions .secondary{flex:1 1 130px}.v3-render-preview{max-width:100%;max-height:560px}}
+
+/* V3 rendered-clip review: clear labels and one-column mobile fallback. */
+.v3-visual-review{margin:16px 0;padding:14px;background:var(--cream);border:1px solid var(--line);border-radius:10px;min-width:0;overflow-wrap:anywhere}
+.v3-visual-review h5{margin:0 0 7px;font-size:14px}
+.v3-visual-review>p{line-height:1.6}
+.v3-visual-review-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.v3-visual-review-grid>div{min-width:0;padding:10px;background:#fff;border:1px solid var(--line);border-radius:8px}
+.v3-visual-review-grid label{display:block;margin:0 0 7px;font-size:11px;font-weight:700;line-height:1.45}
+.v3-visual-review-grid select{width:100%;min-width:0;max-width:100%;margin:0}
+.v3-visual-review .v3-studio-alert{margin-top:10px}
+@media(max-width:560px){.v3-visual-review{padding:11px}.v3-visual-review-grid{grid-template-columns:minmax(0,1fr);gap:8px}.v3-visual-review-grid>div{padding:10px}}
