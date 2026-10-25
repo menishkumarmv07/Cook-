@@ -149,6 +149,196 @@ function openDatabase(
   });
 }
 
+async function hashBlobSha256(blob: Blob): Promise<string> {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("Secure SHA-256 is unavailable in this browser. The reference was not imported.");
+  }
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function loadStoredReferences(): Promise<StoredV3Reference[]> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, REFERENCE_STORE, "id");
+  try {
+    const records = await new Promise<unknown[]>((resolve, reject) => {
+      const transaction = database.transaction(REFERENCE_STORE, "readonly");
+      const request = transaction.objectStore(REFERENCE_STORE).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error ?? new Error("Could not load local Chef & Kitchen references."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Loading local references was interrupted."));
+    });
+    if (records.length > MAX_V3_REFERENCE_COUNT) {
+      throw new Error("The local reference library exceeds the safe reference count. Export/inspect your work before adding more.");
+    }
+    let totalBytes = 0;
+    const valid: StoredV3Reference[] = [];
+    for (const record of records) {
+      if (!isStoredReference(record)) {
+        throw new Error("A saved Chef & Kitchen reference failed metadata/file validation. No references were overwritten.");
+      }
+      totalBytes += record.file.size;
+      if (totalBytes > MAX_V3_REFERENCE_TOTAL_BYTES) {
+        throw new Error("The local Chef & Kitchen reference library exceeds its 80 MiB safety limit.");
+      }
+      if (await hashBlobSha256(record.file) !== record.metadata.sha256) {
+        throw new Error("A saved reference failed SHA-256 integrity verification. Keep the current data and restore a known-good backup if available.");
+      }
+      valid.push(record);
+    }
+    return valid.sort((a, b) => b.metadata.importedAt.localeCompare(a.metadata.importedAt));
+  } finally {
+    database.close();
+  }
+}
+
+async function persistNewReference(reference: StoredV3Reference, current: readonly StoredV3Reference[]): Promise<void> {
+  if (!isStoredReference(reference)) throw new Error("The reference metadata or image file failed validation.");
+  if (current.length >= MAX_V3_REFERENCE_COUNT) throw new Error("The library supports up to 20 local references.");
+  const total = current.reduce((sum, item) => sum + item.file.size, 0);
+  if (total + reference.file.size > MAX_V3_REFERENCE_TOTAL_BYTES) {
+    throw new Error("The 80 MiB local reference-library limit would be exceeded. Nothing was saved.");
+  }
+  if (current.some((item) => item.metadata.sha256 === reference.metadata.sha256 && item.metadata.role === reference.metadata.role)) {
+    throw new Error("That exact image is already saved with this reference role. No duplicate was added.");
+  }
+
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, REFERENCE_STORE, "id");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(REFERENCE_STORE, "readwrite");
+      const store = transaction.objectStore(REFERENCE_STORE);
+      const duplicateRequest = store.get(reference.metadata.id);
+      let safeError: Error | null = null;
+      duplicateRequest.onsuccess = () => {
+        if (duplicateRequest.result !== undefined) {
+          safeError = new Error("This reference ID already exists. Nothing was overwritten.");
+          transaction.abort();
+          return;
+        }
+        store.add(reference);
+      };
+      duplicateRequest.onerror = () => {
+        safeError = new Error("Could not check the reference ID. Nothing was saved.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not save the local reference."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Reference import was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function updateStoredReferenceMetadata(
+  referenceId: string,
+  expectedSha256: string,
+  update: (metadata: V3ContinuityReference) => V3ContinuityReference,
+): Promise<StoredV3Reference> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, REFERENCE_STORE, "id");
+  try {
+    return await new Promise<StoredV3Reference>((resolve, reject) => {
+      const transaction = database.transaction(REFERENCE_STORE, "readwrite");
+      const store = transaction.objectStore(REFERENCE_STORE);
+      const request = store.get(referenceId);
+      let safeError: Error | null = null;
+      let result: StoredV3Reference | null = null;
+      request.onsuccess = () => {
+        if (!isStoredReference(request.result) || request.result.metadata.sha256 !== expectedSha256) {
+          safeError = new Error("This reference changed in another tab. Reload the library before changing its review status.");
+          transaction.abort();
+          return;
+        }
+        const updated: StoredV3Reference = {
+          ...request.result,
+          metadata: update(request.result.metadata),
+        };
+        if (!isStoredReference(updated)) {
+          safeError = new Error("The proposed reference metadata failed validation. No update was saved.");
+          transaction.abort();
+          return;
+        }
+        store.put(updated);
+        result = updated;
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not read the current reference metadata.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => {
+        if (result) resolve(result);
+        else reject(new Error("Reference metadata update completed without a result."));
+      };
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not update the reference metadata."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Reference metadata update was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function deleteStoredReference(referenceId: string, expectedSha256: string): Promise<void> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, REFERENCE_STORE, "id");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(REFERENCE_STORE, "readwrite");
+      const store = transaction.objectStore(REFERENCE_STORE);
+      const request = store.get(referenceId);
+      let safeError: Error | null = null;
+      request.onsuccess = () => {
+        if (!isStoredReference(request.result) || request.result.metadata.sha256 !== expectedSha256) {
+          safeError = new Error("The reference changed in another tab. Reload before removing it.");
+          transaction.abort();
+          return;
+        }
+        store.delete(referenceId);
+      };
+      request.onerror = () => {
+        safeError = new Error("Could not verify the reference before removal.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not remove the local reference."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Reference removal was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+async function getImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  let width = 0;
+  let height = 0;
+  if (typeof createImageBitmap === "function") {
+    const bitmap = await createImageBitmap(file);
+    try {
+      width = bitmap.width;
+      height = bitmap.height;
+    } finally {
+      bitmap.close();
+    }
+  } else {
+    const url = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error("The selected file is not a decodable image."));
+        image.src = url;
+      });
+      width = image.naturalWidth;
+      height = image.naturalHeight;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) ||
+      width < 1 || height < 1 || width > 20_000 || height > 20_000 || width * height > 30_000_000) {
+    throw new Error("The image dimensions exceed V3's safety limit (maximum 20,000 pixels per side and 30 megapixels).");
+  }
+  return { width, height };
+}
+
 async function readEvidenceArchive(): Promise<ResearchEvidenceArchive> {
   const database = await openDatabase(
     EVIDENCE_DATABASE_NAME,
