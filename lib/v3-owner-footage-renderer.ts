@@ -211,6 +211,14 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     if (video.videoWidth !== WIDTH || video.videoHeight !== HEIGHT) {
       throw new Error("The rendered file does not match the expected 720×1280 portrait dimensions.");
     }
+    try {
+      await video.play();
+    } catch {
+      throw new Error("The downloaded render metadata exists, but the browser could not play the generated file.");
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    ensureNotAborted(signal);
+    video.pause();
     await seekVideo(video, Math.max(0, actualDurationMs - 60), signal);
   } finally {
     video.pause();
