@@ -1835,6 +1835,12 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.getByLabel("Target platform")).toHaveValue("instagram-reels");
   await expect(page.getByLabel("Title / hook (up to 100 characters)")).toHaveValue("V3 QA recipe title");
   await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+  const readinessLayout = await page.evaluate(() => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    bodyWidth: document.body.scrollWidth,
+  }));
+  expect(Math.max(readinessLayout.documentWidth, readinessLayout.bodyWidth)).toBeLessThanOrEqual(readinessLayout.viewportWidth + 1);
 
   const creatorCopyPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export creator copy", exact: true }).click();

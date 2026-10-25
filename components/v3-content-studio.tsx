@@ -27,6 +27,7 @@ import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat 
 import {
   createEmptyV3CreatorReadiness,
   getV3CreatorReadinessIssues,
+  getV3CreatorReadinessWarnings,
   normalizeV3CreatorReadiness,
   type V3CreatorReadiness,
   type V3CreatorReviewCheckKey,
@@ -2052,6 +2053,11 @@ export default function V3ContentStudio() {
       "",
       "PENDING REVIEW ITEMS",
       ...(issues.length ? issues.map((issue) => "- " + issue) : ["- No app checklist items remain; independently confirm the platform's current rules and requirements."]),
+      "",
+      "PLATFORM REMINDERS",
+      ...(getV3CreatorReadinessWarnings(readiness).length
+        ? getV3CreatorReadinessWarnings(readiness).map((warning) => "- " + warning)
+        : ["- Still check the current platform rules before publishing."]),
       "",
       "This file was exported locally. Nothing was published or uploaded by this action.",
       "Exporting this copy is not a claim of platform approval, monetization eligibility, reach or income.",
