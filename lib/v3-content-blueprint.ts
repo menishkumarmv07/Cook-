@@ -684,9 +684,12 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
     }
     if (scene.sourceMediaId === null) {
       if (scene.sourceMediaStartMs !== null || scene.sourceMediaEndMs !== null || scene.targetClipSeconds !== null) return false;
+    } else if (scene.sourceMediaStartMs === null || scene.sourceMediaEndMs === null) {
+      // A draft may select a clip before the owner enters both trim boundaries.
+      // Such an incomplete assignment remains valid data but cannot pass render preflight.
+      if (scene.targetClipSeconds !== null) return false;
     } else {
-      if (scene.sourceMediaStartMs === null || scene.sourceMediaEndMs === null ||
-          scene.sourceMediaEndMs <= scene.sourceMediaStartMs ||
+      if (scene.sourceMediaEndMs <= scene.sourceMediaStartMs ||
           typeof scene.targetClipSeconds !== "number" || !Number.isFinite(scene.targetClipSeconds) ||
           scene.targetClipSeconds <= 0 ||
           Math.abs(scene.targetClipSeconds * 1_000 - (scene.sourceMediaEndMs - scene.sourceMediaStartMs)) > 1) return false;
