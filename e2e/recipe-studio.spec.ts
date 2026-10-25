@@ -1798,7 +1798,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   const backupDownload = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
   expect((await backupDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.v3-blueprint\.json$/);
-  await expect(page.locator(".v3-studio-editor .v3-studio-honesty")).toContainText("NOT TESTED");
+  await expect(page.locator(".v3-studio-editor .v3-studio-honesty").filter({ hasText: "Visual realism: NOT TESTED" })).toContainText("NOT TESTED");
 
   // An empty-media project must not be allowed to render a fake video. The fallback
   // should produce a real ZIP whose label and manifest make its status unambiguous.

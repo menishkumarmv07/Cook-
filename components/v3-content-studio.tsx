@@ -2665,7 +2665,7 @@ export default function V3ContentStudio() {
               </ul>
             </section>
           )}
-          <p className="v3-studio-honesty"><strong>Not a rendered video:</strong> this project has not been generated, animated, visually checked against your original references, or exported as video. Realism remains NOT TESTED until actual clips are reviewed.</p>
+          <p className="v3-studio-honesty"><strong>AI generation status: NOT ENABLED.</strong> This app does not generate or animate AI footage. A playable WebM, when available, is assembled from owner-supplied footage. Visual realism remains NOT TESTED until actual clips are compared with approved references.</p>
         </section>
       )}
     </section>
