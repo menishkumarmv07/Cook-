@@ -269,9 +269,6 @@ export async function createV3ProductionBundle(input: {
         item.file.type !== item.metadata.mimeType) {
       throw new Error("A selected media asset failed bundle validation.");
     }
-    if (await sha256Blob(item.file) !== item.metadata.sha256) {
-      throw new Error("A media file failed SHA-256 verification. Nothing was exported.");
-    }
     mediaById.set(item.metadata.id, item);
   }
   const referencesById = new Map<string, V3BundleReferenceAsset>();
@@ -279,9 +276,6 @@ export async function createV3ProductionBundle(input: {
     if (!validateV3ContinuityReference(item.metadata) || item.file.size !== item.metadata.byteSize ||
         item.file.type !== item.metadata.mimeType) {
       throw new Error("A Chef & Kitchen reference failed bundle validation.");
-    }
-    if (await sha256Blob(item.file) !== item.metadata.sha256) {
-      throw new Error("A reference image failed SHA-256 verification. Nothing was exported.");
     }
     referencesById.set(item.metadata.id, item);
   }
@@ -305,6 +299,9 @@ export async function createV3ProductionBundle(input: {
       continue;
     }
     const metadata = item.metadata;
+    if (await sha256Blob(item.file) !== metadata.sha256) {
+      throw new Error("A selected media file failed SHA-256 verification. Nothing was exported.");
+    }
     const extension = safeBaseName(metadata.originalFileName, "media").split(".").pop()?.toLowerCase();
     const safeExtension = extension && /^[a-z0-9]{1,8}$/.test(extension) ? extension : "bin";
     const path = metadata.kind === "video"
@@ -337,6 +334,9 @@ export async function createV3ProductionBundle(input: {
     if (!item) {
       missingReferenceIds.push(id);
       continue;
+    }
+    if (await sha256Blob(item.file) !== item.metadata.sha256) {
+      throw new Error("A pinned reference image failed SHA-256 verification. Nothing was exported.");
     }
     if (item.metadata.reviewState !== "approved") {
       warnings.push("Reference " + item.metadata.label + " is not owner-approved; review before using it as a continuity source.");
@@ -442,6 +442,9 @@ export async function createV3ProductionBundle(input: {
   });
 
   const zip = await zipStoredEntries(files, now);
+  if (zip.size > MAX_V3_PRODUCTION_BUNDLE_BYTES) {
+    throw new Error("The finished ZIP exceeded the 200 MiB safety limit. Export fewer/smaller assets.");
+  }
   return {
     blob: zip,
     byteSize: zip.size,
