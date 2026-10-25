@@ -107,7 +107,7 @@ test("builds a deterministic, editable scene plan from the exact saved recipe fi
     now: fixedNow,
   });
 
-  assert.equal(blueprint.schemaVersion, 1);
+  assert.equal(blueprint.schemaVersion, 2);
   assert.equal(blueprint.status, "draft");
   assert.equal(blueprint.recipeTitle, "Tomato pasta");
   assert.equal(blueprint.servings, "2");
@@ -318,6 +318,37 @@ test("blueprint backup round-trips and rejects invalid JSON or oversized input",
   assert.equal(await verifyV3ContentBlueprintFingerprints(restored), true);
   assert.equal(parseV3ContentBlueprintBackupJSON("{bad json"), null);
   assert.equal(parseV3ContentBlueprintBackupJSON("x".repeat(15 * 1024 * 1024 + 1)), null);
+});
+
+test("schema version one backup is migrated to version two without inventing media or caption timings", async () => {
+  const blueprint = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    now: fixedNow,
+  });
+  const legacy = JSON.parse(createV3ContentBlueprintBackupJSON(blueprint)) as {
+    schemaVersion: number;
+    scenes: Array<Record<string, unknown>>;
+    [key: string]: unknown;
+  };
+  legacy.schemaVersion = 1;
+  for (const scene of legacy.scenes) {
+    delete scene.captionStartMs;
+    delete scene.captionEndMs;
+    delete scene.sourceMediaId;
+    delete scene.sourceMediaStartMs;
+    delete scene.sourceMediaEndMs;
+    delete scene.targetClipSeconds;
+  }
+  const restored = parseV3ContentBlueprintBackupJSON(JSON.stringify(legacy));
+  assert.ok(restored);
+  assert.equal(restored.schemaVersion, 2);
+  assert.ok(restored.scenes.every((scene) =>
+    scene.captionStartMs === null && scene.captionEndMs === null &&
+    scene.sourceMediaId === null && scene.sourceMediaStartMs === null &&
+    scene.sourceMediaEndMs === null && scene.targetClipSeconds === null
+  ));
+  assert.equal(await verifyV3ContentBlueprintFingerprints(restored), true);
 });
 
 test("older V3 backups migrate missing caption timing to unknown rather than inventing times", async () => {
