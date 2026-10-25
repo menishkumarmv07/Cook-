@@ -1750,6 +1750,10 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .shell[data-theme="dark"] .monetization-pill.is-warning,.shell[data-theme="dark"] .monetization-alert { background: #44251f; color: #ffd8cb; border-color: #805043; }
 .shell[data-active-tool="monetization"] .content > #monetization-workspace { display: block !important; }
 .shell[data-active-tool="monetization"] .content > :not(.chat-transcript):not(footer):not(#monetization-workspace) { display: none !important; }
+
+/* V3 AI Chef Studio is a top-level tool in the shared content area; explicitly reveal it like the other dedicated tools. */
+.shell[data-active-tool="studio"] .content > #v3-content-studio { display: block !important; }
+.shell[data-active-tool="studio"] .content > :not(.chat-transcript):not(footer):not(#v3-content-studio) { display: none !important; }
 @media(max-width:700px) {
   .shell .monetization-workspace { padding: 13px; }
   .shell .monetization-summary-grid,.shell .monetization-form-grid { grid-template-columns: 1fr; }
