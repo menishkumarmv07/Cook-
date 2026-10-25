@@ -213,6 +213,6 @@ export function reviewV3ContinuityClip(
     ...bible,
     reviewChecklist: { ...checklist },
     visualRealismStatus: outcome,
-    lastReviewedClipIds: Array.from(new Set([...bible.lastReviewedClipIds, clipId])),
+    lastReviewedClipIds: [clipId],
   };
 }
