@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createEmptyV3CreatorReadiness,
   getV3CreatorReadinessIssues,
+  getV3CreatorReadinessWarnings,
   isV3CreatorReadinessChecklistComplete,
   normalizeV3CreatorReadiness,
   validateV3CreatorReadiness,
@@ -42,12 +43,14 @@ test("uncertain media origin blocks readiness even when all other checks are mar
   assert.ok(getV3CreatorReadinessIssues(readiness).some((issue) => /media origin/i.test(issue)));
 });
 
-test("realistic AI or mixed media never skips an explicit manual platform-label reminder", () => {
+test("AI or mixed media keeps a clear disclosure reminder without contradicting a completed owner checklist", () => {
   const readiness = completeOwnerFootageChecklist();
   readiness.mediaOrigin = "ai-generated-or-altered";
-  const issues = getV3CreatorReadinessIssues(readiness);
-  assert.ok(issues.some((issue) => /platform's own upload flow/i.test(issue)));
-  assert.equal(isV3CreatorReadinessChecklistComplete(readiness), false);
+  assert.deepEqual(getV3CreatorReadinessIssues(readiness), []);
+  assert.ok(getV3CreatorReadinessWarnings(readiness).some((warning) => /platform's own upload flow/i.test(warning)));
+  assert.equal(isV3CreatorReadinessChecklistComplete(readiness), true);
+  readiness.checks.platformDisclosureReviewed = false;
+  assert.ok(getV3CreatorReadinessIssues(readiness).some((issue) => /synthetic-media\/disclosure rules/i.test(issue)));
 });
 
 test("all platform disclosure checklist states are required", () => {

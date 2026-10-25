@@ -10,7 +10,7 @@ import {
   type V3ContinuityReference,
 } from "./v3-continuity";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline } from "./v3-captions";
-import { getV3CreatorReadinessIssues, validateV3CreatorReadiness, type V3CreatorReadiness } from "./v3-creator-readiness";
+import { getV3CreatorReadinessIssues, getV3CreatorReadinessWarnings, validateV3CreatorReadiness, type V3CreatorReadiness } from "./v3-creator-readiness";
 import { isV3MediaAsset, type V3MediaAsset } from "./v3-rendering";
 
 export const V3_PRODUCTION_BUNDLE_SCHEMA_VERSION = 1 as const;
@@ -275,7 +275,9 @@ export async function createV3ProductionBundle(input: {
     "Visual realism is not proven by references, metadata or a production bundle.",
   ];
   const readinessIssues = getV3CreatorReadinessIssues(project.creatorReadiness);
+  const readinessWarnings = getV3CreatorReadinessWarnings(project.creatorReadiness);
   warnings.push(...readinessIssues.map((issue) => "Creator-readiness review: " + issue));
+  warnings.push(...readinessWarnings.map((warning) => "Creator-readiness reminder: " + warning));
   const mediaById = new Map<string, V3BundleMediaAsset>();
   for (const item of input.mediaAssets) {
     if (!isV3MediaAsset(item.metadata) || item.file.size !== item.metadata.byteSize ||

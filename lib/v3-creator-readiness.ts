@@ -117,10 +117,14 @@ export function getV3CreatorReadinessIssues(readiness: V3CreatorReadiness): stri
   for (const item of V3_CREATOR_REVIEW_CHECKS) {
     if (!readiness.checks[item.key]) issues.push(item.label);
   }
-  if (readiness.mediaOrigin === "ai-generated-or-altered" || readiness.mediaOrigin === "mixed") {
-    issues.push("Before publishing, confirm the applicable AI/synthetic-media label in the platform's own upload flow; this app does not apply that label automatically.");
-  }
   return Array.from(new Set(issues));
+}
+
+export function getV3CreatorReadinessWarnings(readiness: V3CreatorReadiness): string[] {
+  if (readiness.mediaOrigin === "ai-generated-or-altered" || readiness.mediaOrigin === "mixed") {
+    return ["Before publishing, confirm the applicable AI/synthetic-media label in the platform's own upload flow; this app does not apply that label automatically."];
+  }
+  return [];
 }
 
 export function isV3CreatorReadinessChecklistComplete(readiness: V3CreatorReadiness): boolean {
