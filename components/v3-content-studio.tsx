@@ -1096,6 +1096,15 @@ export default function V3ContentStudio() {
     [activeProject, mediaAssets],
   );
 
+  const renderOutputIsCurrent = Boolean(
+    activeProject &&
+    renderOutput &&
+    !dirty &&
+    renderOutput.projectId === activeProject.id &&
+    renderOutput.projectRevision === activeProject.revision &&
+    renderOutput.planKey === createRenderPlanKey(activeProject, mediaAssets)
+  );
+
   useEffect(() => {
     const previewUrl = renderOutput?.previewUrl;
     return () => {
@@ -2182,6 +2191,76 @@ export default function V3ContentStudio() {
             </div>
             <p className="v3-studio-honesty"><strong>Visual realism: NOT TESTED.</strong> No actual generated clip has yet passed a clip-by-clip comparison against your approved reference images. Do not mark the realism claim passed on the basis of imported references or this checklist alone.</p>
           </section>
+          <section className="v3-footage-editor" aria-labelledby="v3-footage-editor-title">
+            <div className="section-head">
+              <div>
+                <h4 id="v3-footage-editor-title">Assign real footage and narration</h4>
+                <p>Only owner-cleared source files can be used. Assign each clip to its scene and enter the trim boundaries in seconds. No generated footage is implied.</p>
+              </div>
+              <span className="step">{renderPreflight.ok ? "PREFLIGHT READY" : "PREFLIGHT BLOCKED"}</span>
+            </div>
+            <label htmlFor="v3-project-narration">Narration track</label>
+            <select
+              id="v3-project-narration"
+              value={activeProject.narrationMediaId ?? ""}
+              disabled={busy || rendering}
+              onChange={(event) => selectNarrationForProject(event.target.value)}
+            >
+              <option value="">Choose owner-cleared narration…</option>
+              {mediaAssets.filter((asset) => asset.metadata.kind === "narration").map((asset) => (
+                <option
+                  key={asset.metadata.id}
+                  value={asset.metadata.id}
+                  disabled={asset.metadata.reviewState !== "owner-cleared" || asset.metadata.rightsStatus === "unknown" || !asset.metadata.rightsNote.trim()}
+                >
+                  {asset.metadata.label} · {Math.round(asset.metadata.durationMs / 100) / 10}s · {asset.metadata.reviewState}
+                </option>
+              ))}
+            </select>
+            <p className="hint">Narration length must cover the edited video; excessive unused speech is rejected rather than silently cut off. Caption times are relative to the final assembled video and must be checked against this audio.</p>
+            <div className={renderPreflight.ok ? "v3-render-preflight is-ready" : "v3-render-preflight"}>
+              <strong>{renderPreflight.ok ? "Ready for a short owner-footage render" : "Render checks"}</strong>
+              <p>{renderPreflight.durationMs / 1000}s planned output · 720 × 1280 WebM target · {activeProject.blueprint.scenes.length} scene(s)</p>
+              {renderPreflight.issues.length > 0 && <ul>
+                {renderPreflight.issues.slice(0, 20).map((issue, index) => (
+                  <li key={issue.code + "-" + (issue.sceneId ?? "") + "-" + index}>{issue.sceneId ? issue.sceneId + ": " : ""}{issue.message}</li>
+                ))}
+                {renderPreflight.issues.length > 20 && <li>And {renderPreflight.issues.length - 20} more issue(s).</li>}
+              </ul>}
+            </div>
+            <div className="v3-studio-actions">
+              <button
+                className="primary"
+                type="button"
+                disabled={busy || rendering || dirty || !renderPreflight.ok}
+                onClick={() => void renderOwnerFootage()}
+              >
+                Render real owner footage
+              </button>
+              {rendering && <button className="secondary" type="button" onClick={cancelRender}>Cancel render</button>}
+            </div>
+            {rendering && <p className="v3-caption-status" role="status" aria-live="polite">{renderProgress || "Preparing local render…"}</p>}
+            {renderOutput && (
+              <div className="v3-render-output">
+                <h4>Rendered video preview</h4>
+                {renderOutputIsCurrent ? (
+                  <>
+                    <video className="v3-render-preview" src={renderOutput.previewUrl} controls playsInline preload="metadata" />
+                    <p className="v3-reference-meta">{renderOutput.width} × {renderOutput.height} · {(renderOutput.durationMs / 1000).toFixed(1)}s · {(renderOutput.byteSize / 1024 / 1024).toFixed(2)} MiB · {renderOutput.mimeType}</p>
+                    <p className="v3-reference-meta">SHA-256 {renderOutput.sha256} · local file · {new Date(renderOutput.createdAt).toLocaleString("en-US")}</p>
+                    <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage, and the Chef & Kitchen Bible's AI realism status remains NOT TESTED.</p>
+                    <button className="primary" type="button" disabled={busy || rendering} onClick={() => void downloadReviewedRender()}>
+                      I reviewed the video — download WebM
+                    </button>
+                    {renderOutput.reviewed && <p className="v3-caption-status" role="status">Downloaded after owner review.</p>}
+                  </>
+                ) : (
+                  <p className="v3-studio-alert">This preview is stale because the project, scene plan or a source file changed. Save current edits and render again before downloading.</p>
+                )}
+              </div>
+            )}
+          </section>
+
           <section className="v3-subtitle-export" aria-labelledby="v3-subtitle-export-title">
             <h4 id="v3-subtitle-export-title">Manual subtitle timing</h4>
             <p className="hint">Enter start/end times for each caption from a real narration/audio track. V3 will not guess speech timing. Values are seconds with millisecond precision.</p>
@@ -2209,6 +2288,70 @@ export default function V3ContentStudio() {
                     <h4>{scene.kind.replace(/-/g, " ")}</h4>
                     <p>{scene.trace.length} source mapping(s) · Review: {scene.reviewStatus}</p>
                   </div>
+                </div>
+                <div className="v3-scene-footage-controls">
+                  <label htmlFor={"v3-scene-video-" + scene.id}>Source video clip</label>
+                  <select
+                    id={"v3-scene-video-" + scene.id}
+                    value={scene.sourceMediaId ?? ""}
+                    disabled={busy || rendering}
+                    onChange={(event) => assignSourceVideo(scene.id, event.target.value)}
+                  >
+                    <option value="">No video assigned</option>
+                    {mediaAssets.filter((asset) => asset.metadata.kind === "video").map((asset) => (
+                      <option
+                        key={asset.metadata.id}
+                        value={asset.metadata.id}
+                        disabled={asset.metadata.reviewState !== "owner-cleared" || asset.metadata.rightsStatus === "unknown" || !asset.metadata.rightsNote.trim()}
+                      >
+                        {asset.metadata.label} · {Math.round(asset.metadata.durationMs / 100) / 10}s
+                      </option>
+                    ))}
+                  </select>
+                  {scene.sourceMediaId && (
+                    <>
+                      <div className="v3-caption-timing-grid">
+                        <div>
+                          <label htmlFor={"v3-source-start-" + scene.id}>Clip start (seconds)</label>
+                          <input
+                            id={"v3-source-start-" + scene.id}
+                            type="number"
+                            min="0"
+                            max="300"
+                            step="0.001"
+                            value={scene.sourceMediaStartMs === null ? "" : String(scene.sourceMediaStartMs / 1000)}
+                            disabled={busy || rendering}
+                            onChange={(event) => updateSceneMediaTime(scene.id, "sourceMediaStartMs", event.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor={"v3-source-end-" + scene.id}>Clip end (seconds)</label>
+                          <input
+                            id={"v3-source-end-" + scene.id}
+                            type="number"
+                            min="0"
+                            max={Math.max(0, (mediaAssets.find((asset) => asset.metadata.id === scene.sourceMediaId)?.metadata.durationMs ?? 300_000) / 1000)}
+                            step="0.001"
+                            value={scene.sourceMediaEndMs === null ? "" : String(scene.sourceMediaEndMs / 1000)}
+                            disabled={busy || rendering}
+                            onChange={(event) => updateSceneMediaTime(scene.id, "sourceMediaEndMs", event.target.value)}
+                            placeholder="e.g. 4"
+                          />
+                        </div>
+                      </div>
+                      <p className="v3-reference-meta">Assigned clip duration: {scene.targetClipSeconds === null ? "trim boundaries incomplete" : scene.targetClipSeconds.toFixed(3) + "s"}.</p>
+                    </>
+                  )}
+                  <button
+                    className="secondary v3-scene-review-button"
+                    type="button"
+                    disabled={busy || rendering}
+                    onClick={() => setSceneOwnerReview(scene.id, scene.reviewStatus !== "approved")}
+                  >
+                    {scene.reviewStatus === "approved" ? "Reopen scene review" : "I reviewed this scene"}
+                  </button>
+                  <p className="hint">Only mark reviewed after checking this scene's narration, ingredients, source steps and footage. This manual scene review is separate from final video/visual realism review.</p>
                 </div>
                 <label htmlFor={"v3-scene-title-" + scene.id}>Scene title</label>
                 <input
