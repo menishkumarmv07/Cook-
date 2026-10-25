@@ -2174,7 +2174,7 @@ export default function V3ContentStudio() {
               return (
                 <article className="v3-reference-card" key={metadata.id}>
                   {referencePreviewUrls[metadata.id]
-                    ? /* eslint-disable-next-line @next/next/no-img-element */ <img className="v3-reference-preview" src={referencePreviewUrls[metadata.id]} alt={"Local preview: " + metadata.label} />
+                    ? <div className="v3-reference-preview" role="img" aria-label={"Local preview: " + metadata.label} style={{ backgroundImage: "url(" + referencePreviewUrls[metadata.id] + ")" }} />
                     : <div className="v3-reference-preview v3-reference-preview-empty" aria-label="Reference preview loading">Preview loading…</div>}
                   <div className="v3-reference-card-body">
                     <span className={metadata.reviewState === "approved" ? "v3-reference-badge is-approved" : "v3-reference-badge"}>
