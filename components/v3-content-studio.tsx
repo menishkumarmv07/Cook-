@@ -442,7 +442,7 @@ function mediaExtensionMatches(fileName: string, kind: V3MediaKind, mimeType: st
   return (kind === "video" ? videoTypes : audioTypes)[extension] === mimeType;
 }
 
-function mediaSignatureMatches(file: File, bytes: Uint8Array, kind: V3MediaKind): boolean {
+function mediaSignatureMatches(file: File, bytes: Uint8Array): boolean {
   const ascii = (start: number, end: number) => String.fromCharCode(...bytes.slice(start, end));
   if (file.type === "video/webm" || file.type === "audio/webm") {
     return bytes.length >= 4 && bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3;
@@ -1203,7 +1203,7 @@ export default function V3ContentStudio() {
         throw new Error("The extension and declared media MIME type do not match a supported import format.");
       }
       const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-      if (!mediaSignatureMatches(file, headerBytes, kind)) {
+      if (!mediaSignatureMatches(file, headerBytes)) {
         throw new Error("The file signature does not match its declared media type. Nothing was imported.");
       }
       const details = await readMediaFileMetadata(file, kind);
