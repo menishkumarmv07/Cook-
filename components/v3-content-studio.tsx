@@ -1088,6 +1088,263 @@ export default function V3ContentStudio() {
     }
   }
 
+  async function importMediaFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      if (file.size <= 0 || file.size > MAX_V3_MEDIA_FILE_BYTES) {
+        throw new Error("Each source video or narration file must be between 1 byte and 100 MiB.");
+      }
+      const kind = mediaKindDraft;
+      const originalFileName = (file.name.split(/[\\/]/).pop() || "owner-media").slice(0, 240);
+      if (kind === "video" && !file.type.toLowerCase().startsWith("video/")) {
+        throw new Error("Choose a video file for a footage asset.");
+      }
+      if (kind === "narration" && !file.type.toLowerCase().startsWith("audio/")) {
+        throw new Error("Choose an audio file for a narration asset.");
+      }
+      if (!mediaExtensionMatches(originalFileName, kind, file.type)) {
+        throw new Error("The extension and declared media MIME type do not match a supported import format.");
+      }
+      const headerBytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+      if (!mediaSignatureMatches(file, headerBytes, kind)) {
+        throw new Error("The file signature does not match its declared media type. Nothing was imported.");
+      }
+      const details = await readMediaFileMetadata(file, kind);
+      const sha256 = await hashBlobSha256(file);
+      const fallbackLabel = originalFileName.replace(/\\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 240) || "Owner media";
+      const metadata: V3MediaAsset = {
+        id: makeId(),
+        kind,
+        label: mediaLabelDraft.trim() || fallbackLabel,
+        originalFileName,
+        mimeType: file.type,
+        byteSize: file.size,
+        sha256,
+        durationMs: details.durationMs,
+        width: details.width,
+        height: details.height,
+        importedAt: new Date().toISOString(),
+        rightsStatus: mediaRightsStatusDraft,
+        rightsNote: mediaRightsNoteDraft.trim(),
+        reviewState: "needs-review",
+      };
+      if (!isV3MediaAsset(metadata)) throw new Error("Media metadata failed validation.");
+      const stored: StoredV3Media = { metadata, file: file.slice(0, file.size, file.type) };
+      await persistNewMedia(stored, mediaAssets);
+      setMediaAssets((existing) => [stored, ...existing]);
+      setMediaRightsNoteDrafts((existing) => ({ ...existing, [metadata.id]: metadata.rightsNote }));
+      setMediaLabelDraft("");
+      setMediaRightsNoteDraft("");
+      setMediaRightsStatusDraft("unknown");
+      setMessage(
+        (kind === "video" ? "Video clip" : "Narration") +
+        " imported into this browser only. It is not uploaded. Review playback and confirm rights before using it in an export.",
+      );
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The media file could not be imported.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeMediaRightsStatus(asset: StoredV3Media, rightsStatus: V3MediaRightsStatus) {
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updateStoredMediaMetadata(asset.metadata.id, asset.metadata.sha256, (metadata) => ({
+        ...metadata,
+        rightsStatus,
+        reviewState: "needs-review",
+      }));
+      setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
+      setMessage("Usage-rights status changed; this asset must be reviewed and cleared again before export.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update media rights status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveMediaRightsNote(asset: StoredV3Media) {
+    const rightsNote = mediaRightsNoteDrafts[asset.metadata.id] ?? "";
+    if (rightsNote.length > 2_000) {
+      setError("Rights notes are limited to 2,000 characters.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updateStoredMediaMetadata(asset.metadata.id, asset.metadata.sha256, (metadata) => ({
+        ...metadata,
+        rightsNote: rightsNote.trim(),
+        reviewState: "needs-review",
+      }));
+      setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
+      setMessage("Rights note saved. Review and clear this asset again before export.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not save the rights note.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function clearMediaForUse(asset: StoredV3Media) {
+    if (asset.metadata.rightsStatus === "unknown" || !asset.metadata.rightsNote.trim()) {
+      setError("Select a verified usage-rights status and enter a short rights note before clearing this asset.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updateStoredMediaMetadata(asset.metadata.id, asset.metadata.sha256, (metadata) => ({
+        ...metadata,
+        reviewState: "owner-cleared",
+      }));
+      setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
+      setMessage("Media asset is owner-cleared for this personal project. This records your rights review; it is not an independent legal verification.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not clear media for use.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeMediaAsset(asset: StoredV3Media) {
+    const usedByProject = projects.some((project) =>
+      project.narrationMediaId === asset.metadata.id ||
+      project.blueprint.scenes.some((scene) => scene.sourceMediaId === asset.metadata.id),
+    );
+    if (usedByProject) {
+      setError("This asset is used by a saved V3 project. Remove its scene assignment/narration selection and save the project before deleting it.");
+      return;
+    }
+    if (!window.confirm("Remove this video/audio file from this browser's local media library?")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteStoredMedia(asset.metadata.id, asset.metadata.sha256);
+      setMediaAssets((existing) => existing.filter((item) => item.metadata.id !== asset.metadata.id));
+      setMediaRightsNoteDrafts((existing) => {
+        const { [asset.metadata.id]: _removed, ...remaining } = existing;
+        return remaining;
+      });
+      setMessage("Media removed from local browser storage.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not remove local media.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function selectNarrationForProject(mediaId: string) {
+    if (!activeProject) {
+      setError("Open a V3 project first to select its narration.");
+      return;
+    }
+    const selected = mediaId ? mediaAssets.find((asset) => asset.metadata.id === mediaId) : null;
+    if (selected && selected.metadata.kind !== "narration") {
+      setError("Select an audio narration asset, not a video clip.");
+      return;
+    }
+    if (selected && (selected.metadata.reviewState !== "owner-cleared" ||
+        selected.metadata.rightsStatus === "unknown" || !selected.metadata.rightsNote.trim())) {
+      setError("Review and owner-clear the narration rights before selecting it for export.");
+      return;
+    }
+    setProjects((existing) => existing.map((project) => project.id === activeProject.id
+      ? { ...project, narrationMediaId: mediaId || null }
+      : project));
+    setDirty(true);
+    setError("");
+    setMessage("Narration selection changed. Save the project before rendering.");
+  }
+
+  function assignSourceVideo(sceneId: string, mediaId: string) {
+    if (!activeProject) return;
+    const selected = mediaId ? mediaAssets.find((asset) => asset.metadata.id === mediaId) : null;
+    if (selected && selected.metadata.kind !== "video") {
+      setError("Only a video clip can be assigned to a cooking scene.");
+      return;
+    }
+    if (selected && (selected.metadata.reviewState !== "owner-cleared" ||
+        selected.metadata.rightsStatus === "unknown" || !selected.metadata.rightsNote.trim())) {
+      setError("Review and owner-clear the video rights before assigning it to a scene.");
+      return;
+    }
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== activeProject.id) return project;
+      return {
+        ...project,
+        blueprint: {
+          ...project.blueprint,
+          status: "draft",
+          scenes: project.blueprint.scenes.map((scene) => scene.id === sceneId ? {
+            ...scene,
+            sourceMediaId: mediaId || null,
+            sourceMediaStartMs: null,
+            sourceMediaEndMs: null,
+            targetClipSeconds: null,
+            reviewStatus: "needs-review" as const,
+          } : scene),
+          reviewNotes: Array.from(new Set([
+            ...project.blueprint.reviewNotes,
+            "Owner video source changed. Confirm the actual footage depicts the exact scene action and recipe state.",
+          ])),
+        },
+      };
+    }));
+    setDirty(true);
+    setError("");
+    setMessage("Scene footage assignment changed. Enter a start/end trim from the real clip and save the project.");
+  }
+
+  function updateSceneMediaTime(sceneId: string, field: "sourceMediaStartMs" | "sourceMediaEndMs", rawSeconds: string) {
+    if (!activeProject) return;
+    let milliseconds: number | null = null;
+    if (rawSeconds.trim()) {
+      const seconds = Number(rawSeconds);
+      if (!Number.isFinite(seconds) || seconds < 0 || seconds > 300) {
+        setError("Source clip trim values must be between 0 and 300 seconds.");
+        return;
+      }
+      milliseconds = Math.round(seconds * 1_000);
+    }
+    setProjects((existing) => existing.map((project) => {
+      if (project.id !== activeProject.id) return project;
+      return {
+        ...project,
+        blueprint: {
+          ...project.blueprint,
+          status: "draft",
+          scenes: project.blueprint.scenes.map((scene) => {
+            if (scene.id !== sceneId) return scene;
+            const start = field === "sourceMediaStartMs" ? milliseconds : scene.sourceMediaStartMs;
+            const end = field === "sourceMediaEndMs" ? milliseconds : scene.sourceMediaEndMs;
+            const valid = start !== null && end !== null && end > start;
+            return {
+              ...scene,
+              [field]: milliseconds,
+              targetClipSeconds: valid ? (end - start) / 1_000 : null,
+              reviewStatus: "needs-review" as const,
+            };
+          }),
+          reviewNotes: Array.from(new Set([
+            ...project.blueprint.reviewNotes,
+            "Source clip trim changed. Verify scene order and caption timing against the final assembled video.",
+          ])),
+        },
+      };
+    }));
+    setDirty(true);
+    setError("");
+    setMessage("Scene trim edited. Render validation checks the range against the actual imported clip duration.");
+  }
+
   async function importReference(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     event.target.value = "";
