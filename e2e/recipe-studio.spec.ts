@@ -1669,6 +1669,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
 
   await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "studio");
   await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" })).toBeVisible();
   const savedRecipeOption = page.locator("#v3-recipe-select option").filter({ hasText: "V3 blueprint QA recipe" }).first();
   const savedRecipeId = await savedRecipeOption.getAttribute("value");
@@ -1698,4 +1699,22 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
   expect((await backupDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.v3-blueprint\.json$/);
   await expect(page.locator(".v3-studio-editor .v3-studio-honesty")).toContainText("NOT TESTED");
+
+  // An empty-media project must not be allowed to render a fake video. The fallback
+  // should produce a real ZIP whose label and manifest make its status unambiguous.
+  await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeDisabled();
+  const bundleDialogPromise = page.waitForEvent("dialog");
+  const bundleDownloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export production bundle ZIP", exact: true }).click();
+  const bundleDialog = await bundleDialogPromise;
+  expect(bundleDialog.type()).toBe("confirm");
+  expect(bundleDialog.message()).toContain("NOT a rendered video");
+  await bundleDialog.accept();
+  const bundleDownload = await bundleDownloadPromise;
+  expect(bundleDownload.suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*-production-bundle\.zip$/);
+  const bundlePath = await bundleDownload.path();
+  expect(bundlePath).toBeTruthy();
+  const bundleBytes = await readFile(bundlePath as string);
+  expect(Array.from(bundleBytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Production bundle downloaded locally" })).toBeVisible();
 });
