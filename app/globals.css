@@ -1815,3 +1815,32 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-caption-timing-grid label{margin-top:10px}
 .v3-caption-timing-grid input{min-width:0}
 @media(max-width:480px){.v3-caption-timing-grid{grid-template-columns:minmax(0,1fr);gap:4px}}
+
+
+/* V3 reference library and owner-controlled Chef & Kitchen Bible. */
+.v3-continuity-library,.v3-bible-editor{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:11px;background:var(--cream);min-width:0;overflow-wrap:anywhere}
+.v3-continuity-library .section-head,.v3-bible-editor .section-head{align-items:flex-start}
+.v3-continuity-library h3,.v3-bible-editor h4{margin:0 0 6px;font-size:16px}
+.v3-continuity-library .section-head p:last-child,.v3-bible-editor .section-head p:last-child{line-height:1.6}
+.v3-reference-import-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:15px 0 18px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:9px;min-width:0}
+.v3-reference-import-form>div{min-width:0}
+.v3-reference-import-form .hint{margin:5px 0 0;font-size:10px;line-height:1.5}
+.v3-reference-import-form input,.v3-reference-import-form select,.v3-reference-import-form textarea{min-width:0;max-width:100%}
+.v3-reference-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;margin-top:16px}
+.v3-reference-card{display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#fff}
+.v3-reference-preview{display:block;width:100%;height:220px;object-fit:contain;background:#f0e7dc;border-bottom:1px solid var(--line)}
+.v3-reference-preview-empty{display:grid;place-items:center;color:var(--muted);font-size:11px}
+.v3-reference-card-body{display:flex;flex-direction:column;align-items:flex-start;gap:7px;padding:13px;min-width:0}
+.v3-reference-card-body h4{margin:0;font-size:13px;overflow-wrap:anywhere}
+.v3-reference-role{margin:0;color:var(--muted);font-size:10px}
+.v3-reference-notes{margin:0;font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.v3-reference-meta{margin:0;color:var(--muted);font-size:9px;line-height:1.5;overflow-wrap:anywhere;word-break:break-word}
+.v3-reference-badge{display:inline-flex;border-radius:5px;padding:4px 6px;background:#fff0d9;color:#80541b;font-size:9px;font-weight:800;letter-spacing:.03em}
+.v3-reference-badge.is-approved{background:#e7f2e7;color:#315f3b}
+.v3-reference-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:5px;width:100%}
+.v3-reference-actions .secondary{width:auto;max-width:100%;margin-top:0;font-size:10px;padding:8px 10px;overflow-wrap:anywhere}
+.v3-bible-editor{background:#fff}
+.v3-bible-editor .step{max-width:160px;overflow-wrap:anywhere}
+.v3-pinned-reference-list{display:grid;gap:5px;padding:10px 12px;background:var(--cream);border-radius:8px;margin:12px 0}
+.v3-pinned-reference-list p{margin:0;font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+@media(max-width:760px){.v3-reference-import-form,.v3-reference-grid{grid-template-columns:minmax(0,1fr)}.v3-continuity-library,.v3-bible-editor{padding:13px}.v3-reference-preview{height:200px}.v3-reference-actions .secondary{flex:1 1 130px}.v3-continuity-library .section-head,.v3-bible-editor .section-head{flex-direction:column}}
