@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
 import {
   DEFAULT_CREATOR_PROFILE,
@@ -24,6 +24,7 @@ import {
   type V3BlueprintScene,
 } from "@/lib/v3-content-blueprint";
 import { buildV3SubtitleFile, validateV3SubtitleTimeline, type V3SubtitleFormat } from "@/lib/v3-captions";
+import { renderV3OwnerFootageVideo } from "@/lib/v3-owner-footage-renderer";
 import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
@@ -80,6 +81,22 @@ type StoredV3Reference = {
 type StoredV3Media = {
   metadata: V3MediaAsset;
   file: Blob;
+};
+
+type V3RenderOutputState = {
+  previewUrl: string;
+  projectId: string;
+  projectRevision: number;
+  planKey: string;
+  sha256: string;
+  durationMs: number;
+  width: number;
+  height: number;
+  byteSize: number;
+  mimeType: string;
+  createdAt: string;
+  reviewed: boolean;
+  fileName: string;
 };
 
 type V3ReferenceRoleOption = {
@@ -889,6 +906,56 @@ function filenameFromTitle(value: string): string {
   return normalized || "cooking-creator-v3-blueprint";
 }
 
+function clickDownloadUrl(url: string, filename: string): void {
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+}
+
+function createRenderPlanKey(project: V3StudioProject, assets: readonly StoredV3Media[]): string {
+  const usedIds = new Set<string>();
+  for (const scene of project.blueprint.scenes) {
+    if (scene.sourceMediaId) usedIds.add(scene.sourceMediaId);
+  }
+  if (project.narrationMediaId) usedIds.add(project.narrationMediaId);
+  const usedAssets = assets
+    .filter((asset) => usedIds.has(asset.metadata.id))
+    .map((asset) => ({
+      id: asset.metadata.id,
+      sha256: asset.metadata.sha256,
+      rightsStatus: asset.metadata.rightsStatus,
+      rightsNote: asset.metadata.rightsNote,
+      reviewState: asset.metadata.reviewState,
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  return JSON.stringify({
+    projectId: project.id,
+    revision: project.revision,
+    sourceFingerprints: project.blueprint.fingerprints,
+    scenes: project.blueprint.scenes.map((scene) => ({
+      id: scene.id,
+      title: scene.title,
+      narrationText: scene.narrationText,
+      captionText: scene.captionText,
+      captionStartMs: scene.captionStartMs,
+      captionEndMs: scene.captionEndMs,
+      sourceMediaId: scene.sourceMediaId,
+      sourceMediaStartMs: scene.sourceMediaStartMs,
+      sourceMediaEndMs: scene.sourceMediaEndMs,
+      targetClipSeconds: scene.targetClipSeconds,
+      reviewStatus: scene.reviewStatus,
+      visualDirection: scene.visualDirection,
+    })),
+    referenceBible: project.referenceBible,
+    narrationMediaId: project.narrationMediaId,
+    usedAssets,
+  });
+}
+
 function downloadLocalFile(filename: string, content: string, contentType: string): void {
   const blob = new Blob([content], { type: contentType });
   const objectUrl = URL.createObjectURL(blob);
@@ -917,6 +984,8 @@ export default function V3ContentStudio() {
   const [mediaRightsNoteDraft, setMediaRightsNoteDraft] = useState("");
   const [rendering, setRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState("");
+  const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
+  const renderAbortRef = useRef<AbortController | null>(null);
   const [referenceRoleDraft, setReferenceRoleDraft] = useState<V3ReferenceRole>("chef-identity");
   const [referenceLabelDraft, setReferenceLabelDraft] = useState("");
   const [referenceDetailsDraft, setReferenceDetailsDraft] = useState("");
@@ -1017,6 +1086,21 @@ export default function V3ContentStudio() {
     () => validateV3SubtitleTimeline(activeProject?.blueprint.scenes ?? []),
     [activeProject],
   );
+
+  const renderPreflight = useMemo(
+    () => preflightV3OwnerFootageRender(
+      activeProject?.blueprint.scenes ?? [],
+      mediaAssets.map((asset) => asset.metadata),
+      activeProject?.narrationMediaId ?? null,
+    ),
+    [activeProject, mediaAssets],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (renderOutput?.previewUrl) URL.revokeObjectURL(renderOutput.previewUrl);
+    };
+  }, [renderOutput]);
 
   function updateScene(sceneId: string, field: "title" | "narrationText" | "captionText" | "visualDirection", value: string) {
     if (!activeProject) return;
