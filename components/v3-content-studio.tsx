@@ -394,6 +394,20 @@ async function getImageDimensions(file: File): Promise<{ width: number; height: 
   return { width, height };
 }
 
+function imageSignatureMatches(mimeType: string, bytes: Uint8Array): boolean {
+  if (mimeType === "image/jpeg") return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (mimeType === "image/png") {
+    const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+    return bytes.length >= signature.length && signature.every((value, index) => bytes[index] === value);
+  }
+  if (mimeType === "image/webp") {
+    return bytes.length >= 12 &&
+      String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" &&
+      String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+  }
+  return false;
+}
+
 async function readEvidenceArchive(): Promise<ResearchEvidenceArchive> {
   const database = await openDatabase(
     EVIDENCE_DATABASE_NAME,
@@ -759,6 +773,161 @@ export default function V3ContentStudio() {
       setMessage("Subtitle file downloaded locally. Playback timing still needs owner review against the final audio.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Subtitle export failed validation.");
+    }
+  }
+
+  async function importReference(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      if (!V3_REFERENCE_IMAGE_MIME_TYPES.includes(file.type as (typeof V3_REFERENCE_IMAGE_MIME_TYPES)[number])) {
+        throw new Error("Use a JPEG, PNG or WebP reference image. Other file types are not accepted.");
+      }
+      if (file.size <= 0 || file.size > MAX_V3_REFERENCE_BYTES) {
+        throw new Error("Each reference image must be between 1 byte and 10 MiB.");
+      }
+      const originalFileName = (file.name.split(/[\\/]/).pop() || "owner-reference").slice(0, 240);
+      const extension = originalFileName.toLowerCase().split(".").pop() || "";
+      const expectedMime: Record<string, string> = {
+        jpg: "image/jpeg",
+        jpeg: "image/jpeg",
+        png: "image/png",
+        webp: "image/webp",
+      };
+      if (expectedMime[extension] !== file.type) {
+        throw new Error("The file extension and image MIME type do not match. Nothing was imported.");
+      }
+      const headerBytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+      if (!imageSignatureMatches(file.type, headerBytes)) {
+        throw new Error("The file signature does not match its declared image type. Nothing was imported.");
+      }
+      const dimensions = await getImageDimensions(file);
+      const sha256 = await hashBlobSha256(file);
+      const fallbackLabel = originalFileName.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ").slice(0, 240) || "Owner reference";
+      const metadata: V3ContinuityReference = {
+        id: makeId(),
+        role: referenceRoleDraft,
+        label: referenceLabelDraft.trim() || fallbackLabel,
+        ownerConfirmedDetails: referenceDetailsDraft.trim(),
+        originalFileName,
+        mimeType: file.type as V3ContinuityReference["mimeType"],
+        byteSize: file.size,
+        sha256,
+        width: dimensions.width,
+        height: dimensions.height,
+        importedAt: new Date().toISOString(),
+        reviewState: "not-reviewed",
+      };
+      if (!validateV3ContinuityReference(metadata)) {
+        throw new Error("The reference metadata failed validation. Check the label and owner-confirmed notes.");
+      }
+      const stored: StoredV3Reference = { metadata, file: file.slice(0, file.size, file.type) };
+      await persistNewReference(stored, references);
+      setReferences((existing) => [stored, ...existing]);
+      setReferenceLabelDraft("");
+      setReferenceDetailsDraft("");
+      setMessage("Reference imported into this browser only. It is not uploaded, and it is NOT approved until you review and mark it.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The reference could not be imported.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function markReferenceReviewed(reference: StoredV3Reference) {
+    if (reference.metadata.reviewState === "approved") return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await updateStoredReferenceMetadata(
+        reference.metadata.id,
+        reference.metadata.sha256,
+        (metadata) => ({ ...metadata, reviewState: "approved" }),
+      );
+      setReferences((existing) => existing.map((item) =>
+        item.metadata.id === updated.metadata.id ? updated : item
+      ));
+      setMessage("You marked this reference as owner-approved. Only use this for an image you actually reviewed and intend to use.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update the reference review state.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function togglePinnedReference(reference: StoredV3Reference) {
+    if (!activeProject) {
+      setError("Create or open a V3 project before pinning references to its Chef & Kitchen Bible.");
+      return;
+    }
+    const currentIds = activeProject.referenceBible.referenceIds;
+    const isPinned = currentIds.includes(reference.metadata.id);
+    if (!isPinned && reference.metadata.reviewState !== "approved") {
+      setError("Review and owner-approve this reference before pinning it to a project.");
+      return;
+    }
+    const nextIds = isPinned
+      ? currentIds.filter((id) => id !== reference.metadata.id)
+      : [...currentIds, reference.metadata.id];
+    try {
+      const referenceBible = incrementV3ContinuityBibleVersion(activeProject.referenceBible, {
+        referenceIds: nextIds,
+      });
+      setProjects((existing) => existing.map((project) => project.id === activeProject.id
+        ? { ...project, referenceBible }
+        : project));
+      setDirty(true);
+      setError("");
+      setMessage("Chef & Kitchen Bible changed. Visual approvals were reset; save the project, then review actual clips before claiming continuity.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update the Chef & Kitchen Bible.");
+    }
+  }
+
+  async function removeReference(reference: StoredV3Reference) {
+    if (projects.some((project) => project.referenceBible.referenceIds.includes(reference.metadata.id))) {
+      setError("This reference is pinned in at least one project. Unpin it from every project and save those changes before removing it.");
+      return;
+    }
+    if (!window.confirm("Remove this reference image from this browser's local V3 library? Saved project blueprints will not be changed.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteStoredReference(reference.metadata.id, reference.metadata.sha256);
+      setReferences((existing) => existing.filter((item) => item.metadata.id !== reference.metadata.id));
+      setMessage("Reference removed from local browser storage. No network upload or repository file was involved.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not remove the local reference.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function saveContinuityNotes() {
+    if (!activeProject) return;
+    const notes = [appearanceNotesDraft, kitchenNotesDraft, allowedVariationsDraft];
+    if (notes.some((item) => item.length > 4_000)) {
+      setError("Each continuity note field is limited to 4,000 characters.");
+      return;
+    }
+    try {
+      const referenceBible = incrementV3ContinuityBibleVersion(activeProject.referenceBible, {
+        ownerConfirmedAppearanceNotes: appearanceNotesDraft,
+        ownerConfirmedKitchenNotes: kitchenNotesDraft,
+        allowedVariations: allowedVariationsDraft,
+      });
+      setProjects((existing) => existing.map((project) => project.id === activeProject.id
+        ? { ...project, referenceBible }
+        : project));
+      setDirty(true);
+      setError("");
+      setMessage("Chef & Kitchen Bible notes updated. All previous visual approvals reset; use only details you personally confirmed.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not update the continuity notes.");
     }
   }
 
