@@ -1,6 +1,5 @@
 import type { V3BlueprintScene } from "./v3-content-blueprint";
 import { preflightV3OwnerFootageRender, type V3MediaAsset } from "./v3-rendering";
-import { validateV3SubtitleTimeline } from "./v3-captions";
 
 export type V3MediaFile = { metadata: V3MediaAsset; file: Blob };
 export type V3RenderProgress = {
