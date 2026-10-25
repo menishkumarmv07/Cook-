@@ -646,6 +646,23 @@ export default function V3ContentStudio() {
             <button className="secondary" type="button" onClick={exportCurrentProject} disabled={busy}>Export JSON backup</button>
           </div>
           <p className="hint">Manual text edits require fresh review. Saving does not approve a scene, verify facts or generate footage.</p>
+          <section className="v3-subtitle-export" aria-labelledby="v3-subtitle-export-title">
+            <h4 id="v3-subtitle-export-title">Manual subtitle timing</h4>
+            <p className="hint">Enter start/end times for each caption from a real narration/audio track. V3 will not guess speech timing. Values are seconds with millisecond precision.</p>
+            {captionTimeline.ok
+              ? <p className="v3-caption-status" role="status">Caption timeline has valid non-overlapping timings.</p>
+              : <p className="v3-caption-status is-warning" role="status">{captionTimeline.issues.length} timing issue(s) must be corrected before export.</p>}
+            <div className="v3-studio-actions">
+              <button className="secondary" type="button" disabled={busy || !captionTimeline.ok} onClick={() => exportSubtitles("srt")}>Export SRT</button>
+              <button className="secondary" type="button" disabled={busy || !captionTimeline.ok} onClick={() => exportSubtitles("vtt")}>Export WebVTT</button>
+            </div>
+            {!captionTimeline.ok && <ul className="v3-caption-issues">
+              {captionTimeline.issues.slice(0, 12).map((issue, index) => (
+                <li key={issue.sceneId + "-" + index}>{issue.sceneId ? issue.sceneId + ": " : ""}{issue.message}</li>
+              ))}
+              {captionTimeline.issues.length > 12 && <li>And {captionTimeline.issues.length - 12} more issue(s).</li>}
+            </ul>}
+          </section>
 
           <div className="v3-scene-list">
             {activeProject.blueprint.scenes.map((scene: V3BlueprintScene, index) => (
@@ -680,6 +697,34 @@ export default function V3ContentStudio() {
                   onChange={(event) => updateScene(scene.id, "captionText", event.target.value)}
                   maxLength={4_000}
                 />
+                <div className="v3-caption-timing-grid">
+                  <div>
+                    <label htmlFor={"v3-caption-start-" + scene.id}>Caption start (seconds)</label>
+                    <input
+                      id={"v3-caption-start-" + scene.id}
+                      type="number"
+                      min="0"
+                      max="86400"
+                      step="0.001"
+                      value={scene.captionStartMs === null ? "" : String(scene.captionStartMs / 1_000)}
+                      onChange={(event) => updateCaptionTiming(scene.id, "captionStartMs", event.target.value)}
+                      placeholder="e.g. 0"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={"v3-caption-end-" + scene.id}>Caption end (seconds)</label>
+                    <input
+                      id={"v3-caption-end-" + scene.id}
+                      type="number"
+                      min="0"
+                      max="86400"
+                      step="0.001"
+                      value={scene.captionEndMs === null ? "" : String(scene.captionEndMs / 1_000)}
+                      onChange={(event) => updateCaptionTiming(scene.id, "captionEndMs", event.target.value)}
+                      placeholder="e.g. 1.5"
+                    />
+                  </div>
+                </div>
                 <label htmlFor={"v3-scene-visual-" + scene.id}>Visual direction / continuity notes</label>
                 <textarea
                   id={"v3-scene-visual-" + scene.id}
