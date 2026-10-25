@@ -1,5 +1,6 @@
-import type { CreatorProfile, Ingredient, RecipeProject, RecipeStep } from "./recipe";
+import type { CreatorProfile, RecipeProject } from "./recipe";
 import {
+  isHttpSourceUrl,
   parseResearchEvidenceArchive,
   type ResearchEvidenceArchive,
 } from "./research-evidence";
@@ -230,11 +231,10 @@ async function sha256(value: JsonValue): Promise<string> {
 
 function safeSourceUrl(value: unknown): string {
   const raw = cleanText(value, 2_048);
-  if (!raw) return "";
+  if (!raw || !isHttpSourceUrl(raw)) return "";
   try {
     const parsed = new URL(raw);
-    if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") || parsed.username || parsed.password) return "";
-    if (!parsed.hostname || parsed.hostname.endsWith(".") || parsed.hostname === "localhost") return "";
+    if (parsed.username || parsed.password) return "";
     return parsed.toString();
   } catch {
     return "";
@@ -629,22 +629,80 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
     if (typeof scene.title !== "string" || typeof scene.narrationText !== "string" || typeof scene.captionText !== "string") return false;
     if (!Array.isArray(scene.onScreenText) || !scene.onScreenText.every((item) => typeof item === "string")) return false;
     if (!Array.isArray(scene.ingredientIds) || !scene.ingredientIds.every((item) => typeof item === "string")) return false;
-    if (!Array.isArray(scene.trace) || !Array.isArray(scene.trace.every ? [] : [])) return false;
+    if (typeof scene.visualDirection !== "string") return false;
+    if (scene.cookingDuration !== null && typeof scene.cookingDuration !== "string") return false;
+    if (scene.heat !== null && typeof scene.heat !== "string") return false;
+    if (scene.visualCue !== null && typeof scene.visualCue !== "string") return false;
+    if (!Array.isArray(scene.trace) || !scene.trace.every((entry) => {
+      if (!isRecord(entry)) return false;
+      if (!["recipe", "ingredient", "step"].includes(String(entry.entityType))) return false;
+      return typeof entry.entityId === "string" && entry.entityId.length > 0 &&
+        Array.isArray(entry.fields) && entry.fields.every((field) => typeof field === "string");
+    })) return false;
     if (scene.reviewStatus !== "needs-review" && scene.reviewStatus !== "approved" && scene.reviewStatus !== "rejected") return false;
     if (scene.targetClipSeconds !== null) return false;
   }
-  return isRecord(value.creatorProfile);
+  if (!isRecord(value.creatorProfile)) return false;
+  const profileKeys = [
+    "tone", "catchphrases", "language", "cuisineFocus", "skillLevel", "equipment", "budget",
+    "dietLimits", "units", "usualCookingTime", "platforms", "neverSay", "sampleCaptions",
+  ];
+  if (!profileKeys.every((key) => typeof value.creatorProfile[key] === "string")) return false;
+  if (!Array.isArray(value.reviewNotes) || !value.reviewNotes.every((note) => typeof note === "string")) return false;
+  if (!value.warnings.every((warning) => {
+    if (!isRecord(warning)) return false;
+    return typeof warning.code === "string" && typeof warning.message === "string" &&
+      (warning.entityId === undefined || typeof warning.entityId === "string");
+  })) return false;
+  if (value.sourceSnapshot.researchEvidence !== null &&
+    !parseResearchEvidenceArchive(value.sourceSnapshot.researchEvidence)) return false;
+  const recipe = value.sourceSnapshot.recipe;
+  if (
+    typeof recipe.id !== "number" || !Number.isSafeInteger(recipe.id) ||
+    typeof recipe.recipeRevision !== "number" || !Number.isSafeInteger(recipe.recipeRevision) ||
+    typeof recipe.name !== "string" || typeof recipe.url !== "string" ||
+    !Array.isArray(recipe.ingredients) || !Array.isArray(recipe.steps) || !Array.isArray(recipe.sourceReferences)
+  ) return false;
+  return true;
 }
+
+export async function verifyV3ContentBlueprintFingerprints(value: unknown): Promise<boolean> {
+  if (!validateV3ContentBlueprint(value)) return false;
+  try {
+    const recipeSha256 = await sha256(toJsonValue(value.sourceSnapshot.recipe));
+    const creatorProfileSha256 = await sha256(toJsonValue(value.creatorProfile));
+    const evidence = value.sourceSnapshot.researchEvidence;
+    const researchEvidenceSha256 = evidence ? await sha256(toJsonValue(evidence)) : null;
+    const inputsSha256 = await sha256(toJsonValue({
+      recipe: value.sourceSnapshot.recipe,
+      creatorProfile: value.creatorProfile,
+      researchEvidence: evidence,
+    }));
+    return recipeSha256 === value.fingerprints.recipeSha256 &&
+      creatorProfileSha256 === value.fingerprints.creatorProfileSha256 &&
+      researchEvidenceSha256 === value.fingerprints.researchEvidenceSha256 &&
+      inputsSha256 === value.fingerprints.inputsSha256;
+  } catch {
+    return false;
+  }
+}
+
+const MAX_BLUEPRINT_BACKUP_BYTES = 15 * 1024 * 1024;
 
 export function createV3ContentBlueprintBackupJSON(blueprint: V3ContentBlueprint): string {
   if (!validateV3ContentBlueprint(blueprint)) {
     throw new V3BlueprintInputError("Only a structurally valid V3 blueprint can be exported.");
   }
-  return JSON.stringify(blueprint, null, 2);
+  const raw = JSON.stringify(blueprint, null, 2);
+  if (new TextEncoder().encode(raw).byteLength > MAX_BLUEPRINT_BACKUP_BYTES) {
+    throw new V3BlueprintInputError("Blueprint backup exceeds the 15 MiB safety limit.");
+  }
+  return raw;
 }
 
 export function parseV3ContentBlueprintBackupJSON(raw: string): V3ContentBlueprint | null {
-  if (typeof raw !== "string" || raw.length > 15_000_000) return null;
+  if (typeof raw !== "string" || raw.length > MAX_BLUEPRINT_BACKUP_BYTES ||
+    new TextEncoder().encode(raw).byteLength > MAX_BLUEPRINT_BACKUP_BYTES) return null;
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
