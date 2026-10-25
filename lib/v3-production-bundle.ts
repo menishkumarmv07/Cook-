@@ -68,6 +68,8 @@ type BundleManifest = {
     path: string;
     id: string;
     kind: string;
+    label?: string;
+    role?: string;
     mimeType: string;
     byteSize: number;
     sha256: string;
@@ -82,10 +84,6 @@ type BundleManifest = {
   missingReferenceIds: string[];
   warnings: string[];
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function utf8(value: string): Uint8Array {
   return new TextEncoder().encode(value);
@@ -317,6 +315,7 @@ export async function createV3ProductionBundle(input: {
       path,
       id: metadata.id,
       kind: metadata.kind,
+      label: metadata.label,
       mimeType: metadata.mimeType,
       byteSize: metadata.byteSize,
       sha256: metadata.sha256,
@@ -350,6 +349,8 @@ export async function createV3ProductionBundle(input: {
       path,
       id: item.metadata.id,
       kind: "reference-image",
+      label: item.metadata.label,
+      role: item.metadata.role,
       mimeType: item.metadata.mimeType,
       byteSize: item.metadata.byteSize,
       sha256: item.metadata.sha256,
