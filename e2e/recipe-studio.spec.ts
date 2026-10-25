@@ -1917,7 +1917,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   expect(reviewedDialog.message()).toContain("checked the cooking actions");
   await reviewedDialog.accept();
   const renderedDownload = await renderedDownloadPromise;
-  expect(renderedDownload.suggestedFilename()).toMatch(/\\.webm$/i);
+  expect(renderedDownload.suggestedFilename().toLowerCase().endsWith(".webm")).toBe(true);
   const renderedFilePath = await renderedDownload.path();
   expect(renderedFilePath).toBeTruthy();
   const renderedBytes = await readFile(renderedFilePath as string);
