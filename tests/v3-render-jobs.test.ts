@@ -69,9 +69,10 @@ test("requires a new job attempt rather than reopening terminal attempts", () =>
     () => transitionV3RenderJob(cancelled, "rendering", finish, "Retry"),
     /cannot be reopened/i,
   );
+  const started = transitionV3RenderJob(createJob(), "rendering", next, "Started.");
   assert.throws(
-    () => transitionV3RenderJob(createJob(), "preparing", next, "invalid regression"),
-    /valid timestamp|preparation/i,
+    () => transitionV3RenderJob(started, "preparing", finish, "invalid regression"),
+    /return to preparation/i,
   );
 });
 
