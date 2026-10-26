@@ -914,6 +914,14 @@ async function persistProject(
   project: V3StudioProject,
   expectedRevision: number | null,
 ): Promise<V3StudioProject> {
+  // Validate before opening the write transaction so malformed drafts or stale
+  // source fingerprints can never be committed and break later project recovery.
+  if (!isStoredProject(project)) {
+    throw new Error("The proposed V3 project failed schema validation. Nothing was saved; correct the invalid fields and retry.");
+  }
+  if (!(await verifyV3ContentBlueprintFingerprints(project.blueprint))) {
+    throw new Error("The proposed V3 project failed recipe/profile/evidence fingerprint verification. Nothing was saved; restore a verified backup or rebuild the blueprint.");
+  }
   const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, PROJECT_STORE, "id");
   try {
     const saved = await new Promise<V3StudioProject>((resolve, reject) => {
