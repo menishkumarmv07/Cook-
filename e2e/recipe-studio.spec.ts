@@ -2045,3 +2045,69 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   // Owner download confirmation cannot upgrade the separate visual-realism result.
   await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
 });
+
+test("V3 refuses a stale-tab project save and preserves the newer revision", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 stale save QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 stale save QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 stale save QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-scene-card")).toHaveCount(4);
+  const primarySceneDirections = page.locator('textarea[id^="v3-scene-visual-"]');
+  await expect(primarySceneDirections).toHaveCount(4);
+
+  // Open a second real browser tab while both tabs still have revision 1.
+  const secondPage = await page.context().newPage();
+  try {
+    await secondPage.goto("/");
+    await chooseMenuTool(secondPage, "AI Chef Studio");
+    await expect(secondPage.locator(".v3-studio-editor"))
+      .toContainText("V3 stale save QA recipe");
+    const staleSceneDirections = secondPage.locator('textarea[id^="v3-scene-visual-"]');
+    await expect(staleSceneDirections).toHaveCount(4);
+
+    // The primary tab saves a new revision after the other tab has loaded its copy.
+    await primarySceneDirections.first().fill("Saved from the primary tab; must survive.");
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.locator("#v3-content-studio [role='status']")
+      .filter({ hasText: "Edits saved locally" })).toBeVisible();
+
+    // The stale copy must fail its revision compare-and-swap rather than overwrite
+    // the newer project. Reopening the tab must recover the primary tab's saved edit.
+    await staleSceneDirections.first().fill("Stale tab edit; must never overwrite newer data.");
+    await secondPage.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(secondPage.locator("#v3-content-studio [role='alert']"))
+      .toContainText(/changed in another tab/i);
+
+    await secondPage.reload();
+    await chooseMenuTool(secondPage, "AI Chef Studio");
+    const recoveredSceneDirections = secondPage.locator('textarea[id^="v3-scene-visual-"]');
+    await expect(recoveredSceneDirections).toHaveCount(4);
+    await expect(recoveredSceneDirections.first())
+      .toHaveValue("Saved from the primary tab; must survive.");
+    await expect(recoveredSceneDirections.first())
+      .not.toHaveValue("Stale tab edit; must never overwrite newer data.");
+  } finally {
+    await secondPage.close();
+  }
+});
