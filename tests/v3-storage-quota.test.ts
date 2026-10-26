@@ -61,6 +61,16 @@ test("explains quota failures with backup-first guidance and never recommends cl
   assert.equal(getV3StorageQuotaErrorMessage(new Error("A different write error")), null);
 });
 
+test("recognizes legacy DOM quota codes and nested IndexedDB quota errors", () => {
+  assert.ok(getV3StorageQuotaErrorMessage({ name: "NS_ERROR_DOM_QUOTA_REACHED" }));
+  assert.ok(getV3StorageQuotaErrorMessage({ code: 22 }));
+  assert.ok(getV3StorageQuotaErrorMessage({ code: 1014 }));
+  assert.ok(getV3StorageQuotaErrorMessage({ cause: { name: "QuotaExceededError" } }));
+  const circular: { cause?: unknown } = {};
+  circular.cause = circular;
+  assert.equal(getV3StorageQuotaErrorMessage(circular), null);
+});
+
 test("formats expected storage errors without replacing useful validation messages", () => {
   assert.equal(
     formatV3StorageErrorMessage(new Error("The project revision is stale."), "fallback"),
