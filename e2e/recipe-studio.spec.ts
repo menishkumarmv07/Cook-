@@ -2021,14 +2021,65 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
         video.src = url;
         video.load();
       });
-      const metadata = { width: video.videoWidth, height: video.videoHeight, duration: video.duration };
-      if (metadata.width !== 720 || metadata.height !== 1280 || !Number.isFinite(metadata.duration) || metadata.duration <= 0) {
-        throw new Error("Downloaded WebM has invalid reopened playback metadata: " + JSON.stringify(metadata));
+      const metadata = {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        reportedDuration: Number.isFinite(video.duration) ? video.duration : null,
+      };
+      if (metadata.width !== 720 || metadata.height !== 1280) {
+        throw new Error("Downloaded WebM has invalid reopened frame dimensions: " + JSON.stringify(metadata));
       }
+
+      // MediaRecorder WebM files can validly report Infinity for duration even when
+      // they decode and play. Mirror the production renderer's fallback: seek to the
+      // end and use the final decoded timestamp rather than treating Infinity as a
+      // broken file or weakening the playable-file check.
       await video.play();
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
       video.pause();
-      return { ...metadata, played: true };
+
+      let effectiveDuration = metadata.reportedDuration;
+      if (effectiveDuration === null || effectiveDuration <= 0) {
+        effectiveDuration = await new Promise<number>((resolve, reject) => {
+          const timeout = window.setTimeout(() => finish(new Error("Downloaded WebM did not seek to a finite end position.")), 8_000);
+          let settled = false;
+          const cleanup = () => {
+            window.clearTimeout(timeout);
+            video.removeEventListener("seeked", onSeeked);
+            video.removeEventListener("durationchange", onDurationChange);
+            video.removeEventListener("error", onError);
+          };
+          const finish = (error?: Error, duration?: number) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (error) reject(error);
+            else if (duration !== undefined && Number.isFinite(duration) && duration > 0) resolve(duration);
+            else reject(new Error("Downloaded WebM did not expose a positive final playback timestamp."));
+          };
+          const resolveDuration = () => {
+            if (Number.isFinite(video.duration) && video.duration > 0) finish(undefined, video.duration);
+          };
+          const onDurationChange = () => resolveDuration();
+          const onSeeked = () => {
+            resolveDuration();
+            if (!settled && Number.isFinite(video.currentTime) && video.currentTime > 0) finish(undefined, video.currentTime);
+          };
+          const onError = () => finish(new Error("Downloaded WebM failed during the end-seek playback check."));
+          video.addEventListener("seeked", onSeeked);
+          video.addEventListener("durationchange", onDurationChange);
+          video.addEventListener("error", onError);
+          try {
+            video.currentTime = Number.MAX_SAFE_INTEGER;
+          } catch {
+            finish(new Error("Browser refused to seek the reopened WebM to its end."));
+          }
+        });
+      }
+      if (!Number.isFinite(effectiveDuration) || effectiveDuration <= 0) {
+        throw new Error("Downloaded WebM has no positive playable duration: " + JSON.stringify(metadata));
+      }
+      return { ...metadata, duration: effectiveDuration, played: true };
     } finally {
       video.pause();
       video.removeAttribute("src");
