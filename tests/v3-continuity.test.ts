@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
+  isLatestV3ClipReviewed,
   reviewV3ContinuityClip,
   hasRequiredV3ContinuityReferenceRoles,
   validateV3ContinuityBible,
@@ -113,6 +114,19 @@ test("cannot mark a clip passed while any criterion is untested or failed", () =
   const latestFail = reviewV3ContinuityClip(priorPass, "clip-2", failed, "fail", []);
   assert.deepEqual(latestFail.lastReviewedClipIds, ["clip-2"]);
   assert.equal(latestFail.visualRealismStatus, "fail");
+});
+
+test("only the latest clip can inherit the saved checklist in an older accumulated-ID Bible", () => {
+  const bible = createEmptyV3ContinuityBible();
+  const legacy = {
+    ...bible,
+    visualRealismStatus: "fail" as const,
+    lastReviewedClipIds: ["old-clip", "latest-clip"],
+  };
+  assert.equal(isLatestV3ClipReviewed(legacy, "old-clip"), false);
+  assert.equal(isLatestV3ClipReviewed(legacy, "latest-clip"), true);
+  assert.equal(isLatestV3ClipReviewed(legacy, ""), false);
+  assert.equal(isLatestV3ClipReviewed({ ...legacy, schemaVersion: 99 } as unknown as typeof bible, "latest-clip"), false);
 });
 
 test("Bible IDs and review states are validated rather than silently normalized", () => {
