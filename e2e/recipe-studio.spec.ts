@@ -2221,7 +2221,7 @@ test("V3 preserves project blueprints and JSON recovery when a saved media recor
   await expect(page.locator("#v3-content-studio [role='alert']"))
     .toContainText(/some local assets failed integrity checks/i);
   await expect(page.locator("#v3-content-studio [role='alert']"))
-    .toContainText(/they were not changed/i);
+    .toContainText(/asset stores were not changed/i);
 
   // Even when a media store fails validation, the owner must still be able to
   // recover the editable recipe-specific blueprint instead of losing the whole studio.
