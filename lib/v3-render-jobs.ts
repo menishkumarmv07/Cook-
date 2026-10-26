@@ -122,7 +122,7 @@ export function markInterruptedV3RenderJobs(
   });
 }
 
-export function sortV3RenderJobsNewestFirst(jobs: readonly V3RenderJob[]): V3RenderJob[] {
+export function sortV3RenderJobsNewestFirst(jobs: readonly unknown[]): V3RenderJob[] {
   return jobs
     .filter(isV3RenderJob)
     .map((job) => ({ ...job }))
