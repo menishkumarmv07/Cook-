@@ -28,6 +28,7 @@ import {
   createEmptyV3CreatorReadiness,
   getV3CreatorReadinessIssues,
   getV3CreatorReadinessWarnings,
+  invalidateV3CreatorReadiness,
   normalizeV3CreatorReadiness,
   patchV3CreatorReadiness,
   validateV3CreatorReadiness,
@@ -1277,7 +1278,7 @@ export default function V3ContentStudio() {
           "A scene was edited manually. Re-check every edited statement against the pinned recipe and evidence before export.",
         ])),
       };
-      return { ...project, blueprint };
+      return { ...project, blueprint, creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness) };
     }));
     setDirty(true);
     setMessage("Unsaved scene edit. Review it against the source recipe before exporting.");
@@ -1298,6 +1299,7 @@ export default function V3ContentStudio() {
       if (project.id !== activeProject.id) return project;
       return {
         ...project,
+        creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
         blueprint: {
           ...project.blueprint,
           status: "draft",
@@ -1396,7 +1398,21 @@ export default function V3ContentStudio() {
     }
   }
 
+  function mediaIsUsedByAnyProject(mediaId: string): boolean {
+    return projects.some((project) =>
+      project.narrationMediaId === mediaId ||
+      project.blueprint.scenes.some((scene) => scene.sourceMediaId === mediaId),
+    );
+  }
+
+  function blockRightsEditForAssignedMedia(mediaId: string): boolean {
+    if (!mediaIsUsedByAnyProject(mediaId)) return false;
+    setError("This media file is assigned to a saved V3 project. Remove all scene/narration assignments and save those project changes before changing rights metadata; then re-assign and re-review the file.");
+    return true;
+  }
+
   async function changeMediaRightsStatus(asset: StoredV3Media, rightsStatus: V3MediaRightsStatus) {
+    if (blockRightsEditForAssignedMedia(asset.metadata.id)) return;
     setBusy(true);
     setError("");
     try {
@@ -1415,6 +1431,7 @@ export default function V3ContentStudio() {
   }
 
   async function saveMediaRightsNote(asset: StoredV3Media) {
+    if (blockRightsEditForAssignedMedia(asset.metadata.id)) return;
     const rightsNote = mediaRightsNoteDrafts[asset.metadata.id] ?? "";
     if (rightsNote.length > 2_000) {
       setError("Rights notes are limited to 2,000 characters.");
@@ -1438,6 +1455,7 @@ export default function V3ContentStudio() {
   }
 
   async function clearMediaForUse(asset: StoredV3Media) {
+    if (blockRightsEditForAssignedMedia(asset.metadata.id)) return;
     if (asset.metadata.rightsStatus === "unknown" || !asset.metadata.rightsNote.trim()) {
       setError("Select a verified usage-rights status and enter a short rights note before clearing this asset.");
       return;
@@ -1500,7 +1518,11 @@ export default function V3ContentStudio() {
       return;
     }
     setProjects((existing) => existing.map((project) => project.id === activeProject.id
-      ? { ...project, narrationMediaId: mediaId || null }
+      ? {
+          ...project,
+          narrationMediaId: mediaId || null,
+          creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
+        }
       : project));
     setDirty(true);
     setError("");
@@ -1523,6 +1545,7 @@ export default function V3ContentStudio() {
       if (project.id !== activeProject.id) return project;
       return {
         ...project,
+        creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
         blueprint: {
           ...project.blueprint,
           status: "draft",
@@ -1561,6 +1584,7 @@ export default function V3ContentStudio() {
       if (project.id !== activeProject.id) return project;
       return {
         ...project,
+        creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
         blueprint: {
           ...project.blueprint,
           status: "draft",
@@ -1690,7 +1714,11 @@ export default function V3ContentStudio() {
         referenceIds: nextIds,
       });
       setProjects((existing) => existing.map((project) => project.id === activeProject.id
-        ? { ...project, referenceBible }
+        ? {
+            ...project,
+            referenceBible,
+            creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
+          }
         : project));
       setDirty(true);
       setError("");
@@ -1733,7 +1761,11 @@ export default function V3ContentStudio() {
         allowedVariations: allowedVariationsDraft,
       });
       setProjects((existing) => existing.map((project) => project.id === activeProject.id
-        ? { ...project, referenceBible }
+        ? {
+            ...project,
+            referenceBible,
+            creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
+          }
         : project));
       setDirty(true);
       setError("");
@@ -1753,6 +1785,7 @@ export default function V3ContentStudio() {
       const allApproved = scenes.every((scene) => scene.reviewStatus === "approved");
       return {
         ...project,
+        creatorReadiness: invalidateV3CreatorReadiness(project.creatorReadiness),
         blueprint: {
           ...project.blueprint,
           status: allApproved ? "blueprint-reviewed" : "draft",

@@ -139,6 +139,27 @@ export function patchV3CreatorReadiness(
   return { ...readiness, ...patch, checks };
 }
 
+/**
+ * Invalidate all publish-readiness attestations after an upstream recipe, media,
+ * continuity, or review change. The copy itself is preserved; only the previous
+ * version's approvals are cleared so users must review the current project again.
+ */
+export function invalidateV3CreatorReadiness(readiness: V3CreatorReadiness): V3CreatorReadiness {
+  if (!validateV3CreatorReadiness(readiness)) {
+    throw new Error("Cannot invalidate an invalid V3 creator-readiness record.");
+  }
+  return {
+    ...readiness,
+    checks: {
+      recipeFactsReviewed: false,
+      foodSafetyReviewed: false,
+      assetRightsReviewed: false,
+      originalityReviewed: false,
+      platformDisclosureReviewed: false,
+    },
+  };
+}
+
 export function getV3CreatorReadinessIssues(readiness: V3CreatorReadiness): string[] {
   const issues: string[] = [];
   if (!readiness.title.trim()) issues.push("Add a distinct, recipe-specific title or hook (maximum 100 characters).");

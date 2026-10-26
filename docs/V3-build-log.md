@@ -1,5 +1,13 @@
 # V3 Build Log — Cooking Creator
 
+## Creator-readiness dependency hardening — 26 October 2026
+
+- Added a shared helper that clears every publish-readiness checkbox after upstream scene, caption-timing, source-footage, narration, scene-review, or Chef & Kitchen Bible changes while preserving the current copy. This prevents a formerly reviewed version from carrying its attestations into edited content.
+- Rights status/notes cannot be changed while a media file is assigned to any loaded project. Unassign it and save the project first, update and re-review rights, then reassign and review the scene again. This prevents an existing asset-rights attestation silently applying to changed rights metadata.
+- Unit tests verify the full checklist resets immutably. The current branch test run will verify compile/runtime integration on the exact new commit; no green result is assumed here.
+
+---
+
 ## Implementation hardening — 26 October 2026
 
 - Tightened the visual realism PASS contract: it now requires both an owner-approved pinned `chef-identity` reference and an owner-approved pinned `kitchen-wide` or `kitchen-detail` reference. A generic pinned image or a wardrobe-only image is not sufficient.

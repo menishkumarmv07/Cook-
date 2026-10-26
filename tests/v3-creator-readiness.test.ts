@@ -4,6 +4,7 @@ import {
   createEmptyV3CreatorReadiness,
   getV3CreatorReadinessIssues,
   getV3CreatorReadinessWarnings,
+  invalidateV3CreatorReadiness,
   isV3CreatorReadinessChecklistComplete,
   normalizeV3CreatorReadiness,
   patchV3CreatorReadiness,
@@ -59,6 +60,21 @@ test("edits invalidate only review checks that depend on the changed creator cop
 
   const notesOnly = patchV3CreatorReadiness(original, { notes: "Added context only." });
   assert.deepEqual(notesOnly.checks, original.checks);
+});
+
+test("upstream project changes invalidate every publish-readiness attestation without altering copy", () => {
+  const original = completeOwnerFootageChecklist();
+  const invalidated = invalidateV3CreatorReadiness(original);
+
+  assert.equal(invalidated.title, original.title);
+  assert.equal(invalidated.caption, original.caption);
+  assert.equal(invalidated.callToAction, original.callToAction);
+  assert.equal(invalidated.hashtags, original.hashtags);
+  assert.equal(invalidated.mediaOrigin, original.mediaOrigin);
+  assert.ok(V3_CREATOR_REVIEW_CHECKS.every((item) => invalidated.checks[item.key] === false));
+
+  // Invalidation is immutable: it must not clear the original object's approvals.
+  assert.ok(V3_CREATOR_REVIEW_CHECKS.every((item) => original.checks[item.key] === true));
 });
 
 test("uncertain media origin blocks readiness even when all other checks are marked", () => {
