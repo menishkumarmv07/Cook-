@@ -62,7 +62,7 @@ import {
   type V3MediaKind,
   type V3MediaRightsStatus,
 } from "@/lib/v3-rendering";
-import { assessV3StorageQuota, formatV3StorageBytes, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
+import { assessV3StorageQuota, formatV3StorageBytes, formatV3StorageErrorMessage, getV3StorageQuotaErrorMessage, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -1195,7 +1195,7 @@ export default function V3ContentStudio() {
         } catch (caught) {
           assetLoadWarnings.push(
             "Chef & Kitchen references could not be fully verified: " +
-            (caught instanceof Error ? caught.message : "unknown storage error"),
+            (formatV3StorageErrorMessage(caught, "unknown storage error")),
           );
         }
         try {
@@ -1203,7 +1203,7 @@ export default function V3ContentStudio() {
         } catch (caught) {
           assetLoadWarnings.push(
             "Video/narration assets could not be fully verified: " +
-            (caught instanceof Error ? caught.message : "unknown storage error"),
+            (formatV3StorageErrorMessage(caught, "unknown storage error")),
           );
         }
 
@@ -1225,7 +1225,7 @@ export default function V3ContentStudio() {
           );
         }
       } catch (caught) {
-        if (!cancelled) setError(caught instanceof Error ? caught.message : "V3 could not load local data.");
+        if (!cancelled) setError(formatV3StorageErrorMessage(caught, "V3 could not load local data."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1414,7 +1414,7 @@ export default function V3ContentStudio() {
       setError("");
       setMessage("Subtitle file downloaded locally. Playback timing still needs owner review against the final audio.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Subtitle export failed validation.");
+      setError(formatV3StorageErrorMessage(caught, "Subtitle export failed validation."));
     }
   }
 
@@ -1476,7 +1476,7 @@ export default function V3ContentStudio() {
         " imported into this browser only. It is not uploaded. Review playback and confirm rights before using it in an export.",
       );
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The media file could not be imported.");
+      setError(formatV3StorageErrorMessage(caught, "The media file could not be imported."));
     } finally {
       setBusy(false);
     }
@@ -1508,7 +1508,7 @@ export default function V3ContentStudio() {
       setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
       setMessage("Usage-rights status changed; this asset must be reviewed and cleared again before export.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update media rights status.");
+      setError(formatV3StorageErrorMessage(caught, "Could not update media rights status."));
     } finally {
       setBusy(false);
     }
@@ -1532,7 +1532,7 @@ export default function V3ContentStudio() {
       setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
       setMessage("Rights note saved. Review and clear this asset again before export.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the rights note.");
+      setError(formatV3StorageErrorMessage(caught, "Could not save the rights note."));
     } finally {
       setBusy(false);
     }
@@ -1554,7 +1554,7 @@ export default function V3ContentStudio() {
       setMediaAssets((existing) => existing.map((item) => item.metadata.id === updated.metadata.id ? updated : item));
       setMessage("Media asset is owner-cleared for this personal project. This records your rights review; it is not an independent legal verification.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not clear media for use.");
+      setError(formatV3StorageErrorMessage(caught, "Could not clear media for use."));
     } finally {
       setBusy(false);
     }
@@ -1580,7 +1580,7 @@ export default function V3ContentStudio() {
       ));
       setMessage("Media removed from local browser storage.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not remove local media.");
+      setError(formatV3StorageErrorMessage(caught, "Could not remove local media."));
     } finally {
       setBusy(false);
     }
@@ -1752,7 +1752,7 @@ export default function V3ContentStudio() {
       setReferenceDetailsDraft("");
       setMessage("Reference imported into this browser only. It is not uploaded, and it is NOT approved until you review and mark it.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The reference could not be imported.");
+      setError(formatV3StorageErrorMessage(caught, "The reference could not be imported."));
     } finally {
       setBusy(false);
     }
@@ -1773,7 +1773,7 @@ export default function V3ContentStudio() {
       ));
       setMessage("You marked this reference as owner-approved. Only use this for an image you actually reviewed and intend to use.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update the reference review state.");
+      setError(formatV3StorageErrorMessage(caught, "Could not update the reference review state."));
     } finally {
       setBusy(false);
     }
@@ -1808,7 +1808,7 @@ export default function V3ContentStudio() {
       setError("");
       setMessage("Chef & Kitchen Bible changed. Visual approvals were reset; save the project, then review actual clips before claiming continuity.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update the Chef & Kitchen Bible.");
+      setError(formatV3StorageErrorMessage(caught, "Could not update the Chef & Kitchen Bible."));
     }
   }
 
@@ -1825,7 +1825,7 @@ export default function V3ContentStudio() {
       setReferences((existing) => existing.filter((item) => item.metadata.id !== reference.metadata.id));
       setMessage("Reference removed from local browser storage. No network upload or repository file was involved.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not remove the local reference.");
+      setError(formatV3StorageErrorMessage(caught, "Could not remove the local reference."));
     } finally {
       setBusy(false);
     }
@@ -1855,7 +1855,7 @@ export default function V3ContentStudio() {
       setError("");
       setMessage("Chef & Kitchen Bible notes updated. All previous visual approvals reset; use only details you personally confirmed.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not update the continuity notes.");
+      setError(formatV3StorageErrorMessage(caught, "Could not update the continuity notes."));
     }
   }
 
@@ -1936,7 +1936,7 @@ export default function V3ContentStudio() {
       setMessage(notes.join(" "));
       setError("");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The production bundle could not be created. Your saved project remains intact.");
+      setError(formatV3StorageErrorMessage(caught, "The production bundle could not be created. Your saved project remains intact."));
     } finally {
       setBusy(false);
     }
@@ -1994,7 +1994,7 @@ export default function V3ContentStudio() {
       if (caught instanceof DOMException && caught.name === "AbortError") {
         setMessage("Rendering was cancelled. The saved project and local source assets were preserved; no output was approved or downloaded.");
       } else {
-        setError(caught instanceof Error ? caught.message : "Video render failed. The source project remains saved.");
+        setError(formatV3StorageErrorMessage(caught, "Video render failed. The source project remains saved."));
       }
     } finally {
       renderAbortRef.current = null;
@@ -2058,7 +2058,7 @@ export default function V3ContentStudio() {
         ? "Visual continuity review saved for this exact clip. This is an owner-recorded review of the footage, not proof of AI-generated video."
         : "Visual review saved as FAIL for this clip. Rework or replace the footage and render again before using it.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the visual continuity review.");
+      setError(formatV3StorageErrorMessage(caught, "Could not save the visual continuity review."));
     } finally {
       setBusy(false);
     }
@@ -2085,7 +2085,7 @@ export default function V3ContentStudio() {
       setMessage("Saved project and source files were re-checked. The download confirmation is ready for 30 seconds; make no edits before downloading.");
     } catch (caught) {
       setPreparedDownloadSha(null);
-      setError(caught instanceof Error ? caught.message : "The render could not be verified for download.");
+      setError(formatV3StorageErrorMessage(caught, "The render could not be verified for download."));
     } finally {
       setBusy(false);
     }
@@ -2151,9 +2151,10 @@ export default function V3ContentStudio() {
       setDirty(false);
       setMessage("Blueprint saved locally. It is a scene plan, not a rendered or AI-generated video.");
     } catch (caught) {
-      setError(caught instanceof Error
+      const quotaMessage = getV3StorageQuotaErrorMessage(caught);
+      setError(quotaMessage ?? (caught instanceof Error
         ? caught.message + (omitResearchLedger ? "" : " If you deliberately want to continue without the separate Research Studio ledger, tick the explicit opt-out and try again.")
-        : "The blueprint could not be created. Your saved V2 recipe was not changed.");
+        : "The blueprint could not be created. Your saved V2 recipe was not changed."));
     } finally {
       setBusy(false);
     }
@@ -2202,7 +2203,7 @@ export default function V3ContentStudio() {
       setDirty(false);
       setMessage("Edits saved locally. Scene review is still required before export.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not save the scene edits.");
+      setError(formatV3StorageErrorMessage(caught, "Could not save the scene edits."));
     } finally {
       setBusy(false);
     }
@@ -2219,7 +2220,7 @@ export default function V3ContentStudio() {
       );
       setMessage("V3 blueprint backup downloaded to this device. No upload occurred.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The blueprint backup could not be prepared.");
+      setError(formatV3StorageErrorMessage(caught, "The blueprint backup could not be prepared."));
     }
   }
 
@@ -2326,7 +2327,7 @@ export default function V3ContentStudio() {
       setDirty(false);
       setMessage("The blueprint backup was verified and restored locally. Review all scene text before use.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The backup could not be restored.");
+      setError(formatV3StorageErrorMessage(caught, "The backup could not be restored."));
     } finally {
       setBusy(false);
     }
@@ -2355,7 +2356,7 @@ export default function V3ContentStudio() {
       setMessage("V2 recipes refreshed from this browser. Previously created V3 snapshots remain unchanged.");
       setError("");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not refresh V2 recipes.");
+      setError(formatV3StorageErrorMessage(caught, "Could not refresh V2 recipes."));
     }
   }
 
