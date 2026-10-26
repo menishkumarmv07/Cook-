@@ -1,5 +1,6 @@
 import type { V3BlueprintScene } from "./v3-content-blueprint";
 import { preflightV3OwnerFootageRender, type V3MediaAsset } from "./v3-rendering";
+import { patchV3WebmDuration } from "./v3-webm-duration";
 
 export type V3MediaFile = { metadata: V3MediaAsset; file: Blob };
 export type V3RenderProgress = {
@@ -277,7 +278,7 @@ async function sha256Blob(blob: Blob): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signal?: AbortSignal): Promise<number> {
+async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signal?: AbortSignal, requireFiniteDuration = false): Promise<number> {
   ensureNotAborted(signal);
   if (blob.size <= 0 || blob.size > MAX_OUTPUT_BYTES) {
     throw new Error("Rendered video is empty or exceeds the 500 MiB output limit.");
@@ -294,6 +295,9 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     video.src = url;
     video.load();
     await waitForMediaReady(video, signal);
+    if (requireFiniteDuration && (!Number.isFinite(video.duration) || video.duration <= 0)) {
+      throw new Error("The finalized WebM still has no finite Duration metadata after patching. The output was rejected.");
+    }
     const actualDurationMs = await discoverV3RecordedVideoDurationMs(video, signal);
     const durationToleranceMs = Math.max(500, Math.min(2_500, expectedDurationMs * 0.05));
     if (!Number.isFinite(actualDurationMs) || actualDurationMs < expectedDurationMs - durationToleranceMs ||
@@ -624,14 +628,24 @@ export async function renderV3OwnerFootageVideo(options: {
     if (timelineOffsetMs !== preflight.durationMs) {
       throw new Error("The rendered timeline no longer matches its preflight duration.");
     }
-    const verifiedDurationMs = await verifyRecordedVideo(blob, preflight.durationMs, signal);
+    // MediaRecorder frequently omits a finite Duration element in WebM. Measure
+    // the real decoded end position first, then write that measured duration into
+    // the container so reopened files expose a finite playback timeline.
+    const measuredDurationMs = await verifyRecordedVideo(blob, preflight.durationMs, signal);
+    const finalizedBlob = await patchV3WebmDuration(blob, measuredDurationMs);
+    const verifiedDurationMs = await verifyRecordedVideo(
+      finalizedBlob,
+      preflight.durationMs,
+      signal,
+      true,
+    );
     return {
-      blob,
-      mimeType: blob.type || mimeType,
+      blob: finalizedBlob,
+      mimeType: finalizedBlob.type || mimeType,
       width: WIDTH,
       height: HEIGHT,
       durationMs: verifiedDurationMs,
-      sha256: await sha256Blob(blob),
+      sha256: await sha256Blob(finalizedBlob),
       sceneCount: scenes.length,
     };
   } catch (error) {
