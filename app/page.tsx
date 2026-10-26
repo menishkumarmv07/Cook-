@@ -4,7 +4,7 @@ import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
 import EditorialCalendar from "@/components/editorial-calendar";
 import MonetizationWorkspace from "@/components/monetization-workspace";
-import V3ContentStudio from "@/components/v3-content-studio";
+import dynamic from "next/dynamic";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
   buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
@@ -43,6 +43,15 @@ import {
   type Scene,
   type SourceReference,
 } from "@/lib/recipe";
+
+const V3ContentStudio = dynamic(() => import("@/components/v3-content-studio"), {
+  ssr: false,
+  loading: () => (
+    <section id="v3-content-studio" className="v3-studio" role="status" aria-live="polite">
+      Opening AI Chef Studio…
+    </section>
+  ),
+});
 
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
