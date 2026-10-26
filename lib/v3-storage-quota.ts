@@ -43,3 +43,30 @@ export function formatV3StorageBytes(bytes: number): string {
   }
   return value.toFixed(value >= 10 ? 0 : 1) + " " + units[index];
 }
+
+/**
+ * Present a safe, actionable explanation when IndexedDB refuses a write because
+ * the browser's origin storage is full. This does not retry, delete, or overwrite
+ * any user data; callers should preserve their existing project and back it up
+ * before freeing browser storage.
+ */
+export function getV3StorageQuotaErrorMessage(error: unknown): string | null {
+  if (!error || (typeof error !== "object" && typeof error !== "function")) return null;
+  const details = error as { name?: unknown; message?: unknown };
+  const name = typeof details.name === "string" ? details.name : "";
+  const message = typeof details.message === "string" ? details.message : "";
+  if (
+    name === "QuotaExceededError" ||
+    /quota(?:exceeded| exceeded)|storage(?: space)? is full/i.test(name + " " + message)
+  ) {
+    return "This browser's local storage is full, so the change was not saved. Keep the current project open, export its JSON backup and a production-bundle ZIP, then free browser storage only after verifying your backups. V3 does not delete stored projects automatically.";
+  }
+  return null;
+}
+
+/** Keep existing validation errors intact while making quota failures actionable. */
+export function formatV3StorageErrorMessage(error: unknown, fallback: string): string {
+  return getV3StorageQuotaErrorMessage(error) ??
+    (error instanceof Error ? error.message : fallback);
+}
+
