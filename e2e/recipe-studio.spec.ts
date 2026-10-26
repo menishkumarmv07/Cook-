@@ -1832,7 +1832,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("Target platform")).toHaveValue("instagram-reels");
+  await expect(page.locator("#v3-target-platform")).toHaveValue("instagram-reels");
   await expect(page.getByLabel("Title / hook (up to 100 characters)")).toHaveValue("V3 QA recipe title");
   await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
   const readinessLayout = await page.evaluate(() => ({
