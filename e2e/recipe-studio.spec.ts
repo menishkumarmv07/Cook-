@@ -2368,3 +2368,74 @@ test("V3 preserves project blueprints and JSON recovery when a saved media recor
   expect(parsed.recipeTitle).toBe("V3 asset recovery QA recipe");
   expect(parsed.scenes?.length).toBe(4);
 });
+
+test("V3 restores validated blueprint backups as new drafts and leaves existing projects untouched on invalid imports", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 backup restore QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 backup restore QA recipe" })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Simmer the rice gently");
+  await page.getByLabel("Timing").nth(0).fill("12 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 backup restore QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  const backup = await backupDownload;
+  expect(backup.suggestedFilename()).toMatch(/v3-backup-restore-qa-recipe.*\.v3-blueprint\.json$/);
+  const backupPath = await backup.path();
+  expect(backupPath).toBeTruthy();
+  const originalBackup = JSON.parse(await readFile(backupPath as string, "utf8")) as {
+    recipeTitle?: string;
+    scenes?: unknown[];
+  };
+  expect(originalBackup.recipeTitle).toBe("V3 backup restore QA recipe");
+  expect(originalBackup.scenes?.length).toBe(4);
+
+  const savedProjects = page.locator(".v3-studio-project");
+  const importInput = page.locator("#v3-blueprint-import");
+  await expect(savedProjects).toHaveCount(1);
+
+  // A verified restore always creates a new draft; repeating it cannot overwrite
+  // the original or silently transfer scene approvals from the source project.
+  await importInput.setInputFiles(backupPath as string);
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "The blueprint backup was verified and restored locally" })).toBeVisible();
+  await expect(savedProjects).toHaveCount(2);
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 backup restore QA recipe");
+  await importInput.setInputFiles(backupPath as string);
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "The blueprint backup was verified and restored locally" })).toBeVisible();
+  await expect(savedProjects).toHaveCount(3);
+
+  // Malformed input must not overwrite/delete any of the three already saved drafts.
+  await importInput.setInputFiles({
+    name: "corrupt-blueprint.v3-blueprint.json",
+    mimeType: "application/json",
+    buffer: Buffer.from("{not valid JSON"),
+  });
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText("The backup failed schema or source-fingerprint verification. Existing projects were not changed.");
+  await expect(savedProjects).toHaveCount(3);
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 backup restore QA recipe");
+});
+
