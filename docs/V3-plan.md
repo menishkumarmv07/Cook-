@@ -1,10 +1,12 @@
-## Live execution status — 26 October 2026
+## Live execution status — 26 October 2026 (08:35 UTC)
 
-- Latest previously verified feature-code head: `c510e67102be32801bce1b3d488cf1c2d66dd734`; current documentation-only build-log commit follows it. PR #83 remains open and draft.
-- Exact-head Actions run [#745](https://github.com/menishkumarmv07/Cook-/actions/runs/40286039676) succeeded for install/unit/lint/typecheck/build. Do not treat that job as proof that full browser E2E or rendered-file playback passed.
-- The AI Chef Studio dedicated-tool CSS visibility fix is committed on the feature branch. Re-check desktop/mobile browser E2E on the newest branch head; older failures and cancelled runs are diagnostic history only.
-- Release gates still open: play back a real rendered file and inspect audio/caption sync; owner acceptance on physical Android Chrome; confirm real chef/kitchen references are safely available locally; security/secret/privacy scan; keep reference-guided AI generation unavailable unless a real current provider passes all ₹0/no-card, rights, privacy and continuity requirements.
-- Keep the V2 history/contracts intact. ZIP/production bundle is not video. Do not merge or mark V3 complete until the release evidence is recorded.
+- Current PR head after quota-error hardening and regression coverage: `55ccd62f47cce2d78998c1026db1d5b6a8ecbae2`. PR #83 remains open, draft, and unmerged.
+- Exact-head GitHub Actions [run #758](https://github.com/menishkumarmv07/Cook-/actions/runs/40292731160) succeeded: 207 unit tests, ESLint, TypeScript, production build, owner-auth browser smoke, and 104 desktop/mobile Playwright E2E tests passed.
+- V3.6 browser quota safeguards now provide estimate warnings (80% warning / 90% critical), preserve native quota exceptions on local reference/media writes, and show backup-first guidance. The browser UI warning is covered in both desktop/mobile E2E; true quota exhaustion on the owner's device has not been forced.
+- Current deploy status is blocked by the Vercel free-plan build-rate limit. No upgrade, card or paid fallback is acceptable; a matching Ready deployment is not verified.
+- Rendering feasibility remains scoped to actual owner-provided moving footage and narration. CI synthetic fixtures prove browser WebM encode/finalize/reopen/playback mechanics only. AI reference-guided video generation is not enabled, original owner chef/kitchen references are not present in the repository, and actual visual realism/physical Android Chrome acceptance remain NOT TESTED.
+- The 93-entry repo tree contains no tracked private media assets; `.env.example` is the only tracked dotenv file and has blank placeholders. Source-tree inspection is not a platform-wide secret scan.
+- Continue V3.6 recovery failure-path tests and the integrated V3.8 gate in order. Preserve V1/V2; don't merge or claim V3 complete until all release gates have evidence.
 
 # V3 research-backed execution plan — 25 October 2026
 
