@@ -223,7 +223,12 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     const durationToleranceMs = Math.max(500, Math.min(2_500, expectedDurationMs * 0.05));
     if (!Number.isFinite(actualDurationMs) || actualDurationMs < expectedDurationMs - durationToleranceMs ||
         actualDurationMs > expectedDurationMs + durationToleranceMs) {
-      throw new Error("The rendered video's duration differs too much from the planned timeline. Keep the source project and review the render.");
+      throw new Error(
+        "The rendered video's duration differs too much from the planned timeline " +
+        "(planned " + expectedDurationMs + " ms ± " + durationToleranceMs + " ms; browser reported " +
+        (Number.isFinite(actualDurationMs) ? Math.round(actualDurationMs) : "a non-finite duration") +
+        " ms). The partial output was rejected; keep the source project and review the render.",
+      );
     }
     if (video.videoWidth !== WIDTH || video.videoHeight !== HEIGHT) {
       throw new Error("The rendered file does not match the expected 720×1280 portrait dimensions.");
