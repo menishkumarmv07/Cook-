@@ -1950,6 +1950,13 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   // Validate IndexedDB state before the final gesture. The actual native download
   // click must stay synchronous after confirmation for Chromium and Android browsers.
   await page.getByRole("button", { name: "Prepare reviewed WebM download", exact: true }).click();
+  await expect.poll(async () => {
+    if (await page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).count()) return "PREPARED";
+    const alerts = (await page.locator("#v3-content-studio [role='alert']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    if (alerts.length) return "PREPARE ERROR: " + alerts.join(" | ");
+    const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    return "PREPARING: " + statuses.slice(-3).join(" | ");
+  }, { timeout: 20_000, intervals: [250, 500, 1_000] }).toBe("PREPARED");
   await expect(page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true })).toBeEnabled();
   const reviewedConfirm = page.waitForEvent("dialog");
   let downloadWaitError = "";
