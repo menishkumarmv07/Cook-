@@ -64,23 +64,23 @@ test("updates a finite Segment size when Duration is inserted", () => {
 
 test("updates SeekHead offsets that point to tracks after the extended Info element", () => {
   const source = minimalWebm({ seekToTracks: true });
-  const segmentDataStart = 9;
-  const seekHeadPayloadStart = segmentDataStart + 5;
+  const segmentDataStart = 10; // 5-byte EBML header, then the 4-byte Segment ID and 1-byte size.
+  const seekHeadPayloadStart = segmentDataStart;
   const seekHeadElementSize = source[seekHeadPayloadStart + 4] & 0x7f;
   assert.ok(seekHeadElementSize > 0);
 
   const patched = patchV3WebmDurationBytes(source, 1_200);
-  const newSeekHeadPayloadStart = seekHeadPayloadStart;
   const positionId = [0x53, 0xac];
   const positionIndex = (() => {
-    for (let index = newSeekHeadPayloadStart; index < newSeekHeadPayloadStart + 32; index += 1) {
+    for (let index = seekHeadPayloadStart; index < seekHeadPayloadStart + 32; index += 1) {
       if (patched[index] === positionId[0] && patched[index + 1] === positionId[1]) return index;
     }
     return -1;
   })();
   assert.ok(positionIndex >= 0, "SeekPosition element should remain present");
   const positionValue = patched[positionIndex + 3];
-  const originalRelativeTracksOffset = source[seekHeadPayloadStart + seekHeadElementSize - 1];
+  const seekHeadTotalLength = 5 + seekHeadElementSize;
+  const originalRelativeTracksOffset = source[seekHeadPayloadStart + seekHeadTotalLength - 1];
   assert.equal(positionValue, originalRelativeTracksOffset + 11);
   assert.equal(readV3WebmDurationMs(patched), 1_200);
 });
