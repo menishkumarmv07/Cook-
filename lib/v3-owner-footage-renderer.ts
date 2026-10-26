@@ -139,6 +139,81 @@ async function seekVideo(video: HTMLVideoElement, milliseconds: number, signal?:
   });
 }
 
+/**
+ * MediaRecorder-created WebM blobs may omit a finite Duration value in their EBML
+ * Info element. Browsers can still play the completed file, but report duration=Infinity
+ * until a seek reaches the end. Force that seek and use the decoder's resolved end time
+ * instead of treating a playable recording as corrupt.
+ */
+export async function discoverV3RecordedVideoDurationMs(
+  video: HTMLVideoElement,
+  signal?: AbortSignal,
+): Promise<number> {
+  ensureNotAborted(signal);
+  if (Number.isFinite(video.duration) && video.duration > 0) {
+    return Math.round(video.duration * 1_000);
+  }
+
+  const durationMs = await new Promise<number>((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(
+      () => finish(new Error("This browser could not resolve the completed WebM duration by seeking to its end.")),
+      8_000,
+    );
+    const cleanup = () => {
+      window.clearTimeout(timeout);
+      video.removeEventListener("durationchange", handleDurationChange);
+      video.removeEventListener("seeked", handleSeeked);
+      video.removeEventListener("error", handleError);
+      signal?.removeEventListener("abort", handleAbort);
+    };
+    const finish = (error?: Error, value?: number) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else if (value !== undefined) resolve(value);
+      else reject(new Error("The browser did not provide a usable WebM duration."));
+    };
+    const isUsable = (seconds: number) =>
+      Number.isFinite(seconds) && seconds > 0 && seconds <= 600;
+    const resolveKnownDuration = () => {
+      if (isUsable(video.duration)) finish(undefined, Math.round(video.duration * 1_000));
+    };
+    const handleDurationChange = () => resolveKnownDuration();
+    const handleSeeked = () => {
+      resolveKnownDuration();
+      if (settled) return;
+      // Some browsers continue reporting Infinity but clamp currentTime to the
+      // final decoded position. That end position is still an observable duration.
+      if (isUsable(video.currentTime)) finish(undefined, Math.round(video.currentTime * 1_000));
+      else finish(new Error("The completed WebM could not be seeked to a finite end position."));
+    };
+    const handleError = () => finish(new Error("The browser could not decode the completed WebM while finding its duration."));
+    const handleAbort = () => finish(abortError());
+    video.addEventListener("durationchange", handleDurationChange);
+    video.addEventListener("seeked", handleSeeked);
+    video.addEventListener("error", handleError);
+    signal?.addEventListener("abort", handleAbort, { once: true });
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    try {
+      video.currentTime = Number.MAX_SAFE_INTEGER;
+    } catch {
+      finish(new Error("The browser refused to seek to the end of this WebM recording."));
+    }
+  });
+
+  if (!Number.isSafeInteger(durationMs) || durationMs <= 0) {
+    throw new Error("The completed WebM did not provide a safe, positive duration.");
+  }
+  video.pause();
+  await seekVideo(video, 0, signal);
+  return durationMs;
+}
+
 function fitCaptionLines(context: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
   const lines: string[] = [];
@@ -202,7 +277,7 @@ async function sha256Blob(blob: Blob): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signal?: AbortSignal): Promise<void> {
+async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signal?: AbortSignal): Promise<number> {
   ensureNotAborted(signal);
   if (blob.size <= 0 || blob.size > MAX_OUTPUT_BYTES) {
     throw new Error("Rendered video is empty or exceeds the 500 MiB output limit.");
@@ -219,7 +294,7 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     video.src = url;
     video.load();
     await waitForMediaReady(video, signal);
-    const actualDurationMs = video.duration * 1_000;
+    const actualDurationMs = await discoverV3RecordedVideoDurationMs(video, signal);
     const durationToleranceMs = Math.max(500, Math.min(2_500, expectedDurationMs * 0.05));
     if (!Number.isFinite(actualDurationMs) || actualDurationMs < expectedDurationMs - durationToleranceMs ||
         actualDurationMs > expectedDurationMs + durationToleranceMs) {
@@ -548,13 +623,13 @@ export async function renderV3OwnerFootageVideo(options: {
     if (timelineOffsetMs !== preflight.durationMs) {
       throw new Error("The rendered timeline no longer matches its preflight duration.");
     }
-    await verifyRecordedVideo(blob, preflight.durationMs, signal);
+    const verifiedDurationMs = await verifyRecordedVideo(blob, preflight.durationMs, signal);
     return {
       blob,
       mimeType: blob.type || mimeType,
       width: WIDTH,
       height: HEIGHT,
-      durationMs: preflight.durationMs,
+      durationMs: verifiedDurationMs,
       sha256: await sha256Blob(blob),
       sceneCount: scenes.length,
     };
