@@ -2439,3 +2439,104 @@ test("V3 restores validated blueprint backups as new drafts and leaves existing 
     .toContainText("V3 backup restore QA recipe");
 });
 
+test("V3 keeps chef reference assets local, owner-approvable, pinned, and recoverable after reload", async ({ page }) => {
+  const recipeTitle = "V3 local reference privacy QA recipe";
+  const referenceLabel = "Synthetic CI reference — never publish";
+  const externalRequests: string[] = [];
+
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill(recipeTitle);
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: recipeTitle }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor")).toContainText(recipeTitle);
+
+  // Create a small disposable PNG inside the test browser. This is only a
+  // storage/privacy fixture; it is not the owner's real chef or kitchen image.
+  const fixturePngBase64 = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas was unavailable for the local reference fixture.");
+    context.fillStyle = "#f5e2d4";
+    context.fillRect(0, 0, 48, 48);
+    context.fillStyle = "#81543b";
+    context.beginPath();
+    context.arc(24, 24, 14, 0, Math.PI * 2);
+    context.fill();
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+
+  const appOrigin = new URL(page.url()).origin;
+  page.on("request", (request) => {
+    const requestUrl = new URL(request.url());
+    if ((requestUrl.protocol === "http:" || requestUrl.protocol === "https:") && requestUrl.origin !== appOrigin) {
+      externalRequests.push(request.method() + " " + requestUrl.origin);
+    }
+  });
+
+  await page.locator("#v3-reference-role").selectOption("chef-identity");
+  await page.locator("#v3-reference-label").fill(referenceLabel);
+  await page.locator("#v3-reference-details").fill("Synthetic automated-test fixture only; not a real owner reference.");
+  await page.locator("#v3-reference-file").setInputFiles({
+    name: "v3-ci-reference.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(fixturePngBase64, "base64"),
+  });
+
+  const referenceCard = page.locator(".v3-reference-card").filter({ hasText: referenceLabel });
+  await expect(referenceCard).toHaveCount(1);
+  await expect(referenceCard).toContainText("Chef identity");
+  await expect(referenceCard).toContainText("NOT REVIEWED");
+  await expect(referenceCard).toContainText("Local only");
+  const initialPreview = await referenceCard.locator(".v3-reference-preview")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(initialPreview).toContain("blob:");
+
+  await referenceCard.getByRole("button", { name: "I reviewed this reference", exact: true }).click();
+  await expect(referenceCard).toContainText("OWNER-APPROVED");
+  await referenceCard.getByRole("button", { name: "Pin to current project", exact: true }).click();
+  await expect(page.locator(".v3-pinned-reference-list")).toContainText(referenceLabel);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Edits saved locally" })).toBeVisible();
+  expect(externalRequests).toEqual([]);
+
+  // A reload must recover the validated image bytes and its approved/pinned
+  // metadata from IndexedDB; a URL link or a metadata-only ghost card is not enough.
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  const savedProjectButton = page.locator(".v3-studio-project").filter({ hasText: recipeTitle }).first();
+  await expect(savedProjectButton).toBeVisible();
+  await savedProjectButton.click();
+  await expect(page.locator(".v3-studio-editor")).toContainText(recipeTitle);
+  const recoveredReference = page.locator(".v3-reference-card").filter({ hasText: referenceLabel });
+  await expect(recoveredReference).toContainText("OWNER-APPROVED");
+  await expect(recoveredReference).toContainText("Local only");
+  await expect(page.locator(".v3-pinned-reference-list")).toContainText(referenceLabel);
+  const recoveredPreview = await recoveredReference.locator(".v3-reference-preview")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(recoveredPreview).toContain("blob:");
+  expect(externalRequests).toEqual([]);
+});
+
