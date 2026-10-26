@@ -1,3 +1,11 @@
+## Live execution status — 26 October 2026
+
+- Latest previously verified feature-code head: `c510e67102be32801bce1b3d488cf1c2d66dd734`; current documentation-only build-log commit follows it. PR #83 remains open and draft.
+- Exact-head Actions run [#745](https://github.com/menishkumarmv07/Cook-/actions/runs/40286039676) succeeded for install/unit/lint/typecheck/build. Do not treat that job as proof that full browser E2E or rendered-file playback passed.
+- The AI Chef Studio dedicated-tool CSS visibility fix is committed on the feature branch. Re-check desktop/mobile browser E2E on the newest branch head; older failures and cancelled runs are diagnostic history only.
+- Release gates still open: play back a real rendered file and inspect audio/caption sync; owner acceptance on physical Android Chrome; confirm real chef/kitchen references are safely available locally; security/secret/privacy scan; keep reference-guided AI generation unavailable unless a real current provider passes all ₹0/no-card, rights, privacy and continuity requirements.
+- Keep the V2 history/contracts intact. ZIP/production bundle is not video. Do not merge or mark V3 complete until the release evidence is recorded.
+
 # V3 research-backed execution plan — 25 October 2026
 
 > <b>Status — implementation in progress:</b> V3 now has feature code on branch <code>v3/ai-chef-content-studio</code>, based on verified V2 main commit <code>5d0da951e2a73c5098ba82308f23438556b3f80c</code>. The blueprint, reference library/Bible, subtitle timeline, local owner-footage renderer, labelled ZIP fallback, and US creator-readiness checklist are implemented with unit and browser tests. Do NOT mark V3 complete yet: current exact-head CI, robust failure/recovery cases, physical Android acceptance, and real chef/kitchen visual-realism review remain release gates. AI-reference generation remains unavailable unless a genuinely ₹0/no-card provider is proven to meet every requirement. This is the execution authority for Cooking Creator only.
