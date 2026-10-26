@@ -51,16 +51,31 @@ export function formatV3StorageBytes(bytes: number): string {
  * before freeing browser storage.
  */
 export function getV3StorageQuotaErrorMessage(error: unknown): string | null {
-  if (!error || (typeof error !== "object" && typeof error !== "function")) return null;
-  const details = error as { name?: unknown; message?: unknown };
-  const name = typeof details.name === "string" ? details.name : "";
-  const message = typeof details.message === "string" ? details.message : "";
-  if (
-    name === "QuotaExceededError" ||
-    /quota(?:exceeded| exceeded)|storage(?: space)? is full/i.test(name + " " + message)
-  ) {
-    return "This browser's local storage is full, so the change was not saved. Keep the current project open, export its JSON backup and a production-bundle ZIP, then free browser storage only after verifying your backups. V3 does not delete stored projects automatically.";
+  const visited = new Set<object>();
+  let current: unknown = error;
+
+  // Some browsers wrap a DOMException in an IndexedDB request/transaction error.
+  // Bound traversal and track identities so malformed causes cannot loop forever.
+  for (let depth = 0; depth < 4 && current !== null && typeof current === "object"; depth += 1) {
+    if (visited.has(current)) break;
+    visited.add(current);
+    const details = current as { name?: unknown; message?: unknown; code?: unknown; cause?: unknown; error?: unknown };
+    const name = typeof details.name === "string" ? details.name : "";
+    const message = typeof details.message === "string" ? details.message : "";
+    const code = typeof details.code === "number" ? details.code : -1;
+
+    if (
+      name === "QuotaExceededError" ||
+      name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      code === 22 ||
+      code === 1014 ||
+      /quota(?:exceeded| exceeded)|storage(?: space)? is full/i.test(name + " " + message)
+    ) {
+      return "This browser's local storage is full, so the change was not saved. Keep the current project open, export its JSON backup and a production-bundle ZIP, then free browser storage only after verifying your backups. V3 does not delete stored projects automatically.";
+    }
+    current = details.cause ?? details.error;
   }
+
   return null;
 }
 
