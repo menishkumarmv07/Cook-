@@ -2104,6 +2104,24 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
 });
 
+test("V3 shows backup-first guidance when the browser-origin storage estimate is critical", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.storage, "estimate", {
+      configurable: true,
+      value: async () => ({ usage: 95, quota: 100 }),
+    });
+  });
+  await page.goto("/");
+  await chooseMenuTool(page, "AI Chef Studio");
+
+  const warning = page.locator('[aria-label="Browser storage warning"]');
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText("Storage is nearly full.");
+  await expect(warning).toContainText("95%");
+  await expect(warning).toContainText("Export the project JSON and a production-bundle ZIP");
+  await expect(warning).toContainText("Nothing is deleted automatically.");
+});
+
 test("V3 refuses a stale-tab project save and preserves the newer revision", async ({ page }) => {
   await page.goto("/");
   await chooseMenuTool(page, "New recipe");
