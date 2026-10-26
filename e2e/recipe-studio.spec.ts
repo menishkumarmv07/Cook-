@@ -1902,10 +1902,13 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
     await scene.locator('select[id^="v3-scene-video-"]').selectOption(videoId as string);
     await scene.locator('input[id^="v3-source-start-"]').fill("0");
     await scene.locator('input[id^="v3-source-end-"]').fill("0.4");
-    await scene.locator(".v3-scene-review-button").click();
     await scene.locator('textarea[id^="v3-scene-caption-"]').fill("Synthetic QA test clip — not for publishing");
     await scene.locator('input[id^="v3-caption-start-"]').fill(String(index * 0.4));
     await scene.locator('input[id^="v3-caption-end-"]').fill(String((index + 1) * 0.4));
+    // Every edit invalidates approval, so review only after all scene fields are final.
+  }
+  for (let index = 0; index < 4; index += 1) {
+    await sceneCards.nth(index).locator(".v3-scene-review-button").click();
   }
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible({ timeout: 10_000 });
