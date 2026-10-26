@@ -506,13 +506,17 @@ export async function renderV3OwnerFootageVideo(options: {
       };
     });
 
-    // Begin both tracks without awaiting one before starting the other.
-    recorder.start(1_000);
-    recorderStarted = true;
+    // Start both source tracks together and wait until playback has actually begun
+    // before opening the recorder. Starting MediaRecorder first can capture browser
+    // startup latency as unintended leading silence, making the file duration diverge
+    // from the approved scene timeline on slower desktop/mobile decoders.
     const audioPlay = audio.play();
     const firstVideoPlay = preparedScenes[0].video.play();
-    onProgress?.({ stage: "rendering", completedScenes: 0, totalScenes: scenes.length, message: "Recording the 720×1280 montage from local footage and reviewed narration…" });
     await Promise.all([audioPlay, firstVideoPlay]);
+    ensureNotAborted(signal);
+    recorder.start(1_000);
+    recorderStarted = true;
+    onProgress?.({ stage: "rendering", completedScenes: 0, totalScenes: scenes.length, message: "Recording the 720×1280 montage from local footage and reviewed narration…" });
 
     let timelineOffsetMs = 0;
     for (let index = 0; index < preparedScenes.length; index += 1) {
