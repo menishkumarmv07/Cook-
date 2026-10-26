@@ -29,6 +29,7 @@ import {
   getV3CreatorReadinessIssues,
   getV3CreatorReadinessWarnings,
   normalizeV3CreatorReadiness,
+  validateV3CreatorReadiness,
   type V3CreatorReadiness,
   type V3CreatorReviewCheckKey,
 } from "@/lib/v3-creator-readiness";
@@ -166,7 +167,8 @@ function isStoredProject(value: unknown): value is V3StudioProject {
     typeof value.revision === "number" && Number.isSafeInteger(value.revision) && value.revision >= 1 &&
     (value.narrationMediaId === null || typeof value.narrationMediaId === "string") &&
     validateV3ContentBlueprint(value.blueprint) &&
-    validateV3ContinuityBible(value.referenceBible);
+    validateV3ContinuityBible(value.referenceBible) &&
+    validateV3CreatorReadiness(value.creatorReadiness);
 }
 
 function normalizeStoredBlueprint(value: unknown): { blueprint: V3ContentBlueprint; migrated: boolean } | null {
