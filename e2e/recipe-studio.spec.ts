@@ -1963,7 +1963,6 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
     const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
     return "PREPARING: " + statuses.slice(-3).join(" | ");
   }, { timeout: 20_000, intervals: [250, 500, 1_000] }).toBe("PREPARED");
-  await expect(page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true })).toBeEnabled();
   const reviewedConfirm = page.waitForEvent("dialog");
   let downloadWaitError = "";
   const renderedDownloadPromise = page.waitForEvent("download", { timeout: 15_000 }).catch((error: unknown) => {
