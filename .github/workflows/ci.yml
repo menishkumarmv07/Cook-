@@ -50,7 +50,7 @@ jobs:
           npm run build
       - name: Install Chromium for browser tests
         timeout-minutes: 5
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - name: Owner-auth browser smoke (fast diagnostic gate)
         # Fresh, masked credentials are used only by this disposable smoke-test server.
         env:
