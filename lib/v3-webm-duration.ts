@@ -60,19 +60,19 @@ function readSizeVint(bytes: Uint8Array, offset: number): SizeVint {
   const length = markerLength(bytes[offset], 8);
   if (offset + length > bytes.length) throw new Error("Truncated EBML element size.");
   const marker = 1 << (8 - length);
-  let value = BigInt(bytes[offset] & (marker - 1));
+  let value = bytes[offset] & (marker - 1);
   for (let index = 1; index < length; index += 1) {
-    value = (value << 8n) | BigInt(bytes[offset + index]);
+    value = value * 256 + bytes[offset + index];
+    if (!Number.isSafeInteger(value)) throw new Error("EBML element exceeds safe browser size limits.");
   }
-  const allOnes = (1n << BigInt(7 * length)) - 1n;
+  const allOnes = 2 ** (7 * length) - 1;
   const unknown = value === allOnes;
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("EBML element exceeds safe browser size limits.");
-  return { length, value: Number(value), unknown };
+  return { length, value, unknown };
 }
 
 function encodeSizeVint(value: number, preferredLength?: number): Uint8Array {
   if (!Number.isSafeInteger(value) || value < 0) throw new Error("Invalid EBML payload size.");
-  const fits = (width: number) => BigInt(value) <= ((1n << BigInt(7 * width)) - 2n);
+  const fits = (width: number) => value <= (2 ** (7 * width) - 2);
   let length = preferredLength ?? 1;
   if (preferredLength !== undefined && fits(preferredLength)) {
     length = preferredLength;
@@ -81,11 +81,11 @@ function encodeSizeVint(value: number, preferredLength?: number): Uint8Array {
     while (length <= 8 && !fits(length)) length += 1;
   }
   if (length > 8) throw new Error("Updated WebM segment exceeds EBML size limits.");
-  let remaining = BigInt(value);
+  let remaining = value;
   const result = new Uint8Array(length);
   for (let index = length - 1; index >= 0; index -= 1) {
-    result[index] = Number(remaining & 0xffn);
-    remaining >>= 8n;
+    result[index] = remaining % 256;
+    remaining = Math.floor(remaining / 256);
   }
   result[0] |= 1 << (8 - length);
   return result;
@@ -128,24 +128,25 @@ function childElements(bytes: Uint8Array, parent: EbmlElement): EbmlElement[] {
 
 function readUnsigned(bytes: Uint8Array, element: EbmlElement): number {
   if (element.dataLength < 1 || element.dataLength > 8) throw new Error("Invalid unsigned EBML integer length.");
-  let value = 0n;
+  let value = 0;
   for (let index = element.dataStart; index < element.end; index += 1) {
-    value = (value << 8n) | BigInt(bytes[index]);
+    value = value * 256 + bytes[index];
+    if (!Number.isSafeInteger(value)) throw new Error("EBML integer exceeds safe browser limits.");
   }
-  if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("EBML integer exceeds safe browser limits.");
-  return Number(value);
+  return value;
 }
 
 function writeUnsigned(bytes: Uint8Array, offset: number, width: number, value: number): void {
   if (!Number.isSafeInteger(value) || value < 0 || width < 1 || width > 8 ||
-      BigInt(value) > ((1n << BigInt(width * 8)) - 1n)) {
+      (width < 8 && value >= 256 ** width)) {
     throw new Error("A WebM SeekHead/Cues offset cannot be updated safely.");
   }
-  let remaining = BigInt(value);
+  let remaining = value;
   for (let index = width - 1; index >= 0; index -= 1) {
-    bytes[offset + index] = Number(remaining & 0xffn);
-    remaining >>= 8n;
+    bytes[offset + index] = remaining % 256;
+    remaining = Math.floor(remaining / 256);
   }
+  if (remaining !== 0) throw new Error("A WebM SeekHead/Cues offset cannot be updated safely.");
 }
 
 function concatBytes(parts: readonly Uint8Array[]): Uint8Array {
