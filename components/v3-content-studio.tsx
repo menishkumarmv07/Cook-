@@ -63,6 +63,7 @@ import {
   type V3MediaRightsStatus,
 } from "@/lib/v3-rendering";
 import { assessV3StorageQuota, formatV3StorageBytes, formatV3StorageErrorMessage, getV3StorageQuotaErrorMessage, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
+import { createV3RenderJob, isV3RenderJob, markInterruptedV3RenderJobs, sortV3RenderJobsNewestFirst, transitionV3RenderJob, type V3RenderJob } from "@/lib/v3-render-jobs";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -71,10 +72,12 @@ const EVIDENCE_DATABASE_VERSION = 1;
 const EVIDENCE_STORE = "archives";
 const EVIDENCE_ARCHIVE_KEY = "primary";
 const PROJECT_DATABASE_NAME = "cooking-creator-v3-content-studio";
-const PROJECT_DATABASE_VERSION = 3;
+const PROJECT_DATABASE_VERSION = 4;
 const PROJECT_STORE = "projects";
 const REFERENCE_STORE = "references";
 const MEDIA_STORE = "media";
+const RENDER_JOB_STORE = "renderJobs";
+const RENDER_SESSION_STORAGE_KEY = "cooking-creator-v3-render-session";
 const MAX_V3_REFERENCE_COUNT = 20;
 const MAX_V3_REFERENCE_TOTAL_BYTES = 80 * 1024 * 1024;
 const MAX_BACKUP_BYTES = 15 * 1024 * 1024;
@@ -289,6 +292,9 @@ function openDatabase(
         if (!database.objectStoreNames.contains(MEDIA_STORE)) {
           database.createObjectStore(MEDIA_STORE, { keyPath: "metadata.id" });
         }
+        if (!database.objectStoreNames.contains(RENDER_JOB_STORE)) {
+          database.createObjectStore(RENDER_JOB_STORE, { keyPath: "id" });
+        }
       } else if (!database.objectStoreNames.contains(storeName)) {
         database.createObjectStore(storeName, keyPath ? { keyPath } : undefined);
       }
@@ -314,6 +320,94 @@ function openDatabase(
       reject(new Error("V3 project storage is busy in another tab. Close the other tab and retry."));
     };
   });
+}
+
+
+async function loadStoredV3RenderJobs(): Promise<V3RenderJob[]> {
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, RENDER_JOB_STORE, "id");
+  try {
+    const records = await new Promise<unknown[]>((resolve, reject) => {
+      const transaction = database.transaction(RENDER_JOB_STORE, "readonly");
+      const request = transaction.objectStore(RENDER_JOB_STORE).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error ?? new Error("Could not load the local render-job history."));
+      transaction.onabort = () => reject(transaction.error ?? new Error("Loading render-job history was interrupted."));
+    });
+    if (records.some((record) => !isV3RenderJob(record))) {
+      throw new Error("The local render-job history contains an invalid record. It was not overwritten.");
+    }
+    return sortV3RenderJobsNewestFirst(records);
+  } finally {
+    database.close();
+  }
+}
+
+/**
+ * Save a new render attempt or compare-and-swap a state transition. Render
+ * history stores metadata only; no video, audio, or reference bytes are copied.
+ */
+async function persistStoredV3RenderJob(
+  job: V3RenderJob,
+  expectedUpdatedAt: string | null,
+): Promise<void> {
+  if (!isV3RenderJob(job)) throw new Error("The render-job record failed schema validation.");
+  const database = await openDatabase(PROJECT_DATABASE_NAME, PROJECT_DATABASE_VERSION, RENDER_JOB_STORE, "id");
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction(RENDER_JOB_STORE, "readwrite");
+      const store = transaction.objectStore(RENDER_JOB_STORE);
+      const existingRequest = store.get(job.id);
+      let safeError: Error | null = null;
+      existingRequest.onsuccess = () => {
+        const existing = existingRequest.result;
+        if (expectedUpdatedAt === null) {
+          if (existing !== undefined) {
+            safeError = new Error("This render-job ID already exists. The prior attempt was not overwritten.");
+            transaction.abort();
+            return;
+          }
+          const addRequest = store.add(job);
+          addRequest.onerror = () => {
+            safeError = addRequest.error ?? new Error("Could not save render-job history.");
+          };
+          return;
+        }
+        if (!isV3RenderJob(existing) || existing.updatedAt !== expectedUpdatedAt ||
+            existing.ownerSessionId !== job.ownerSessionId) {
+          safeError = new Error("This render-job record changed in another tab. Reload the history before retrying.");
+          transaction.abort();
+          return;
+        }
+        const updateRequest = store.put(job);
+        updateRequest.onerror = () => {
+          safeError = updateRequest.error ?? new Error("Could not update render-job history.");
+        };
+      };
+      existingRequest.onerror = () => {
+        safeError = existingRequest.error ?? new Error("Could not read the render-job record before saving.");
+        transaction.abort();
+      };
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(safeError ?? transaction.error ?? new Error("Could not save local render-job history."));
+      transaction.onabort = () => reject(safeError ?? transaction.error ?? new Error("Saving render-job history was interrupted."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
+function getV3RenderSessionId(): string {
+  try {
+    const existing = window.sessionStorage.getItem(RENDER_SESSION_STORAGE_KEY);
+    if (existing && existing.length <= 160) return existing;
+    const sessionId = makeId();
+    window.sessionStorage.setItem(RENDER_SESSION_STORAGE_KEY, sessionId);
+    return sessionId;
+  } catch {
+    // Without sessionStorage, retain history but do not guess which tab owns an
+    // in-progress job: marking another live tab's job interrupted would be unsafe.
+    return "volatile:" + makeId();
+  }
 }
 
 async function hashBlobSha256(blob: Blob): Promise<string> {
@@ -1118,6 +1212,8 @@ export default function V3ContentStudio() {
   const [rendering, setRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState("");
   const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
+  const [renderJobs, setRenderJobs] = useState<V3RenderJob[]>([]);
+  const [renderSessionId] = useState<string>(() => getV3RenderSessionId());
   const [preparedDownloadSha, setPreparedDownloadSha] = useState<string | null>(null);
   const [visualReviewDrafts, setVisualReviewDrafts] = useState<Record<string, V3VisualReviewChecklist>>({});
   const renderAbortRef = useRef<AbortController | null>(null);
@@ -1192,6 +1288,36 @@ export default function V3ContentStudio() {
         let savedReferences: StoredV3Reference[] = [];
         let savedMedia: StoredV3Media[] = [];
         const assetLoadWarnings: string[] = [];
+        let savedRenderJobs: V3RenderJob[] = [];
+        try {
+          const loadedJobs = await loadStoredV3RenderJobs();
+          if (renderSessionId.startsWith("volatile:")) {
+            savedRenderJobs = loadedJobs;
+          } else {
+            const recoveryTime = new Date().toISOString();
+            const recoveredJobs = markInterruptedV3RenderJobs(loadedJobs, recoveryTime, renderSessionId);
+            const originalById = new Map(loadedJobs.map((job) => [job.id, job]));
+            for (const recoveredJob of recoveredJobs) {
+              const original = originalById.get(recoveredJob.id);
+              if (original && original.status !== recoveredJob.status) {
+                try {
+                  await persistStoredV3RenderJob(recoveredJob, original.updatedAt);
+                } catch (caught) {
+                  assetLoadWarnings.push(
+                    "A previous render attempt was marked interrupted in this view, but its recovery state could not be saved: " +
+                    formatV3StorageErrorMessage(caught, "unknown storage error"),
+                  );
+                }
+              }
+            }
+            savedRenderJobs = recoveredJobs;
+          }
+        } catch (caught) {
+          assetLoadWarnings.push(
+            "Render-job history could not be fully verified: " +
+            formatV3StorageErrorMessage(caught, "unknown storage error"),
+          );
+        }
         try {
           savedReferences = await loadStoredReferences();
         } catch (caught) {
@@ -1214,6 +1340,7 @@ export default function V3ContentStudio() {
         setRecipeSkippedCount(saved.skipped);
         setCreatorProfile(profile);
         setProjects(savedProjects);
+        setRenderJobs(savedRenderJobs);
         setReferences(savedReferences);
         setMediaAssets(savedMedia);
         setMediaRightsNoteDrafts(Object.fromEntries(savedMedia.map((item) => [item.metadata.id, item.metadata.rightsNote])));
@@ -1289,6 +1416,9 @@ export default function V3ContentStudio() {
 
   const creatorReadinessIssues = activeProject
     ? getV3CreatorReadinessIssues(activeProject.creatorReadiness)
+    : [];
+  const recentRenderJobs = activeProject
+    ? renderJobs.filter((job) => job.projectId === activeProject.id).slice(0, 5)
     : [];
 
   const renderOutputIsCurrent = Boolean(
@@ -1959,12 +2089,37 @@ export default function V3ContentStudio() {
     }
     const controller = new AbortController();
     renderAbortRef.current = controller;
+    let renderJob: V3RenderJob | null = null;
     setBusy(true);
     setRendering(true);
     setRenderProgress("Preparing the local footage and narration…");
     setError("");
     setMessage("");
     try {
+      const planKey = await hashBlobSha256(new Blob([createRenderPlanKey(activeProject, mediaAssets)], { type: "text/plain;charset=utf-8" }));
+      const preparingJob = createV3RenderJob({
+        id: makeId(),
+        projectId: activeProject.id,
+        projectRevision: activeProject.revision,
+        ownerSessionId: renderSessionId,
+        planKey,
+        startedAt: new Date().toISOString(),
+      });
+      await persistStoredV3RenderJob(preparingJob, null);
+      renderJob = preparingJob;
+      setRenderJobs((existing) => sortV3RenderJobsNewestFirst([preparingJob, ...existing]));
+      const renderingJob = transitionV3RenderJob(
+        preparingJob,
+        "rendering",
+        new Date().toISOString(),
+        "Rendering actual owner-supplied moving footage with local narration and captions.",
+      );
+      await persistStoredV3RenderJob(renderingJob, preparingJob.updatedAt);
+      renderJob = renderingJob;
+      setRenderJobs((existing) => sortV3RenderJobsNewestFirst([
+        renderingJob,
+        ...existing.filter((job) => job.id !== renderingJob.id),
+      ]));
       const result = await renderV3OwnerFootageVideo({
         scenes: activeProject.blueprint.scenes,
         assets: mediaAssets.map((asset) => ({ metadata: asset.metadata, file: asset.file })),
@@ -1992,11 +2147,61 @@ export default function V3ContentStudio() {
         fileName,
       });
       setMessage("A real playable WebM was recorded and its playback metadata was validated. Review the preview below before downloading. This is an edit of owner-supplied footage, not AI-generated footage.");
+      if (renderJob) {
+        try {
+          const completedJob = transitionV3RenderJob(
+            renderJob,
+            "completed",
+            new Date().toISOString(),
+            "The browser validated a playable WebM and its finite duration metadata.",
+          );
+          await persistStoredV3RenderJob(completedJob, renderJob.updatedAt);
+          renderJob = completedJob;
+          setRenderJobs((existing) => sortV3RenderJobsNewestFirst([
+            completedJob,
+            ...existing.filter((job) => job.id !== completedJob.id),
+          ]));
+        } catch (caught) {
+          setError(
+            "The WebM was rendered and validated, but local render history could not record completion: " +
+            formatV3StorageErrorMessage(caught, "unknown storage error") +
+            " The current preview is still available; export a project backup before further storage changes.",
+          );
+        }
+      }
     } catch (caught) {
-      if (caught instanceof DOMException && caught.name === "AbortError") {
+      const wasCancelled = caught instanceof DOMException && caught.name === "AbortError";
+      let historySaveFailed = false;
+      if (renderJob && (renderJob.status === "preparing" || renderJob.status === "rendering")) {
+        try {
+          const terminalJob = transitionV3RenderJob(
+            renderJob,
+            wasCancelled ? "cancelled" : "failed",
+            new Date().toISOString(),
+            (wasCancelled
+              ? "Rendering was cancelled by the owner. The saved project and source media remain available."
+              : formatV3StorageErrorMessage(caught, "Video render failed. The saved project remains available.")).slice(0, 500),
+          );
+          await persistStoredV3RenderJob(terminalJob, renderJob.updatedAt);
+          renderJob = terminalJob;
+          setRenderJobs((existing) => sortV3RenderJobsNewestFirst([
+            terminalJob,
+            ...existing.filter((job) => job.id !== terminalJob.id),
+          ]));
+        } catch {
+          historySaveFailed = true;
+        }
+      }
+      if (wasCancelled) {
         setMessage("Rendering was cancelled. The saved project and local source assets were preserved; no output was approved or downloaded.");
       } else {
         setError(formatV3StorageErrorMessage(caught, "Video render failed. The source project remains saved."));
+      }
+      if (historySaveFailed) {
+        setError((current) => [
+          current,
+          "Render history could not be updated; the source project and media remain the recovery source.",
+        ].filter(Boolean).join(" "));
       }
     } finally {
       renderAbortRef.current = null;
@@ -2389,6 +2594,21 @@ export default function V3ContentStudio() {
 
       {error && <p className="v3-studio-alert" role="alert">{error}</p>}
       {message && <p className="message" role="status" aria-live="polite">{message}</p>}
+
+      {recentRenderJobs.length > 0 && (
+        <section className="v3-studio-warnings" aria-labelledby="v3-render-job-history-title">
+          <h4 id="v3-render-job-history-title">Recent render attempts</h4>
+          <p className="hint">This local history stores status and project fingerprints only—not video, narration or reference bytes. Interrupted attempts can be retried as a new job without replacing the old outcome.</p>
+          <ul>
+            {recentRenderJobs.map((job) => (
+              <li key={job.id}>
+                <strong>{job.status.toUpperCase()}</strong> · {new Date(job.updatedAt).toLocaleString("en-US")}
+                <p>{job.message || "No additional status details were recorded."}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div className="v3-studio-grid">
         <section className="v3-studio-card" aria-labelledby="v3-studio-create-heading">
