@@ -107,6 +107,8 @@ export function transitionV3RenderJob(
  * Mark it explicitly instead of pretending rendering continued in the background.
  * The project/source media remain unchanged; the user can start a new render.
  */
+export const V3_RENDER_JOB_STALE_AFTER_MS = 5 * 60 * 1_000;
+
 export function markInterruptedV3RenderJobs(
   jobs: readonly V3RenderJob[],
   now: string,
@@ -115,10 +117,15 @@ export function markInterruptedV3RenderJobs(
   if (!isValidTimestamp(now)) throw new Error("Render-job recovery requires a valid timestamp.");
   return jobs.map((job) => {
     if (!isV3RenderJob(job)) throw new Error("A saved render job failed schema validation.");
-    if (!V3_RENDER_JOB_ACTIVE_STATUSES.includes(job.status as (typeof V3_RENDER_JOB_ACTIVE_STATUSES)[number]) ||
-        (ownerSessionId !== undefined && job.ownerSessionId !== ownerSessionId)) {
+    if (!V3_RENDER_JOB_ACTIVE_STATUSES.includes(job.status as (typeof V3_RENDER_JOB_ACTIVE_STATUSES)[number])) {
       return { ...job };
     }
+    // A same-tab reload makes its render immediately unrecoverable. A closed tab's
+    // job is also recovered after five minutes; supported clips are capped at 180s,
+    // so a fresh render in another live tab is not marked interrupted prematurely.
+    const sameOwnerSession = ownerSessionId === undefined || job.ownerSessionId === ownerSessionId;
+    const staleFromClosedTab = Date.parse(now) - Date.parse(job.updatedAt) >= V3_RENDER_JOB_STALE_AFTER_MS;
+    if (!sameOwnerSession && !staleFromClosedTab) return { ...job };
     return transitionV3RenderJob(
       job,
       "interrupted",
