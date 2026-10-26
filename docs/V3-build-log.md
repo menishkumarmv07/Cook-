@@ -15,6 +15,21 @@
 - A scene blueprint, storyboard, metadata bundle, or pan/zoom slideshow is not a realistic generated video.
 - AI-generated video remains **NOT TESTED / NOT ENABLED** until a current provider meets cost, no-card, regional access, reference support, commercial rights and privacy requirements and actual clips pass visual review.
 
+## Execution update — 26 October 2026
+
+**Implementation has started; V3 is not release-complete.** The repository already contains the V3 feature slices below. This is a working build log, not a claim that every gate passed.
+
+- **V3.0 baseline/interface integration:** built on the verified V2 main baseline at `5d0da951e2a73c5098ba82308f23438556b3f80c`; branch is isolated and PR #83 stays draft. CI caught a missing dedicated-screen CSS reveal for `#v3-content-studio`; an explicit tool-visibility rule has been added and the browser test checks the tool route.
+- **V3.1 blueprint:** the scene blueprint, provenance traces, input fingerprints, validation and backup handling are implemented with unit tests.
+- **V3.2 continuity:** the local Chef & Kitchen reference library, owner-confirmed Bible, reference pinning, version invalidation and a per-render eight-item visual-review checklist are implemented. The review is explicitly manual; a PASS requires approved pinned references and every checklist item. The status belongs to the latest reviewed clip only; historical per-clip reviews are not falsely implied.
+- **V3.3 narration/captions:** editable caption timing plus SRT/VTT export is implemented. The UI does not invent transcription or timing.
+- **V3.4–V3.5 local renderer and fallback:** local video/audio import checks signatures and browser decodability; rights notes and owner-clearing gate exports; the WebM renderer validates dimensions, duration and playback before presenting a downloadable result. A separate ZIP production bundle contains the editable script, timeline/rights manifest, creator-readiness JSON, captions when valid, and selected local assets. It is always labelled as NOT a rendered video.
+- **V3.7 creator readiness:** an owner checklist covers recipe facts, food safety, source/asset rights, originality and platform disclosure. Per-platform title/caption/CTA fields persist locally. Copy export is available, but publishing remains manual and unconnected.
+- **Browser integration coverage:** Playwright generates a short synthetic WebM and PCM WAV fixture locally at test runtime, imports both through the app, assigns/approves four short scene trims, renders a real browser-recorded WebM, checks the preview's decoded dimensions/duration, downloads the WebM and verifies its EBML header. It also checks the ZIP fallback, platform-copy persistence and mobile horizontal overflow. These synthetic fixtures prove the local encoder/export path only—not realism, human narration, cooking accuracy or character continuity.
+- **Latest observed test issue:** browser run #693 failed because a broad accessible-label locator matched both the V3 platform selector and the existing V2 creator-profile field. The test now targets the unique `#v3-target-platform` ID. The latest checked code-head run #694 was still running through its production build before the documentation edits below; check the live exact-head run after these docs commits rather than copying an earlier status.
+- **Not yet verified:** owner-device Android Chrome performance, real owner footage playback/audio quality, quota/private-storage failure recovery, complete stale-tab/media race cases, and the visual realism gate using the actual chef/kitchen references. The originals are not in the repo, and provider-generated AI cooking video is not enabled under the hard ₹0/no-card constraint.
+
+
 ## Current implemented work
 
 ### V3.0 — Baseline and interface inventory
@@ -69,7 +84,7 @@
 2. Fix any failures from the exact current head, then rerun unit tests, ESLint, TypeScript, production build, owner-auth smoke and desktop/mobile Playwright E2E.
 3. Test actual rendering end to end using legal test clips and narration on desktop; validate the downloaded file by reopening and playing it, verify audio sync/scene transitions/caption placement, interruption/cancel handling and output recovery.
 4. Test on the owner's physical Android Chrome. Automated desktop CI does not prove Android memory/render behaviour.
-5. Add production-bundle export with the selected clips, script, source/rights manifest and timeline; keep it clearly distinct from a rendered video.
+5. Production-bundle export is implemented (script, source/rights/timeline manifest, creator-readiness JSON, pinned refs/media when available, and valid subtitles). Verify exact-head tests plus ZIP contents/recovery; it is not a rendered video.
 6. Complete IndexedDB quota/failure and multi-tab tests; ensure stale edits never overwrite current project state.
 7. AI-reference video generation remains a separate blocker: do not enable a provider unless all current cost, region, rights, reference-support and privacy constraints pass.
 8. Perform security/secret scan and privacy close-out before making the repository private as previously planned. Do not alter repo visibility without the agreed end-of-V3 review.
