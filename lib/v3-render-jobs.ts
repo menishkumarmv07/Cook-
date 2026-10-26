@@ -9,6 +9,7 @@ export type V3RenderJob = {
   id: string;
   projectId: string;
   projectRevision: number;
+  ownerSessionId: string;
   planKey: string;
   status: V3RenderJobStatus;
   startedAt: string;
@@ -35,6 +36,7 @@ export function isV3RenderJob(value: unknown): value is V3RenderJob {
   return typeof job.id === "string" && job.id.length > 0 && job.id.length <= 160 &&
     typeof job.projectId === "string" && job.projectId.length > 0 && job.projectId.length <= 160 &&
     Number.isSafeInteger(job.projectRevision) && (job.projectRevision as number) > 0 &&
+    typeof job.ownerSessionId === "string" && job.ownerSessionId.length > 0 && job.ownerSessionId.length <= 160 &&
     typeof job.planKey === "string" && job.planKey.length <= 160 &&
     isStatus(job.status) && isValidTimestamp(job.startedAt) && isValidTimestamp(job.updatedAt) &&
     (job.finishedAt === null || isValidTimestamp(job.finishedAt)) &&
@@ -45,6 +47,7 @@ export function createV3RenderJob(input: {
   id: string;
   projectId: string;
   projectRevision: number;
+  ownerSessionId: string;
   planKey: string;
   startedAt: string;
 }): V3RenderJob {
@@ -52,6 +55,7 @@ export function createV3RenderJob(input: {
     id: input.id,
     projectId: input.projectId,
     projectRevision: input.projectRevision,
+    ownerSessionId: input.ownerSessionId,
     planKey: input.planKey,
     status: "preparing",
     startedAt: input.startedAt,
@@ -106,11 +110,13 @@ export function transitionV3RenderJob(
 export function markInterruptedV3RenderJobs(
   jobs: readonly V3RenderJob[],
   now: string,
+  ownerSessionId?: string,
 ): V3RenderJob[] {
   if (!isValidTimestamp(now)) throw new Error("Render-job recovery requires a valid timestamp.");
   return jobs.map((job) => {
     if (!isV3RenderJob(job)) throw new Error("A saved render job failed schema validation.");
-    if (!V3_RENDER_JOB_ACTIVE_STATUSES.includes(job.status as (typeof V3_RENDER_JOB_ACTIVE_STATUSES)[number])) {
+    if (!V3_RENDER_JOB_ACTIVE_STATUSES.includes(job.status as (typeof V3_RENDER_JOB_ACTIVE_STATUSES)[number]) ||
+        (ownerSessionId !== undefined && job.ownerSessionId !== ownerSessionId)) {
       return { ...job };
     }
     return transitionV3RenderJob(
