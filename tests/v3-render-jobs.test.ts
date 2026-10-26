@@ -5,6 +5,7 @@ import {
   isV3RenderJob,
   markInterruptedV3RenderJobs,
   sortV3RenderJobsNewestFirst,
+  V3_RENDER_JOB_STALE_AFTER_MS,
   transitionV3RenderJob,
   type V3RenderJob,
 } from "../lib/v3-render-jobs";
@@ -71,6 +72,15 @@ test("reload recovery only interrupts active jobs from the current tab session",
   assert.deepEqual(recovered.map((job) => job.status), ["interrupted", "preparing"]);
   assert.equal(recovered[0].ownerSessionId, "session-a");
   assert.equal(recovered[1].ownerSessionId, "session-b");
+});
+
+
+test("recovers a job from a closed tab after the bounded stale interval", () => {
+  const abandoned = createJob("closed-tab", "session-a");
+  const staleNow = new Date(Date.parse(start) + V3_RENDER_JOB_STALE_AFTER_MS + 1).toISOString();
+  const recovered = markInterruptedV3RenderJobs([abandoned], staleNow, "session-b");
+  assert.equal(recovered[0].status, "interrupted");
+  assert.match(recovered[0].message ?? "", /start a new render/i);
 });
 
 test("requires a new job attempt rather than reopening terminal attempts", () => {
