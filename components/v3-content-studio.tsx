@@ -890,9 +890,13 @@ async function loadStoredProjects(): Promise<V3StudioProject[]> {
 
   const projects: V3StudioProject[] = [];
   for (const record of records) {
+    const recordId = isRecord(record) && typeof record.id === "string" ? record.id : "(missing ID)";
     const normalized = normalizeStoredProject(record);
-    if (!normalized || !(await verifyV3ContentBlueprintFingerprints(normalized.project.blueprint))) {
-      throw new Error("A saved V3 project failed schema or source-fingerprint verification. No saved project was overwritten; keep a backup and investigate this record.");
+    if (!normalized) {
+      throw new Error("Saved V3 project " + recordId + " failed its structural/schema checks. Nothing was overwritten; export any available backup and inspect the saved record before retrying.");
+    }
+    if (!(await verifyV3ContentBlueprintFingerprints(normalized.project.blueprint))) {
+      throw new Error("Saved V3 project " + normalized.project.id + " failed source-fingerprint verification. The saved recipe/profile/evidence snapshot may differ from its fingerprint; nothing was overwritten. Keep a backup and inspect the project before retrying.");
     }
     if (normalized.migrated) {
       await persistMigratedProjectIfUnchanged(record, normalized.project);
