@@ -317,6 +317,7 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     ensureNotAborted(signal);
     video.pause();
     await seekVideo(video, Math.max(0, actualDurationMs - 60), signal);
+    return actualDurationMs;
   } finally {
     video.pause();
     video.removeAttribute("src");
