@@ -1153,8 +1153,30 @@ export default function V3ContentStudio() {
         const saved = readSavedRecipes();
         const profile = readCreatorProfile();
         const savedProjects = await loadStoredProjects();
-        const savedReferences = await loadStoredReferences();
-        const savedMedia = await loadStoredMedia();
+
+        // Do not let one damaged media/reference record hide otherwise healthy
+        // project blueprints. Keep the failed asset store untouched, expose the
+        // error, and leave JSON project backup available for recovery.
+        let savedReferences: StoredV3Reference[] = [];
+        let savedMedia: StoredV3Media[] = [];
+        const assetLoadWarnings: string[] = [];
+        try {
+          savedReferences = await loadStoredReferences();
+        } catch (caught) {
+          assetLoadWarnings.push(
+            "Chef & Kitchen references could not be fully verified: " +
+            (caught instanceof Error ? caught.message : "unknown storage error"),
+          );
+        }
+        try {
+          savedMedia = await loadStoredMedia();
+        } catch (caught) {
+          assetLoadWarnings.push(
+            "Video/narration assets could not be fully verified: " +
+            (caught instanceof Error ? caught.message : "unknown storage error"),
+          );
+        }
+
         if (cancelled) return;
         setRecipes(saved.recipes);
         setRecipeSkippedCount(saved.skipped);
@@ -1165,6 +1187,13 @@ export default function V3ContentStudio() {
         setMediaRightsNoteDrafts(Object.fromEntries(savedMedia.map((item) => [item.metadata.id, item.metadata.rightsNote])));
         setSelectedRecipeId(saved.recipes[0] ? String(saved.recipes[0].id) : "");
         setSelectedProjectId(savedProjects[0]?.id ?? "");
+        if (assetLoadWarnings.length) {
+          setError(
+            "V3 opened the saved recipe projects, but some local assets failed integrity checks. Those asset stores were not changed. " +
+            "You can still export a V3 JSON blueprint backup; do not render or create a production bundle until the asset store is recovered. " +
+            assetLoadWarnings.join(" "),
+          );
+        }
       } catch (caught) {
         if (!cancelled) setError(caught instanceof Error ? caught.message : "V3 could not load local data.");
       } finally {
