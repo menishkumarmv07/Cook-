@@ -111,3 +111,12 @@
 - V2 main baseline: Actions [#589](https://github.com/menishkumarmv07/Cook-/actions/runs/40178631663) — SUCCESS (137 unit tests, lint, typecheck, build, auth smoke, desktop/mobile E2E).
 - V3 plan-only commit Actions [#591](https://github.com/menishkumarmv07/Cook-/actions/runs/40213157291) — SUCCESS on a documentation-only commit; this did not verify V3 features.
 - Current V3 feature branch verification: **re-check the latest PR #83 head and latest Actions run before updating this line**. Do not copy the outcome from an earlier commit.
+
+## 26 October 2026 — continued implementation checkpoint
+
+- Verified open draft PR #83 still points to branch `v3/ai-chef-content-studio`; latest checked head: `c510e67102be32801bce1b3d488cf1c2d66dd734`.
+- Latest exact-head Actions run #745: SUCCESS for its configured job “Install, test, lint, type-check, build”. This is evidence for the configured unit-test/lint/TypeScript/production-build gates only; it is not proof of physical Android testing or AI-reference video realism.
+- Rendering tests cover owner-footage timeline preflight, missing/unreviewed scenes, media-rights clearance, invalid source ranges, narration duration, caption timing, export-duration limits, media metadata validation, and cancellation. Synthetic WebM/WAV fixtures are test-only encoder fixtures, not chef/kitchen realism evidence.
+- Production-bundle tests check ZIP structure, UTF-8 paths, CRC32 and path-traversal/duplicate-path rejection. The bundle remains a production handoff, never labelled as a rendered realistic video.
+- Outstanding before V3 can be called complete: run/review browser E2E against exact head; inspect downloaded output by reopening/playing it; test on the owner’s physical Android Chrome; finish IndexedDB quota/recovery and stale-tab tests; run secret/privacy scan; resolve the realistic AI-reference generation blocker only if a truly free, no-card, privacy/rights-compliant route passes a real output acceptance test.
+- Keep PR #83 draft and unmerged. Do not state the entire V3 is finished while any blocker above remains.
