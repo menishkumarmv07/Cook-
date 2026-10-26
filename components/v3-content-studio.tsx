@@ -40,6 +40,7 @@ import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
+  isLatestV3ClipReviewed,
   reviewV3ContinuityClip,
   hasRequiredV3ContinuityReferenceRoles,
   MAX_V3_REFERENCE_BYTES,
@@ -1227,7 +1228,7 @@ export default function V3ContentStudio() {
     activeProject &&
     renderOutput &&
     !visualReviewDrafts[renderOutput.sha256] &&
-    activeProject.referenceBible.lastReviewedClipIds.includes(renderOutput.sha256)
+    isLatestV3ClipReviewed(activeProject.referenceBible, renderOutput.sha256)
   );
 
   const visualReviewChecklist: V3VisualReviewChecklist = activeProject && renderOutput
