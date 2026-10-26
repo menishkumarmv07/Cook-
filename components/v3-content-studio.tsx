@@ -407,7 +407,8 @@ async function persistNewReference(reference: StoredV3Reference, current: readon
         }
         const addRequest = store.add(reference);
         addRequest.onerror = () => {
-          safeError = new Error("Could not save the local reference. Check available browser storage; no existing reference was overwritten.");
+          // Preserve the native DOMException so quota failures receive backup-first guidance.
+          safeError = addRequest.error ?? new Error("Could not save the local reference. No existing reference was overwritten.");
         };
       };
       currentRequest.onerror = () => {
@@ -676,7 +677,8 @@ async function persistNewMedia(asset: StoredV3Media, current: readonly StoredV3M
         }
         const addRequest = store.add(asset);
         addRequest.onerror = () => {
-          safeError = new Error("Could not save local media. Check available browser storage; no existing file was overwritten.");
+          // Preserve the native DOMException so quota failures receive backup-first guidance.
+          safeError = addRequest.error ?? new Error("Could not save local media. No existing file was overwritten.");
         };
       };
       currentRequest.onerror = () => {
