@@ -42,6 +42,22 @@ function ensureNotAborted(signal?: AbortSignal): void {
   if (signal?.aborted) throw abortError();
 }
 
+function withTimeout<T>(promise: Promise<T>, milliseconds: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error(message)), milliseconds);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeout);
+        resolve(value);
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function waitForMediaReady(element: HTMLMediaElement, signal?: AbortSignal): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     let metadataReady = element.readyState >= HTMLMediaElement.HAVE_METADATA;
@@ -514,7 +530,11 @@ export async function renderV3OwnerFootageVideo(options: {
     await new Promise<void>((resolve) => window.setTimeout(resolve, 250));
     onProgress?.({ stage: "validating", completedScenes: scenes.length, totalScenes: scenes.length, message: "Validating the recorded WebM file and playback…" });
     if (recorder.state !== "inactive") recorder.stop();
-    const blob = await recordingPromise;
+    const blob = await withTimeout(
+      recordingPromise,
+      15_000,
+      "Browser MediaRecorder did not finalize within 15 seconds. The partial output was rejected; keep the source project and use the production bundle fallback.",
+    );
     ensureNotAborted(signal);
     if (timelineOffsetMs !== preflight.durationMs) {
       throw new Error("The rendered timeline no longer matches its preflight duration.");
@@ -535,7 +555,9 @@ export async function renderV3OwnerFootageVideo(options: {
       try { recorder.stop(); } catch { /* preserve the original error */ }
     }
     if (recordingPromise && recorderStarted) {
-      try { await recordingPromise; } catch { /* preserve the source project and original error */ }
+      // Never block error recovery on a recorder that failed to emit its stop event.
+      // The main path has a bounded finalization wait and observes late rejection.
+      void recordingPromise.catch(() => undefined);
     }
     throw error;
   } finally {
