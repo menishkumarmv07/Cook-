@@ -1,3 +1,15 @@
+## Verified execution checkpoint — 26 October 2026 (08:35 UTC)
+
+- PR [#83](https://github.com/menishkumarmv07/Cook-/pull/83) is OPEN / DRAFT / NOT MERGED. Latest verified feature head: `55ccd62f47cce2d78998c1026db1d5b6a8ecbae2`.
+- Exact-head [GitHub Actions #758](https://github.com/menishkumarmv07/Cook-/actions/runs/40292731160) finished SUCCESS on this head. Observed results: 207 unit tests passed (0 failed), ESLint passed, TypeScript passed, production build passed, owner-auth browser smoke passed, and desktop/mobile Playwright E2E passed 104/104. The tests used disposable CI-only owner credentials and synthetic media fixtures.
+- V3.6 storage safety: browser-origin estimate warns at 80% and marks 90%+ as critical; missing/invalid estimates remain unknown rather than green. Added backup-first guidance for quota-related write failures and preserved native IndexedDB quota exceptions on local reference/media adds. A desktop/mobile E2E test simulates a critical estimate and verifies the warning; the actual owner's browser quota has not been forced to exhaustion.
+- Deployment is not verified: GitHub commit status reports Vercel failure due to the free-plan build-rate limit. Do not upgrade, add a card, use paid credits, or weaken the ₹0 constraint. No matching Ready deployment is claimed.
+- Video truth status is unchanged: local browser rendering was tested with synthetic moving clips and test-tone narration to validate WebM encode/finalize/reopen/playback mechanics. This is not evidence of realistic cooking footage. No qualifying reference-guided AI video generator has been enabled. Actual owner-reference continuity and physical Android Chrome acceptance remain NOT TESTED.
+- The inspected repo tree has 93 entries and no tracked chef/kitchen image, video, narration or audio source assets; only the blank-placeholder `.env.example` is tracked among dotenv files. Private Library candidates are not canonical, and none was selected, committed or uploaded.
+- Next: continue V3.6 recovery/error-path hardening and V3.8 release gates; keep owner references local and private, preserve V1/V2 contracts, and do not merge until exact-head checks plus deploy/privacy/owner-acceptance gates are met.
+
+---
+
 ## Browser storage quota warning — 26 October 2026
 
 - Added a best-effort browser-origin storage estimate in V3.6. A warning appears at 80% usage and a critical warning at 90%; it gives backup-first guidance and never deletes data or uploads content.
