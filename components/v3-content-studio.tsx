@@ -2149,18 +2149,22 @@ export default function V3ContentStudio() {
       setMessage("A real playable WebM was recorded and its playback metadata was validated. Review the preview below before downloading. This is an edit of owner-supplied footage, not AI-generated footage.");
       if (renderJob) {
         try {
+          const previousJobUpdatedAt = renderJob.updatedAt;
           const completedJob = transitionV3RenderJob(
             renderJob,
             "completed",
             new Date().toISOString(),
             "The browser validated a playable WebM and its finite duration metadata.",
           );
-          await persistStoredV3RenderJob(completedJob, renderJob.updatedAt);
+          // Reflect the actual render outcome immediately. A storage failure must not
+          // leave the visible history claiming that a successfully played video is
+          // still rendering; the error below separately reports that history is not durable.
           renderJob = completedJob;
           setRenderJobs((existing) => sortV3RenderJobsNewestFirst([
             completedJob,
             ...existing.filter((job) => job.id !== completedJob.id),
           ]));
+          await persistStoredV3RenderJob(completedJob, previousJobUpdatedAt);
         } catch (caught) {
           setError(
             "The WebM was rendered and validated, but local render history could not record completion: " +
@@ -2174,6 +2178,7 @@ export default function V3ContentStudio() {
       let historySaveFailed = false;
       if (renderJob && (renderJob.status === "preparing" || renderJob.status === "rendering")) {
         try {
+          const previousJobUpdatedAt = renderJob.updatedAt;
           const terminalJob = transitionV3RenderJob(
             renderJob,
             wasCancelled ? "cancelled" : "failed",
@@ -2182,12 +2187,14 @@ export default function V3ContentStudio() {
               ? "Rendering was cancelled by the owner. The saved project and source media remain available."
               : formatV3StorageErrorMessage(caught, "Video render failed. The saved project remains available.")).slice(0, 500),
           );
-          await persistStoredV3RenderJob(terminalJob, renderJob.updatedAt);
+          // Keep the visible outcome truthful even when the terminal status write
+          // fails. The recovery warning below makes the durability gap explicit.
           renderJob = terminalJob;
           setRenderJobs((existing) => sortV3RenderJobsNewestFirst([
             terminalJob,
             ...existing.filter((job) => job.id !== terminalJob.id),
           ]));
+          await persistStoredV3RenderJob(terminalJob, previousJobUpdatedAt);
         } catch {
           historySaveFailed = true;
         }
