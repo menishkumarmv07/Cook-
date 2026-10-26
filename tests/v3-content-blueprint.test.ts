@@ -127,6 +127,39 @@ test("builds a deterministic, editable scene plan from the exact saved recipe fi
   assert.equal(await verifyV3ContentBlueprintFingerprints(blueprint), true);
 });
 
+test("accepts assigned owner-footage ranges when their trims and durations are consistent", async () => {
+  const blueprint = await buildV3ContentBlueprint({
+    recipe: recipe(),
+    creatorProfile: DEFAULT_CREATOR_PROFILE,
+    now: fixedNow,
+  });
+  const cookingSceneIndex = blueprint.scenes.findIndex((scene) => scene.kind === "cooking-step");
+  assert.ok(cookingSceneIndex >= 0);
+
+  const assigned = {
+    ...blueprint,
+    scenes: blueprint.scenes.map((scene, index) => index === cookingSceneIndex
+      ? {
+          ...scene,
+          sourceMediaId: "test-video-1",
+          sourceMediaStartMs: 0,
+          sourceMediaEndMs: 2_500,
+          targetClipSeconds: 2.5,
+        }
+      : scene),
+  };
+  assert.equal(validateV3ContentBlueprint(assigned), true);
+  assert.equal(await verifyV3ContentBlueprintFingerprints(assigned), true);
+
+  const inconsistentDuration = {
+    ...assigned,
+    scenes: assigned.scenes.map((scene, index) => index === cookingSceneIndex
+      ? { ...scene, targetClipSeconds: 3 }
+      : scene),
+  };
+  assert.equal(validateV3ContentBlueprint(inconsistentDuration), false);
+});
+
 test("does not invent missing amounts, units, cooking duration, heat, cues or actions", async () => {
   const incomplete = recipe({
     servings: "",
