@@ -1102,6 +1102,7 @@ export default function V3ContentStudio() {
   const [rendering, setRendering] = useState(false);
   const [renderProgress, setRenderProgress] = useState("");
   const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
+  const [preparedDownloadSha, setPreparedDownloadSha] = useState<string | null>(null);
   const [visualReviewDrafts, setVisualReviewDrafts] = useState<Record<string, V3VisualReviewChecklist>>({});
   const renderAbortRef = useRef<AbortController | null>(null);
   const previewDurationFixesRef = useRef(new WeakSet<HTMLVideoElement>());
@@ -1264,6 +1265,18 @@ export default function V3ContentStudio() {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
   }, [renderOutput?.previewUrl]);
+
+  // Native downloads must be initiated synchronously inside a fresh user gesture.
+  // Prepare the integrity/stale-tab check first, then expose a short-lived direct
+  // download action that does not await IndexedDB after the owner's final click.
+  useEffect(() => {
+    if (!renderOutputIsCurrent || !renderOutput || preparedDownloadSha !== renderOutput.sha256) {
+      if (preparedDownloadSha !== null) setPreparedDownloadSha(null);
+      return;
+    }
+    const timeout = window.setTimeout(() => setPreparedDownloadSha(null), 30_000);
+    return () => window.clearTimeout(timeout);
+  }, [renderOutputIsCurrent, renderOutput?.sha256, preparedDownloadSha]);
 
   function updateScene(sceneId: string, field: "title" | "narrationText" | "captionText" | "visualDirection", value: string) {
     if (!activeProject) return;
@@ -1982,24 +1995,15 @@ export default function V3ContentStudio() {
     }
   }
 
-  async function downloadReviewedRender() {
-    if (!activeProject || !renderOutput) {
-      setError("There is no validated render preview to download.");
+  async function prepareReviewedRenderDownload() {
+    if (!activeProject || !renderOutput || !renderOutputIsCurrent) {
+      setError("Render and save the current project before preparing a download.");
+      setPreparedDownloadSha(null);
       return;
     }
-    if (dirty) {
-      setError("The project has unsaved changes. Save and re-render before downloading this older preview.");
-      return;
-    }
-    if (renderOutput.projectId !== activeProject.id ||
-        renderOutput.planKey !== createRenderPlanKey(activeProject, mediaAssets)) {
-      setError("This preview belongs to a different project revision or media state. Render the latest saved project again before downloading.");
-      return;
-    }
-    if (!window.confirm("Confirm you watched the rendered video preview, checked the cooking actions, character/kitchen continuity, narration and captions, and want to download this local WebM?")) return;
-
     setBusy(true);
     setError("");
+    setMessage("");
     try {
       const latestProjects = await loadStoredProjects();
       const latestProject = latestProjects.find((project) => project.id === renderOutput.projectId);
@@ -2008,14 +2012,38 @@ export default function V3ContentStudio() {
           createRenderPlanKey(latestProject, latestMedia) !== renderOutput.planKey) {
         throw new Error("The saved project or one of its source files changed in another tab. Re-render against the latest saved state.");
       }
-      clickDownloadUrl(renderOutput.previewUrl, renderOutput.fileName);
-      setRenderOutput({ ...renderOutput, reviewed: true });
-      setMessage("Reviewed owner-footage video downloaded locally. SHA-256: " + renderOutput.sha256 + ". This output does not claim AI-generated realism; publishing and platform disclosure remain owner decisions.");
+      setPreparedDownloadSha(renderOutput.sha256);
+      setMessage("Saved project and source files were re-checked. The download confirmation is ready for 30 seconds; make no edits before downloading.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "The reviewed video could not be downloaded safely.");
+      setPreparedDownloadSha(null);
+      setError(caught instanceof Error ? caught.message : "The render could not be verified for download.");
     } finally {
       setBusy(false);
     }
+  }
+
+  function downloadReviewedRender() {
+    if (!activeProject || !renderOutput) {
+      setError("There is no validated render preview to download.");
+      return;
+    }
+    if (dirty || !renderOutputIsCurrent) {
+      setPreparedDownloadSha(null);
+      setError("The project has changed or has unsaved edits. Save and re-render before downloading.");
+      return;
+    }
+    if (preparedDownloadSha !== renderOutput.sha256) {
+      setError("Prepare and verify this download first. The check expires after 30 seconds and resets after edits.");
+      return;
+    }
+    if (!window.confirm("Confirm you watched the rendered video preview, checked the cooking actions, character/kitchen continuity, narration and captions, and want to download this local WebM?")) return;
+
+    // Keep this click synchronous after confirmation: awaiting IndexedDB here causes
+    // Chromium to lose the user-activation required for a reliable local download.
+    clickDownloadUrl(renderOutput.previewUrl, renderOutput.fileName);
+    setRenderOutput({ ...renderOutput, reviewed: true });
+    setPreparedDownloadSha(null);
+    setMessage("Reviewed owner-footage video downloaded locally. SHA-256: " + renderOutput.sha256 + ". This output does not claim AI-generated realism; publishing and platform disclosure remain owner decisions.");
   }
 
   async function generateBlueprint() {
@@ -2688,9 +2716,15 @@ export default function V3ContentStudio() {
                       {!hasApprovedPinnedReferences && <p className="v3-studio-alert">A PASS is blocked until the actual reference images are pinned to this project and marked owner-approved. This review remains not tested for continuity until then.</p>}
                       <p className="hint">This is a manual owner review—not automatic vision analysis, an AI-generation claim, or a guarantee of perfect continuity.</p>
                     </section>
-                    <button className="primary" type="button" disabled={busy || rendering} onClick={() => void downloadReviewedRender()}>
-                      I reviewed the video — download WebM
-                    </button>
+                    {preparedDownloadSha === renderOutput.sha256 && renderOutputIsCurrent ? (
+                      <button className="primary" type="button" disabled={busy || rendering} onClick={downloadReviewedRender}>
+                        I reviewed the video — download WebM
+                      </button>
+                    ) : (
+                      <button className="secondary" type="button" disabled={busy || rendering || !renderOutputIsCurrent} onClick={() => void prepareReviewedRenderDownload()}>
+                        Prepare reviewed WebM download
+                      </button>
+                    )}
                     {renderOutput.reviewed && <p className="v3-caption-status" role="status">Downloaded after owner review.</p>}
                   </>
                 ) : (
