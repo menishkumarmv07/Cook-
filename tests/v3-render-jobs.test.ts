@@ -4,7 +4,9 @@ import {
   createV3RenderJob,
   isV3RenderJob,
   markInterruptedV3RenderJobs,
+  planV3RenderJobRetention,
   sortV3RenderJobsNewestFirst,
+  MAX_V3_RENDER_JOBS,
   V3_RENDER_JOB_STALE_AFTER_MS,
   transitionV3RenderJob,
   type V3RenderJob,
@@ -113,3 +115,39 @@ test("sorts valid jobs newest first and skips malformed records", () => {
   assert.deepEqual(sorted.map((job) => job.id), ["newer", "older"]);
   assert.notEqual(sorted[0], newer, "sort returns detached job records");
 });
+
+test("retains active attempts and prunes only oldest terminal status records at the history limit", () => {
+  const terminalJobs = Array.from({ length: MAX_V3_RENDER_JOBS }, (_, index) => {
+    const timestamp = new Date(Date.parse(start) + index * 1_000).toISOString();
+    return transitionV3RenderJob(createJob("terminal-" + index), "completed", timestamp, "Finished.");
+  });
+  const activeJob = createJob("still-active");
+  const plan = planV3RenderJobRetention([...terminalJobs, activeJob], createJob("new-attempt"));
+  assert.equal(plan.ok, true);
+  if (!plan.ok) return;
+  assert.deepEqual(plan.deleteJobIds, ["terminal-0", "terminal-1"]);
+  assert.equal(plan.retainedCount, MAX_V3_RENDER_JOBS);
+  assert.equal(plan.deleteJobIds.includes(activeJob.id), false);
+  assert.equal(terminalJobs[0].status, "completed", "planning never mutates the source records");
+});
+
+test("blocks a new render when active jobs consume the history capacity", () => {
+  const active = Array.from({ length: MAX_V3_RENDER_JOBS }, (_, index) => createJob("active-" + index));
+  assert.deepEqual(planV3RenderJobRetention(active, createJob("one-too-many")), {
+    ok: false,
+    reason: "active-limit",
+  });
+});
+
+test("does not prune malformed history or duplicate render-job IDs", () => {
+  assert.deepEqual(planV3RenderJobRetention([{ id: "corrupt" }], createJob("next")), {
+    ok: false,
+    reason: "invalid-history",
+  });
+  assert.deepEqual(planV3RenderJobRetention([createJob("same")], createJob("same")), {
+    ok: false,
+    reason: "duplicate-id",
+  });
+  assert.equal(planV3RenderJobRetention([], { id: "not-a-job" }).ok, false);
+});
+

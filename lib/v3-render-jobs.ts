@@ -141,3 +141,43 @@ export function sortV3RenderJobsNewestFirst(jobs: readonly unknown[]): V3RenderJ
     .map((job) => ({ ...job }))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.startedAt.localeCompare(a.startedAt));
 }
+
+export const MAX_V3_RENDER_JOBS = 50;
+
+export type V3RenderJobRetentionPlan =
+  | { ok: true; deleteJobIds: string[]; retainedCount: number }
+  | { ok: false; reason: "invalid-history" | "invalid-next-job" | "duplicate-id" | "active-limit" };
+
+/**
+ * Bound status-only history. Only the oldest terminal status records are eligible
+ * for pruning; active attempts, projects and all media binaries remain untouched.
+ */
+export function planV3RenderJobRetention(
+  existingJobs: readonly unknown[],
+  nextJob: unknown,
+): V3RenderJobRetentionPlan {
+  if (!isV3RenderJob(nextJob) || nextJob.status !== "preparing") {
+    return { ok: false, reason: "invalid-next-job" };
+  }
+  if (existingJobs.some((job) => !isV3RenderJob(job))) {
+    return { ok: false, reason: "invalid-history" };
+  }
+
+  const jobs = existingJobs as V3RenderJob[];
+  if (jobs.some((job) => job.id === nextJob.id)) return { ok: false, reason: "duplicate-id" };
+
+  const activeCount = jobs.filter((job) =>
+    V3_RENDER_JOB_ACTIVE_STATUSES.includes(job.status as (typeof V3_RENDER_JOB_ACTIVE_STATUSES)[number])
+  ).length;
+  if (activeCount >= MAX_V3_RENDER_JOBS) return { ok: false, reason: "active-limit" };
+
+  const neededToPrune = Math.max(0, jobs.length + 1 - MAX_V3_RENDER_JOBS);
+  const terminal = jobs
+    .filter((job) => TERMINAL_STATUSES.has(job.status))
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.startedAt.localeCompare(b.startedAt));
+  if (terminal.length < neededToPrune) return { ok: false, reason: "active-limit" };
+
+  const deleteJobIds = terminal.slice(0, neededToPrune).map((job) => job.id);
+  return { ok: true, deleteJobIds, retainedCount: jobs.length + 1 - deleteJobIds.length };
+}
+

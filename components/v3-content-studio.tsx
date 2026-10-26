@@ -63,7 +63,7 @@ import {
   type V3MediaRightsStatus,
 } from "@/lib/v3-rendering";
 import { assessV3StorageQuota, formatV3StorageBytes, formatV3StorageErrorMessage, getV3StorageQuotaErrorMessage, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
-import { createV3RenderJob, isV3RenderJob, markInterruptedV3RenderJobs, sortV3RenderJobsNewestFirst, transitionV3RenderJob, type V3RenderJob } from "@/lib/v3-render-jobs";
+import { createV3RenderJob, isV3RenderJob, markInterruptedV3RenderJobs, planV3RenderJobRetention, sortV3RenderJobsNewestFirst, MAX_V3_RENDER_JOBS, transitionV3RenderJob, type V3RenderJob } from "@/lib/v3-render-jobs";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -366,9 +366,27 @@ async function persistStoredV3RenderJob(
             transaction.abort();
             return;
           }
-          const addRequest = store.add(job);
-          addRequest.onerror = () => {
-            safeError = addRequest.error ?? new Error("Could not save render-job history.");
+          const historyRequest = store.getAll();
+          historyRequest.onsuccess = () => {
+            const records: unknown[] = Array.isArray(historyRequest.result) ? historyRequest.result : [];
+            const retention = planV3RenderJobRetention(records, job);
+            if (!retention.ok) {
+              safeError = retention.reason === "active-limit"
+                ? new Error("The local render-attempt limit is full with active jobs. Wait for a render to finish, then retry; no active job or source file was removed.")
+                : new Error("The local render-attempt history is malformed, duplicated or untrusted. It was not pruned or overwritten.");
+              transaction.abort();
+              return;
+            }
+            for (const id of retention.deleteJobIds) store.delete(id);
+            const addRequest = store.add(job);
+            addRequest.onerror = () => {
+              safeError = addRequest.error ?? new Error("Could not save render-job history.");
+              transaction.abort();
+            };
+          };
+          historyRequest.onerror = () => {
+            safeError = historyRequest.error ?? new Error("Could not inspect render-job history before starting.");
+            transaction.abort();
           };
           return;
         }
@@ -2605,7 +2623,7 @@ export default function V3ContentStudio() {
       {recentRenderJobs.length > 0 && (
         <section className="v3-studio-warnings" aria-labelledby="v3-render-job-history-title">
           <h4 id="v3-render-job-history-title">Recent render attempts</h4>
-          <p className="hint">This local history stores status and project fingerprints only—not video, narration or reference bytes. Interrupted attempts can be retried as a new job without replacing the old outcome.</p>
+          <p className="hint">This local history stores status and project fingerprints only—not video, narration or reference bytes. It keeps at most {MAX_V3_RENDER_JOBS} attempts. To maintain that limit, only the oldest finished status records may be removed when a new attempt starts; active attempts and project/media files are never pruned by this rule.</p>
           <ul>
             {recentRenderJobs.map((job) => (
               <li key={job.id}>
