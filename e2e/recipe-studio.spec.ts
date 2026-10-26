@@ -1981,7 +1981,9 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   // Re-open the bytes read back from Playwright's downloaded file as a new media
   // resource. This is stronger than checking only the in-memory preview or header.
   const downloadedPlayback = await page.evaluate(async (rawBytes: number[]) => {
-    const blob = new Blob([new Uint8Array(rawBytes)], { type: "video/webm" });
+    const ownedBytes = new Uint8Array(rawBytes.length);
+    ownedBytes.set(rawBytes);
+    const blob = new Blob([ownedBytes.buffer], { type: "video/webm" });
     const url = URL.createObjectURL(blob);
     const video = document.createElement("video");
     video.muted = true;
