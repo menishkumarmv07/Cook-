@@ -1728,7 +1728,9 @@ function makeSyntheticWavFixture(durationSeconds = 1.8, sampleRate = 22_050): Bu
 test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
   // The real browser renderer is part of this integration path, so allow it more time
   // than the standard UI smoke test while retaining a strict bounded failure.
-  test.setTimeout(120_000);
+  // The browser encoder performs a real encode/decode pass; allow time for CI's two browser projects,
+  // but keep the download event itself bounded so failures report the application error rather than hanging.
+  test.setTimeout(180_000);
   const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.stack ?? error.message));
   await page.goto("/");
@@ -1950,7 +1952,11 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await page.getByRole("button", { name: "Prepare reviewed WebM download", exact: true }).click();
   await expect(page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true })).toBeEnabled();
   const reviewedConfirm = page.waitForEvent("dialog");
-  const renderedDownloadPromise = page.waitForEvent("download");
+  let downloadWaitError = "";
+  const renderedDownloadPromise = page.waitForEvent("download", { timeout: 15_000 }).catch((error: unknown) => {
+    downloadWaitError = error instanceof Error ? error.message : String(error);
+    return null;
+  });
   const reviewedClickPromise = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
   const reviewedDialog = await reviewedConfirm;
   expect(reviewedDialog.type()).toBe("confirm");
@@ -1958,6 +1964,12 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await reviewedDialog.accept();
   await reviewedClickPromise;
   const renderedDownload = await renderedDownloadPromise;
+  if (!renderedDownload) {
+    const alerts = (await page.locator("#v3-content-studio [role='alert']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    throw new Error("Reviewed WebM download did not start. App alerts: " + (alerts.join(" | ") || "none") +
+      ". App status: " + (statuses.slice(-4).join(" | ") || "none") + ". Browser wait: " + downloadWaitError);
+  }
   expect(renderedDownload.suggestedFilename().toLowerCase().endsWith(".webm")).toBe(true);
   const renderedFilePath = await renderedDownload.path();
   expect(renderedFilePath).toBeTruthy();
