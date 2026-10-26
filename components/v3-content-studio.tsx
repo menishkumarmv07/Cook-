@@ -1267,16 +1267,14 @@ export default function V3ContentStudio() {
   }, [renderOutput?.previewUrl]);
 
   // Native downloads must be initiated synchronously inside a fresh user gesture.
-  // Prepare the integrity/stale-tab check first, then expose a short-lived direct
-  // download action that does not await IndexedDB after the owner's final click.
+  // Expire only by time here. Project/media staleness is checked synchronously again
+  // at the final click; coupling this timer to unrelated render-state renders can
+  // briefly clear a valid prepared action between React commits.
   useEffect(() => {
-    if (!renderOutputIsCurrent || !renderOutput || preparedDownloadSha !== renderOutput.sha256) {
-      if (preparedDownloadSha !== null) setPreparedDownloadSha(null);
-      return;
-    }
+    if (preparedDownloadSha === null) return;
     const timeout = window.setTimeout(() => setPreparedDownloadSha(null), 30_000);
     return () => window.clearTimeout(timeout);
-  }, [renderOutputIsCurrent, renderOutput?.sha256, preparedDownloadSha]);
+  }, [preparedDownloadSha]);
 
   function updateScene(sceneId: string, field: "title" | "narrationText" | "captionText" | "visualDirection", value: string) {
     if (!activeProject) return;
