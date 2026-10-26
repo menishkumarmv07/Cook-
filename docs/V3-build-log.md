@@ -1,3 +1,15 @@
+## Live execution status — 26 October 2026 (08:55 UTC)
+
+- PR [#83](https://github.com/menishkumarmv07/Cook-/pull/83) remains OPEN / DRAFT / NOT MERGED. Verified current feature head: `fe4a13e0fc904b822c7e85a2178aa9fc50ea982a`; verified V2/main base remains `5d0da951e2a73c5098ba82308f23438556b3f80c`.
+- Exact-head GitHub Actions [run #773](https://github.com/menishkumarmv07/Cook-/actions/runs/40295061067) finished SUCCESS on this SHA: **218/218 unit tests**, ESLint, TypeScript, production build, Chromium installation, owner-auth smoke **10/10**, and desktop/mobile Playwright E2E **104/104 in 2.0 minutes**. No failed or flaky E2E cases were recorded by the run.
+- V3.6 render-job status history is now stored locally in IndexedDB schema v4. It is metadata-only, bounded to 50 attempts, prunes only oldest terminal status records, preserves active attempts/projects/media, refuses a new attempt when capacity is occupied by active jobs, and recovers current-tab or stale closed-tab render attempts. Tests cover retention, invalid/duplicate history, stale recovery and the render-history completion/reload browser flow.
+- The render result is now reflected in visible in-memory history before writing its terminal status. If the terminal history write fails, the actual WebM/result stays available and the error makes the history durability gap explicit; a failed/cancelled attempt similarly shows its actual in-memory outcome.
+- Exact-head Vercel statuses remain FAIL/BLOCKED with the free-plan build-rate-limit/upgrade destination. Matching deployment is **NOT VERIFIED**. Do not upgrade, add a card, buy credits or use a paid fallback.
+- Rendering evidence remains limited to local WebM assembly with synthetic browser-test clips and test-tone audio. It verifies browser encoding/finalization/playback mechanics, not realistic cooking content. Reference-guided AI generation is still disabled; no owner chef/kitchen media is committed. Reference continuity and physical Android Chrome acceptance remain NOT TESTED.
+- V3.6’s render-history code now passes the configured automated gate, but broader restore/quota/transaction recovery, accessibility/security/privacy close-out, V3.7 repeated-template review, a matching deployment and owner acceptance remain to be completed. Keep the PR draft and do not mark V3 complete.
+
+---
+
 ## Verified execution checkpoint — 26 October 2026 (08:35 UTC)
 
 - PR [#83](https://github.com/menishkumarmv07/Cook-/pull/83) is OPEN / DRAFT / NOT MERGED. Latest verified feature head: `55ccd62f47cce2d78998c1026db1d5b6a8ecbae2`.

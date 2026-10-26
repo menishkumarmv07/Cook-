@@ -1,16 +1,14 @@
-## Live execution status — 26 October 2026 (08:35 UTC)
+## Live execution status — 26 October 2026 (08:55 UTC)
 
-- Current PR head after quota-error hardening and regression coverage: `55ccd62f47cce2d78998c1026db1d5b6a8ecbae2`. PR #83 remains open, draft, and unmerged.
-- Exact-head GitHub Actions [run #758](https://github.com/menishkumarmv07/Cook-/actions/runs/40292731160) succeeded: 207 unit tests, ESLint, TypeScript, production build, owner-auth browser smoke, and 104 desktop/mobile Playwright E2E tests passed.
-- V3.6 browser quota safeguards now provide estimate warnings (80% warning / 90% critical), preserve native quota exceptions on local reference/media writes, and show backup-first guidance. The browser UI warning is covered in both desktop/mobile E2E; true quota exhaustion on the owner's device has not been forced.
-- Current deploy status is blocked by the Vercel free-plan build-rate limit. No upgrade, card or paid fallback is acceptable; a matching Ready deployment is not verified.
-- Rendering feasibility remains scoped to actual owner-provided moving footage and narration. CI synthetic fixtures prove browser WebM encode/finalize/reopen/playback mechanics only. AI reference-guided video generation is not enabled, original owner chef/kitchen references are not present in the repository, and actual visual realism/physical Android Chrome acceptance remain NOT TESTED.
-- The 93-entry repo tree contains no tracked private media assets; `.env.example` is the only tracked dotenv file and has blank placeholders. Source-tree inspection is not a platform-wide secret scan.
-- Continue V3.6 recovery failure-path tests and the integrated V3.8 gate in order. Preserve V1/V2; don't merge or claim V3 complete until all release gates have evidence.
+- PR [#83](https://github.com/menishkumarmv07/Cook-/pull/83) remains OPEN / DRAFT / NOT MERGED. Verified current feature head: `fe4a13e0fc904b822c7e85a2178aa9fc50ea982a`; verified V2/main base remains `5d0da951e2a73c5098ba82308f23438556b3f80c`.
+- Exact-head GitHub Actions [run #773](https://github.com/menishkumarmv07/Cook-/actions/runs/40295061067) finished SUCCESS on this SHA: **218/218 unit tests**, ESLint, TypeScript, production build, Chromium installation, owner-auth smoke **10/10**, and desktop/mobile Playwright E2E **104/104 in 2.0 minutes**. No failed or flaky E2E cases were recorded by the run.
+- V3.6 render-job status history is now stored locally in IndexedDB schema v4. It is metadata-only, bounded to 50 attempts, prunes only oldest terminal status records, preserves active attempts/projects/media, refuses a new attempt when capacity is occupied by active jobs, and recovers current-tab or stale closed-tab render attempts. Tests cover retention, invalid/duplicate history, stale recovery and the render-history completion/reload browser flow.
+- The render result is now reflected in visible in-memory history before writing its terminal status. If the terminal history write fails, the actual WebM/result stays available and the error makes the history durability gap explicit; a failed/cancelled attempt similarly shows its actual in-memory outcome.
+- Exact-head Vercel statuses remain FAIL/BLOCKED with the free-plan build-rate-limit/upgrade destination. Matching deployment is **NOT VERIFIED**. Do not upgrade, add a card, buy credits or use a paid fallback.
+- Rendering evidence remains limited to local WebM assembly with synthetic browser-test clips and test-tone audio. It verifies browser encoding/finalization/playback mechanics, not realistic cooking content. Reference-guided AI generation is still disabled; no owner chef/kitchen media is committed. Reference continuity and physical Android Chrome acceptance remain NOT TESTED.
+- V3.6’s render-history code now passes the configured automated gate, but broader restore/quota/transaction recovery, accessibility/security/privacy close-out, V3.7 repeated-template review, a matching deployment and owner acceptance remain to be completed. Keep the PR draft and do not mark V3 complete.
 
-# V3 research-backed execution plan — 25 October 2026
-
-> <b>Status — implementation in progress:</b> V3 now has feature code on branch <code>v3/ai-chef-content-studio</code>, based on verified V2 main commit <code>5d0da951e2a73c5098ba82308f23438556b3f80c</code>. The blueprint, reference library/Bible, subtitle timeline, local owner-footage renderer, labelled ZIP fallback, and US creator-readiness checklist are implemented with unit and browser tests. Do NOT mark V3 complete yet: current exact-head CI, robust failure/recovery cases, physical Android acceptance, and real chef/kitchen visual-realism review remain release gates. AI-reference generation remains unavailable unless a genuinely ₹0/no-card provider is proven to meet every requirement. This is the execution authority for Cooking Creator only.
+---
 
 ## 1. Objective and truthful definition of “realistic video”
 
