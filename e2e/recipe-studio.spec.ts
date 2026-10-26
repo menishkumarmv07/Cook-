@@ -1920,7 +1920,7 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await page.getByRole("button", { name: "Render real owner footage", exact: true }).click();
   // Fail with the actual renderer error/progress message instead of a generic
   // "heading missing" timeout if the browser cannot complete one of the media stages.
-  const renderOutcome = await expect.poll(async () => {
+  await expect.poll(async () => {
     if (await page.getByRole("heading", { name: "Rendered video preview", exact: true }).count()) return "RENDERED";
     const errors = await page.locator("#v3-content-studio [role='alert']").allInnerTexts();
     const usefulErrors = errors.map((value) => value.trim()).filter(Boolean);
