@@ -35,7 +35,7 @@ import {
   type V3CreatorReadiness,
   type V3CreatorReviewCheckKey,
 } from "@/lib/v3-creator-readiness";
-import { renderV3OwnerFootageVideo } from "@/lib/v3-owner-footage-renderer";
+import { discoverV3RecordedVideoDurationMs, renderV3OwnerFootageVideo } from "@/lib/v3-owner-footage-renderer";
 import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
   createEmptyV3ContinuityBible,
@@ -1104,6 +1104,7 @@ export default function V3ContentStudio() {
   const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
   const [visualReviewDrafts, setVisualReviewDrafts] = useState<Record<string, V3VisualReviewChecklist>>({});
   const renderAbortRef = useRef<AbortController | null>(null);
+  const previewDurationFixesRef = useRef(new WeakSet<HTMLVideoElement>());
   const [referenceRoleDraft, setReferenceRoleDraft] = useState<V3ReferenceRole>("chef-identity");
   const [referenceLabelDraft, setReferenceLabelDraft] = useState("");
   const [referenceDetailsDraft, setReferenceDetailsDraft] = useState("");
@@ -1921,6 +1922,17 @@ export default function V3ContentStudio() {
     }
   }
 
+  function normalizeRenderedPreviewDuration(video: HTMLVideoElement) {
+    if (Number.isFinite(video.duration) && video.duration > 0) return;
+    if (previewDurationFixesRef.current.has(video)) return;
+    previewDurationFixesRef.current.add(video);
+    void discoverV3RecordedVideoDurationMs(video).catch(() => {
+      // The rendered Blob has already passed the renderer's playback/duration gate.
+      // Keep the preview usable even on a browser that cannot expose seek-derived duration.
+      previewDurationFixesRef.current.delete(video);
+    });
+  }
+
   async function saveVisualReview(outcome: "pass" | "fail") {
     if (!activeProject || !renderOutput || !renderOutputIsCurrent) {
       setError("Render and save the current clip before recording its visual review.");
@@ -2614,7 +2626,14 @@ export default function V3ContentStudio() {
                 <h4>Rendered video preview</h4>
                 {renderOutputIsCurrent ? (
                   <>
-                    <video className="v3-render-preview" src={renderOutput.previewUrl} controls playsInline preload="metadata" />
+                    <video
+                      className="v3-render-preview"
+                      src={renderOutput.previewUrl}
+                      controls
+                      playsInline
+                      preload="auto"
+                      onLoadedMetadata={(event) => normalizeRenderedPreviewDuration(event.currentTarget)}
+                    />
                     <p className="v3-reference-meta">{renderOutput.width} × {renderOutput.height} · {(renderOutput.durationMs / 1000).toFixed(1)}s · {(renderOutput.byteSize / 1024 / 1024).toFixed(2)} MiB · {renderOutput.mimeType}</p>
                     <p className="v3-reference-meta">SHA-256 {renderOutput.sha256} · local file · {new Date(renderOutput.createdAt).toLocaleString("en-US")}</p>
                     <p className="v3-studio-honesty"><strong>Important:</strong> this is assembled from owner-supplied moving footage. It is not AI-generated footage. Any review below records what you observed in this exact rendered file; it does not verify AI generation.</p>
