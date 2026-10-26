@@ -1951,7 +1951,13 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   // click must stay synchronous after confirmation for Chromium and Android browsers.
   await page.getByRole("button", { name: "Prepare reviewed WebM download", exact: true }).click();
   await expect.poll(async () => {
-    if (await page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).count()) return "PREPARED";
+    const downloadButton = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true });
+    if (await downloadButton.count()) {
+      if (await downloadButton.isEnabled()) return "PREPARED";
+      const staleStatus = await page.locator("#v3-content-studio [role='status']").allInnerTexts();
+      if (staleStatus.some((value) => /prepared download is blocked/i.test(value))) return "PREPARED BUT STALE: " + staleStatus.filter((value) => /prepared download is blocked/i.test(value)).join(" | ");
+      return "PREPARED BUT DISABLED";
+    }
     const alerts = (await page.locator("#v3-content-studio [role='alert']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
     if (alerts.length) return "PREPARE ERROR: " + alerts.join(" | ");
     const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
