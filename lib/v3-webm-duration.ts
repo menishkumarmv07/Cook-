@@ -60,14 +60,16 @@ function readSizeVint(bytes: Uint8Array, offset: number): SizeVint {
   const length = markerLength(bytes[offset], 8);
   if (offset + length > bytes.length) throw new Error("Truncated EBML element size.");
   const marker = 1 << (8 - length);
-  let value = bytes[offset] & (marker - 1);
+  const firstBits = bytes[offset] & (marker - 1);
+  const unknown = firstBits === marker - 1 &&
+    Array.from(bytes.subarray(offset + 1, offset + length)).every((byte) => byte === 0xff);
+  if (unknown) return { length, value: 0, unknown: true };
+  let value = firstBits;
   for (let index = 1; index < length; index += 1) {
     value = value * 256 + bytes[offset + index];
     if (!Number.isSafeInteger(value)) throw new Error("EBML element exceeds safe browser size limits.");
   }
-  const allOnes = 2 ** (7 * length) - 1;
-  const unknown = value === allOnes;
-  return { length, value, unknown };
+  return { length, value, unknown: false };
 }
 
 function encodeSizeVint(value: number, preferredLength?: number): Uint8Array {
