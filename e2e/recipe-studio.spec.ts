@@ -2150,7 +2150,7 @@ test("V3 offers local recipe-based copy variants and resets originality review w
 
   await variants.nth(1).getByRole("button", { name: "Use title + caption" }).click();
   await expect(page.locator("#v3-platform-title")).toHaveValue(chosenTitle);
-  await expect(page.locator("#v3-platform-caption")).toContainText("saved method step");
+  await expect(page.locator("#v3-platform-caption")).toHaveValue(/saved method step/);
   await expect(originalityCheck).not.toBeChecked();
   await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
