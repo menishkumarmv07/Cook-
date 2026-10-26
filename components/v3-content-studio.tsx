@@ -2714,14 +2714,23 @@ export default function V3ContentStudio() {
                       {!hasApprovedPinnedReferences && <p className="v3-studio-alert">A PASS is blocked until the actual reference images are pinned to this project and marked owner-approved. This review remains not tested for continuity until then.</p>}
                       <p className="hint">This is a manual owner review—not automatic vision analysis, an AI-generation claim, or a guarantee of perfect continuity.</p>
                     </section>
-                    {preparedDownloadSha === renderOutput.sha256 && renderOutputIsCurrent ? (
-                      <button className="primary" type="button" disabled={busy || rendering} onClick={downloadReviewedRender}>
+                    {preparedDownloadSha === renderOutput.sha256 ? (
+                      <button
+                        className="primary"
+                        type="button"
+                        disabled={busy || rendering || !renderOutputIsCurrent}
+                        title={!renderOutputIsCurrent ? "The project or media changed after the render. Save and render again before downloading." : undefined}
+                        onClick={downloadReviewedRender}
+                      >
                         I reviewed the video — download WebM
                       </button>
                     ) : (
                       <button className="secondary" type="button" disabled={busy || rendering || !renderOutputIsCurrent} onClick={() => void prepareReviewedRenderDownload()}>
                         Prepare reviewed WebM download
                       </button>
+                    )}
+                    {preparedDownloadSha === renderOutput.sha256 && !renderOutputIsCurrent && (
+                      <p className="v3-studio-alert" role="status">The prepared download is blocked because the saved project or source files no longer match this preview. Save and render again before downloading.</p>
                     )}
                     {renderOutput.reviewed && <p className="v3-caption-status" role="status">Downloaded after owner review.</p>}
                   </>
