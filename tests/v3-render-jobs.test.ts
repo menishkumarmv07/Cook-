@@ -13,11 +13,12 @@ const start = "2026-10-26T08:00:00.000Z";
 const next = "2026-10-26T08:00:02.000Z";
 const finish = "2026-10-26T08:00:10.000Z";
 
-function createJob(id = "render-1"): V3RenderJob {
+function createJob(id = "render-1", ownerSessionId = "session-a"): V3RenderJob {
   return createV3RenderJob({
     id,
     projectId: "project-1",
     projectRevision: 3,
+    ownerSessionId,
     planKey: "a".repeat(64),
     startedAt: start,
   });
@@ -61,6 +62,15 @@ test("marks active jobs interrupted after a browser reload without touching term
   assert.match(interrupted[1].message ?? "", /saved project and source media were preserved/i);
   assert.equal(interrupted[2].finishedAt, finish);
   assert.equal(preparing.status, "preparing", "recovery must not mutate stored input objects");
+});
+
+test("reload recovery only interrupts active jobs from the current tab session", () => {
+  const sameTab = createJob("same-tab", "session-a");
+  const otherTab = createJob("other-tab", "session-b");
+  const recovered = markInterruptedV3RenderJobs([sameTab, otherTab], finish, "session-a");
+  assert.deepEqual(recovered.map((job) => job.status), ["interrupted", "preparing"]);
+  assert.equal(recovered[0].ownerSessionId, "session-a");
+  assert.equal(recovered[1].ownerSessionId, "session-b");
 });
 
 test("requires a new job attempt rather than reopening terminal attempts", () => {
