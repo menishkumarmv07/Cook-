@@ -1381,7 +1381,7 @@ export default function V3ContentStudio() {
     }
     void initialize();
     return () => { cancelled = true; };
-  }, []);
+  }, [renderSessionId]);
 
   useEffect(() => {
     const previewUrls: Record<string, string> = {};
