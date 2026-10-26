@@ -1977,6 +1977,56 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   expect(renderedBytes.length).toBeGreaterThan(256);
   // EBML header signature used by WebM/Matroska containers.
   expect(Array.from(renderedBytes.subarray(0, 4))).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+
+  // Re-open the bytes read back from Playwright's downloaded file as a new media
+  // resource. This is stronger than checking only the in-memory preview or header.
+  const downloadedPlayback = await page.evaluate(async (rawBytes: number[]) => {
+    const blob = new Blob([new Uint8Array(rawBytes)], { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => finish(new Error("Downloaded WebM metadata timed out.")), 10_000);
+        const cleanup = () => {
+          window.clearTimeout(timeout);
+          video.removeEventListener("loadedmetadata", onMetadata);
+          video.removeEventListener("error", onError);
+        };
+        const finish = (error?: Error) => {
+          cleanup();
+          if (error) reject(error);
+          else resolve();
+        };
+        const onMetadata = () => finish();
+        const onError = () => finish(new Error("Downloaded WebM could not be decoded when reopened."));
+        video.addEventListener("loadedmetadata", onMetadata, { once: true });
+        video.addEventListener("error", onError, { once: true });
+        video.src = url;
+        video.load();
+      });
+      const metadata = { width: video.videoWidth, height: video.videoHeight, duration: video.duration };
+      if (metadata.width !== 720 || metadata.height !== 1280 || !Number.isFinite(metadata.duration) || metadata.duration <= 0) {
+        throw new Error("Downloaded WebM has invalid reopened playback metadata: " + JSON.stringify(metadata));
+      }
+      await video.play();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      video.pause();
+      return { ...metadata, played: true };
+    } finally {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      URL.revokeObjectURL(url);
+    }
+  }, Array.from(renderedBytes));
+  expect(downloadedPlayback.width).toBe(720);
+  expect(downloadedPlayback.height).toBe(1280);
+  expect(downloadedPlayback.duration).toBeGreaterThan(0);
+  expect(downloadedPlayback.played).toBe(true);
+
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Reviewed owner-footage video downloaded locally" })).toBeVisible();
   // Owner download confirmation cannot upgrade the separate visual-realism result.
   await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
