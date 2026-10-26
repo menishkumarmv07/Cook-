@@ -2156,6 +2156,43 @@ test("V3 offers local recipe-based copy variants and resets originality review w
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect(page.locator("#v3-content-studio [role='status']")
     .filter({ hasText: "Edits saved locally" })).toBeVisible();
+
+  // Create a second independent V3 project from the same saved V2 recipe.
+  // Matching platform copy must trigger a manual-repeat-review warning, and the
+  // downloaded creator copy must carry that pending review instead of saying ready.
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 creator copy QA recipe");
+
+  const suggestionsButton = page.getByRole("button", {
+    name: /Suggest recipe-based title & caption options|Hide local copy suggestions/,
+  });
+  if (await suggestionsButton.getAttribute("aria-expanded") !== "true") {
+    await suggestionsButton.click();
+  }
+  await expect(variants).toHaveCount(3);
+  await variants.nth(1).getByRole("button", { name: "Use title + caption" }).click();
+  await expect(page.locator("#v3-platform-title")).toHaveValue(chosenTitle);
+  await expect(page.locator("#v3-platform-caption")).toHaveValue(/saved method step/);
+
+  const repeatedWarning = page.locator("#v3-content-studio .v3-studio-alert[role='status']")
+    .filter({ hasText: "Possible repeated template — manual review required." });
+  await expect(repeatedWarning).toBeVisible();
+  await expect(repeatedWarning).toContainText("Text similarity is a review signal, not a verdict.");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+
+  const creatorCopyDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export creator copy", exact: true }).click();
+  const creatorCopy = await creatorCopyDownload;
+  expect(creatorCopy.suggestedFilename().toLowerCase().endsWith(".creator-copy.txt")).toBe(true);
+  const creatorCopyPath = await creatorCopy.path();
+  expect(creatorCopyPath).toBeTruthy();
+  const creatorCopyText = await readFile(creatorCopyPath as string, "utf8");
+  expect(creatorCopyText).toContain("NOT READY");
+  expect(creatorCopyText).toContain('duplicates "V3 creator copy QA recipe"');
+  expect(creatorCopyText).toContain("PENDING REVIEW ITEMS");
 });
 
 test("V3 shows backup-first guidance when the browser-origin storage estimate is critical", async ({ page }) => {
