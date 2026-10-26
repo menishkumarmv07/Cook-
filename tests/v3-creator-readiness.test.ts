@@ -6,6 +6,7 @@ import {
   getV3CreatorReadinessWarnings,
   isV3CreatorReadinessChecklistComplete,
   normalizeV3CreatorReadiness,
+  patchV3CreatorReadiness,
   validateV3CreatorReadiness,
   V3_CREATOR_REVIEW_CHECKS,
   type V3CreatorReadiness,
@@ -35,6 +36,29 @@ test("a complete owner-footage checklist requires all content and review gates",
   assert.equal(validateV3CreatorReadiness(readiness), true);
   assert.deepEqual(getV3CreatorReadinessIssues(readiness), []);
   assert.equal(isV3CreatorReadinessChecklistComplete(readiness), true);
+});
+
+test("edits invalidate only review checks that depend on the changed creator copy/settings", () => {
+  const original = completeOwnerFootageChecklist();
+
+  const captionEdited = patchV3CreatorReadiness(original, { caption: "A changed recipe caption." });
+  assert.equal(captionEdited.checks.recipeFactsReviewed, false);
+  assert.equal(captionEdited.checks.foodSafetyReviewed, false);
+  assert.equal(captionEdited.checks.originalityReviewed, false);
+  assert.equal(captionEdited.checks.platformDisclosureReviewed, false);
+  assert.equal(captionEdited.checks.assetRightsReviewed, true);
+
+  const platformChanged = patchV3CreatorReadiness(original, { platform: "instagram-reels" });
+  assert.equal(platformChanged.checks.platformDisclosureReviewed, false);
+  assert.equal(platformChanged.checks.originalityReviewed, false);
+  assert.equal(platformChanged.checks.recipeFactsReviewed, true);
+
+  const mediaOriginChanged = patchV3CreatorReadiness(original, { mediaOrigin: "mixed" });
+  assert.equal(mediaOriginChanged.checks.assetRightsReviewed, false);
+  assert.equal(mediaOriginChanged.checks.platformDisclosureReviewed, false);
+
+  const notesOnly = patchV3CreatorReadiness(original, { notes: "Added context only." });
+  assert.deepEqual(notesOnly.checks, original.checks);
 });
 
 test("uncertain media origin blocks readiness even when all other checks are marked", () => {
