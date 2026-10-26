@@ -3,6 +3,8 @@ import test from "node:test";
 import {
   assessV3StorageQuota,
   formatV3StorageBytes,
+  formatV3StorageErrorMessage,
+  getV3StorageQuotaErrorMessage,
   V3_STORAGE_CRITICAL_PERCENT,
   V3_STORAGE_WARNING_PERCENT,
 } from "../lib/v3-storage-quota";
@@ -46,4 +48,27 @@ test("formats byte estimates with binary storage units", () => {
   assert.equal(formatV3StorageBytes(1_048_576), "1.0 MiB");
   assert.equal(formatV3StorageBytes(-1), "Unknown");
   assert.equal(formatV3StorageBytes(Number.NaN), "Unknown");
+});
+
+
+test("explains quota failures with backup-first guidance and never recommends clearing data first", () => {
+  const error = new DOMException("The quota has been exceeded.", "QuotaExceededError");
+  const message = getV3StorageQuotaErrorMessage(error);
+  assert.ok(message);
+  assert.match(message, /local storage is full/i);
+  assert.match(message, /export its JSON backup/i);
+  assert.match(message, /does not delete stored projects automatically/i);
+  assert.equal(getV3StorageQuotaErrorMessage(new Error("A different write error")), null);
+});
+
+test("formats expected storage errors without replacing useful validation messages", () => {
+  assert.equal(
+    formatV3StorageErrorMessage(new Error("The project revision is stale."), "fallback"),
+    "The project revision is stale.",
+  );
+  assert.equal(
+    formatV3StorageErrorMessage({ name: "QuotaExceededError", message: "" }, "fallback").includes("export its JSON backup"),
+    true,
+  );
+  assert.equal(formatV3StorageErrorMessage(null, "safe fallback"), "safe fallback");
 });
