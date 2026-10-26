@@ -106,6 +106,39 @@ export function normalizeV3CreatorReadiness(
   return { readiness: value, migrated: false };
 }
 
+/**
+ * Editing creator copy or changing its target/media origin invalidates the review
+ * checks that depended on the previous version. Notes-only edits do not reset them.
+ */
+export function patchV3CreatorReadiness(
+  readiness: V3CreatorReadiness,
+  patch: Partial<Pick<V3CreatorReadiness, "platform" | "title" | "caption" | "callToAction" | "hashtags" | "mediaOrigin" | "notes">>,
+): V3CreatorReadiness {
+  const changedKeys = (Object.keys(patch) as Array<keyof typeof patch>)
+    .filter((key) => patch[key] !== undefined && patch[key] !== readiness[key]);
+  if (changedKeys.length === 0) return readiness;
+
+  const checks = { ...readiness.checks };
+  const changesCopyOrTarget = changedKeys.some((key) =>
+    key === "platform" || key === "title" || key === "caption" ||
+    key === "callToAction" || key === "hashtags" || key === "mediaOrigin",
+  );
+  if (changesCopyOrTarget) {
+    checks.originalityReviewed = false;
+    checks.platformDisclosureReviewed = false;
+  }
+  if (changedKeys.some((key) => key === "title" || key === "caption" || key === "callToAction")) {
+    checks.recipeFactsReviewed = false;
+  }
+  if (changedKeys.includes("caption")) {
+    checks.foodSafetyReviewed = false;
+  }
+  if (changedKeys.includes("mediaOrigin")) {
+    checks.assetRightsReviewed = false;
+  }
+  return { ...readiness, ...patch, checks };
+}
+
 export function getV3CreatorReadinessIssues(readiness: V3CreatorReadiness): string[] {
   const issues: string[] = [];
   if (!readiness.title.trim()) issues.push("Add a distinct, recipe-specific title or hook (maximum 100 characters).");
