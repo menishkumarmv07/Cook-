@@ -64,6 +64,7 @@ import {
 } from "@/lib/v3-rendering";
 import { assessV3StorageQuota, formatV3StorageBytes, formatV3StorageErrorMessage, getV3StorageQuotaErrorMessage, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
 import { createV3RenderJob, isV3RenderJob, markInterruptedV3RenderJobs, planV3RenderJobRetention, sortV3RenderJobsNewestFirst, MAX_V3_RENDER_JOBS, transitionV3RenderJob, type V3RenderJob } from "@/lib/v3-render-jobs";
+import { buildV3CreatorCopyVariants, detectV3CreatorCopyRepetition, type V3CreatorCopySnapshot } from "@/lib/v3-copy-variants";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -1232,6 +1233,7 @@ export default function V3ContentStudio() {
   const [renderOutput, setRenderOutput] = useState<V3RenderOutputState | null>(null);
   const [renderJobs, setRenderJobs] = useState<V3RenderJob[]>([]);
   const [renderSessionId] = useState<string>(() => getV3RenderSessionId());
+  const [copyVariantsOpen, setCopyVariantsOpen] = useState(false);
   const [preparedDownloadSha, setPreparedDownloadSha] = useState<string | null>(null);
   const [visualReviewDrafts, setVisualReviewDrafts] = useState<Record<string, V3VisualReviewChecklist>>({});
   const renderAbortRef = useRef<AbortController | null>(null);
@@ -1432,8 +1434,42 @@ export default function V3ContentStudio() {
     [activeProject, mediaAssets],
   );
 
-  const creatorReadinessIssues = activeProject
-    ? getV3CreatorReadinessIssues(activeProject.creatorReadiness)
+  const creatorCopySnapshot: V3CreatorCopySnapshot | null = activeProject
+    ? {
+        projectId: activeProject.id,
+        projectTitle: activeProject.title || activeProject.blueprint.recipeTitle,
+        platform: activeProject.creatorReadiness.platform,
+        title: activeProject.creatorReadiness.title,
+        caption: activeProject.creatorReadiness.caption,
+        callToAction: activeProject.creatorReadiness.callToAction,
+        hashtags: activeProject.creatorReadiness.hashtags,
+      }
+    : null;
+  const creatorCopyRepetitionWarnings = creatorCopySnapshot
+    ? detectV3CreatorCopyRepetition(
+        creatorCopySnapshot,
+        projects
+          .filter((project) => project.id !== creatorCopySnapshot.projectId)
+          .map((project) => ({
+            projectId: project.id,
+            projectTitle: project.title || project.blueprint.recipeTitle,
+            platform: project.creatorReadiness.platform,
+            title: project.creatorReadiness.title,
+            caption: project.creatorReadiness.caption,
+            callToAction: project.creatorReadiness.callToAction,
+            hashtags: project.creatorReadiness.hashtags,
+          })),
+      )
+    : [];
+  const creatorReadinessIssues = [
+    ...(activeProject ? getV3CreatorReadinessIssues(activeProject.creatorReadiness) : []),
+    ...creatorCopyRepetitionWarnings.map((warning) => warning.message),
+  ];
+  const creatorCopyVariants = activeProject
+    ? buildV3CreatorCopyVariants(
+        activeProject.blueprint.recipeTitle,
+        activeProject.blueprint.sourceSnapshot.recipe.steps.map((step) => step.action),
+      )
     : [];
   const recentRenderJobs = activeProject
     ? renderJobs.filter((job) => job.projectId === activeProject.id).slice(0, 5)
@@ -2459,7 +2495,7 @@ export default function V3ContentStudio() {
   function exportCreatorCopy() {
     if (!activeProject) return;
     const readiness = activeProject.creatorReadiness;
-    const issues = getV3CreatorReadinessIssues(readiness);
+    const issues = creatorReadinessIssues;
     const platformLabel = readiness.platform === "youtube-shorts"
       ? "YouTube Shorts"
       : readiness.platform === "instagram-reels"
@@ -3262,6 +3298,39 @@ export default function V3ContentStudio() {
                   onChange={(event) => updateCreatorReadiness({ caption: event.target.value })} />
                 <p className="hint">{activeProject.creatorReadiness.caption.length}/4,000 characters. A platform may enforce a lower limit.</p>
               </div>
+              <div className="v3-copy-suggestions v3-publish-wide">
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={busy || rendering || creatorCopyVariants.length === 0}
+                  aria-expanded={copyVariantsOpen}
+                  aria-controls="v3-copy-variant-options"
+                  onClick={() => setCopyVariantsOpen((open) => !open)}
+                >
+                  {copyVariantsOpen ? "Hide local copy suggestions" : "Suggest recipe-based title & caption options"}
+                </button>
+                <p className="hint">These suggestions are created locally from the saved recipe title and method text. They are not AI-generated facts, and they do not upload or publish anything. Review each option before using it.</p>
+                {copyVariantsOpen && (
+                  <div id="v3-copy-variant-options" className="v3-copy-variant-grid">
+                    {creatorCopyVariants.map((variant) => (
+                      <article className="v3-copy-variant" key={variant.id}>
+                        <h5>{variant.label}</h5>
+                        <p><strong>Title:</strong> <span className="v3-copy-variant-title">{variant.title}</span></p>
+                        <p><strong>Caption:</strong> {variant.caption}</p>
+                        <p className="hint">{variant.rationale}</p>
+                        <button
+                          className="secondary"
+                          type="button"
+                          disabled={busy || rendering}
+                          onClick={() => updateCreatorReadiness({ title: variant.title, caption: variant.caption })}
+                        >
+                          Use title + caption
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div>
                 <label htmlFor="v3-platform-cta">Call to action</label>
                 <input id="v3-platform-cta" maxLength={300} value={activeProject.creatorReadiness.callToAction} disabled={busy || rendering}
@@ -3305,6 +3374,15 @@ export default function V3ContentStudio() {
               <textarea id="v3-publish-review-notes" rows={2} maxLength={2_000} value={activeProject.creatorReadiness.notes} disabled={busy || rendering}
                 onChange={(event) => updateCreatorReadiness({ notes: event.target.value })} />
             </div>
+            {creatorCopyRepetitionWarnings.length > 0 && (
+              <div className="v3-studio-alert" role="status" aria-live="polite">
+                <strong>Possible repeated template — manual review required.</strong>
+                <ul>
+                  {creatorCopyRepetitionWarnings.map((warning) => <li key={warning.otherProjectId}>{warning.message}</li>)}
+                </ul>
+                <p>Similarity checks are local text signals, not a verdict on originality. Rewrite the copy with recipe-specific educational value or document a substantive editorial reason before export.</p>
+              </div>
+            )}
             {creatorReadinessIssues.length === 0 ? (
               <p className="v3-publish-status" role="status">Owner checklist complete for {activeProject.creatorReadiness.platform}. This is not platform approval or a monetization guarantee. Verify current platform rules and post manually. Nothing is published by this app.</p>
             ) : (

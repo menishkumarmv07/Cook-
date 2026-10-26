@@ -1916,3 +1916,12 @@ html, body { background: var(--chat-paper); color: var(--chat-ink); }
 .v3-publish-status ul{margin:8px 0 0;padding-left:20px}
 .v3-publish-status li{margin:4px 0}
 @media(max-width:560px){.v3-publish-readiness{padding:11px}.v3-publish-fields{grid-template-columns:minmax(0,1fr)}.v3-publish-wide{grid-column:auto}.v3-publish-checks{padding:10px}}
+
+/* Locally generated V3.7 title/caption options stay compact on mobile. */
+.v3-copy-suggestions{min-width:0;display:grid;gap:10px;align-content:start}
+.v3-copy-variant-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;min-width:0}
+.v3-copy-variant{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--cream);overflow-wrap:anywhere}
+.v3-copy-variant h5{margin:0 0 8px;font-size:13px;color:var(--chat-ink)}
+.v3-copy-variant p{margin:7px 0;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.v3-copy-variant button{width:100%;white-space:normal}
+@media(max-width:760px){.v3-copy-variant-grid{grid-template-columns:minmax(0,1fr)}}

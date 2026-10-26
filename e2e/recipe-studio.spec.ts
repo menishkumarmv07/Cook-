@@ -2112,6 +2112,52 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
     .toContainText("COMPLETED");
 });
 
+test("V3 offers local recipe-based copy variants and resets originality review when a variant is applied", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 creator copy QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 creator copy QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Stir the rice gently");
+  await page.getByLabel("Timing").nth(0).fill("5 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 creator copy QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+
+  const originalityCheck = page.getByLabel("The content includes recipe-specific educational value and is not repetitive filler.");
+  await originalityCheck.check();
+  await page.getByRole("button", { name: "Suggest recipe-based title & caption options" }).click();
+  const variants = page.locator("#v3-copy-variant-options article");
+  await expect(variants).toHaveCount(3);
+  await expect(variants.nth(1)).toContainText("Stir the rice gently");
+  const chosenTitle = await variants.nth(1).locator(".v3-copy-variant-title").innerText();
+
+  await variants.nth(1).getByRole("button", { name: "Use title + caption" }).click();
+  await expect(page.locator("#v3-platform-title")).toHaveValue(chosenTitle);
+  await expect(page.locator("#v3-platform-caption")).toContainText("saved method step");
+  await expect(originalityCheck).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Edits saved locally" })).toBeVisible();
+});
+
 test("V3 shows backup-first guidance when the browser-origin storage estimate is critical", async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator.storage, "estimate", {
