@@ -1726,6 +1726,9 @@ function makeSyntheticWavFixture(durationSeconds = 1.8, sampleRate = 22_050): Bu
 }
 
 test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
+  // The real browser renderer is part of this integration path, so allow it more time
+  // than the standard UI smoke test while retaining a strict bounded failure.
+  test.setTimeout(120_000);
   const runtimeErrors: string[] = [];
   page.on("pageerror", (error) => runtimeErrors.push(error.stack ?? error.message));
   await page.goto("/");
@@ -1915,7 +1918,17 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.locator(".v3-render-preflight")).toContainText("Ready for a short owner-footage render");
   await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Render real owner footage", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Rendered video preview", exact: true })).toBeVisible({ timeout: 45_000 });
+  // Fail with the actual renderer error/progress message instead of a generic
+  // "heading missing" timeout if the browser cannot complete one of the media stages.
+  const renderOutcome = await expect.poll(async () => {
+    if (await page.getByRole("heading", { name: "Rendered video preview", exact: true }).count()) return "RENDERED";
+    const errors = await page.locator("#v3-content-studio [role='alert']").allInnerTexts();
+    const usefulErrors = errors.map((value) => value.trim()).filter(Boolean);
+    if (usefulErrors.length) return "RENDER ERROR: " + usefulErrors.join(" | ");
+    const progress = await page.locator("#v3-content-studio [role='status']").allInnerTexts();
+    const usefulProgress = progress.map((value) => value.trim()).filter(Boolean);
+    return "RENDERING: " + usefulProgress.slice(-3).join(" | ");
+  }, { timeout: 60_000, intervals: [250, 500, 1_000] }).toBe("RENDERED");
   const renderPreview = page.locator("#v3-content-studio video.v3-render-preview");
   await expect(renderPreview).toHaveCount(1);
   await expect.poll(() => renderPreview.evaluate((element) => {
