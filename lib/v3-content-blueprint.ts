@@ -694,6 +694,9 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
       // Such an incomplete assignment remains valid data but cannot pass render preflight.
       if (targetClipSeconds !== null) return false;
     } else {
+      // An assigned clip is valid schema data when both trim boundaries are present
+      // and targetClipSeconds exactly matches their duration. Rendering performs the
+      // additional source-file, rights, duration and codec checks separately.
       if (sourceEnd <= sourceStart || targetClipSeconds === null ||
           Math.abs(targetClipSeconds * 1_000 - (sourceEnd - sourceStart)) > 1) return false;
     }
@@ -710,7 +713,6 @@ export function validateV3ContentBlueprint(value: unknown): value is V3ContentBl
         Array.isArray(entry.fields) && entry.fields.every((field) => typeof field === "string");
     })) return false;
     if (scene.reviewStatus !== "needs-review" && scene.reviewStatus !== "approved" && scene.reviewStatus !== "rejected") return false;
-    if (scene.targetClipSeconds !== null) return false;
   }
   if (!isCreatorProfile(value.creatorProfile)) return false;
   if (!Array.isArray(value.reviewNotes) || !value.reviewNotes.every((note) => typeof note === "string")) return false;
