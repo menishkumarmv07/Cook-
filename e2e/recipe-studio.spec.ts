@@ -1753,6 +1753,10 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
 
   await chooseMenuTool(page, "AI Chef Studio");
   await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "studio");
+  // AI Chef Studio is dynamically imported to keep the V1/V2 first-load bundle smaller.
+  // Wait for its actual heading instead of asserting that the chunk mounted synchronously.
+  await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" }))
+    .toBeVisible({ timeout: 15_000 });
   const studioMount = await page.evaluate(() => ({
     activeTool: document.querySelector(".shell")?.getAttribute("data-active-tool"),
     sectionCount: document.querySelectorAll("#v3-content-studio").length,
@@ -2113,6 +2117,8 @@ test("V3 refuses a stale-tab project save and preserves the newer revision", asy
   await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
   await page.getByLabel("Timing").nth(0).fill("15 minutes");
   await page.reload();
+  // Wait until localStorage hydration has restored the recipe editor before navigating.
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
 
   await chooseMenuTool(page, "AI Chef Studio");
   const recipeOption = page.locator("#v3-recipe-select option")
