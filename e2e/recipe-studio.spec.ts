@@ -2120,6 +2120,20 @@ test("V3 shows backup-first guidance when the browser-origin storage estimate is
   await expect(warning).toContainText("95%");
   await expect(warning).toContainText("Export the project JSON and a production-bundle ZIP");
   await expect(warning).toContainText("Nothing is deleted automatically.");
+
+  // Run in both Playwright desktop and mobile projects: no horizontal overflow in
+  // the full screen or in the V3 section at narrow widths (Android Chrome friendly).
+  const widths = await page.evaluate(() => {
+    const studio = document.querySelector<HTMLElement>("#v3-content-studio");
+    return {
+      viewportWidth: window.innerWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      studioClientWidth: studio?.clientWidth ?? 0,
+      studioScrollWidth: studio?.scrollWidth ?? 0,
+    };
+  });
+  expect(widths.documentScrollWidth).toBeLessThanOrEqual(widths.viewportWidth);
+  expect(widths.studioScrollWidth).toBeLessThanOrEqual(widths.studioClientWidth);
 });
 
 test("V3 refuses a stale-tab project save and preserves the newer revision", async ({ page }) => {
