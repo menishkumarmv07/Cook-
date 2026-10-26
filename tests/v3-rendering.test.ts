@@ -7,6 +7,7 @@ import {
   preflightV3OwnerFootageRender,
   type V3MediaAsset,
 } from "../lib/v3-rendering";
+import { renderV3OwnerFootageVideo } from "../lib/v3-owner-footage-renderer";
 
 function scene(id: string, sourceStartMs = 0, sourceEndMs = 2_000): V3BlueprintScene {
   return {
@@ -151,4 +152,20 @@ test("media metadata validator rejects inconsistent video/audio fields and unsaf
   assert.equal(isV3MediaAsset({ ...narration, width: 10 }), false);
   assert.equal(isV3MediaAsset({ ...video, byteSize: 0 }), false);
   assert.equal(isV3MediaAsset({ ...video, sha256: "bad" }), false);
+});
+
+
+test("honors cancellation before initializing browser media devices", async () => {
+  const controller = new AbortController();
+  controller.abort();
+
+  await assert.rejects(
+    () => renderV3OwnerFootageVideo({
+      scenes: [],
+      assets: [],
+      narrationAssetId: null,
+      signal: controller.signal,
+    }),
+    (error: unknown) => error instanceof DOMException && error.name === "AbortError",
+  );
 });
