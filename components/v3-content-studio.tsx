@@ -523,7 +523,8 @@ async function readMediaFileMetadata(file: File, kind: V3MediaKind): Promise<{
   try {
     await new Promise<void>((resolve, reject) => {
       let metadataReady = false;
-      let decodeReady = kind === "narration";
+      // Narration must have decodable media data too, not merely a duration header.
+      let decodeReady = false;
       let settled = false;
       const timeout = window.setTimeout(() => finish(new Error("Browser media metadata/decode check timed out. Try a shorter clip or a supported format.")), 20_000);
       const finish = (error?: Error) => {
