@@ -204,8 +204,9 @@ async function verifyRecordedVideo(blob: Blob, expectedDurationMs: number, signa
     video.load();
     await waitForMediaReady(video, signal);
     const actualDurationMs = video.duration * 1_000;
-    if (!Number.isFinite(actualDurationMs) || actualDurationMs < expectedDurationMs - 2_500 ||
-        actualDurationMs > expectedDurationMs + 2_500) {
+    const durationToleranceMs = Math.max(500, Math.min(2_500, expectedDurationMs * 0.05));
+    if (!Number.isFinite(actualDurationMs) || actualDurationMs < expectedDurationMs - durationToleranceMs ||
+        actualDurationMs > expectedDurationMs + durationToleranceMs) {
       throw new Error("The rendered video's duration differs too much from the planned timeline. Keep the source project and review the render.");
     }
     if (video.videoWidth !== WIDTH || video.videoHeight !== HEIGHT) {
@@ -260,6 +261,8 @@ async function recordPreparedScene(
   await new Promise<void>((resolve, reject) => {
     let finished = false;
     let frameHandle = 0;
+    let lastSourceNowMs = video.currentTime * 1_000;
+    let lastProgressAt = performance.now();
     const cleanup = () => {
       cancelAnimationFrame(frameHandle);
       document.removeEventListener("visibilitychange", handleVisibility);
@@ -289,6 +292,13 @@ async function recordPreparedScene(
         return;
       }
       const sourceNowMs = video.currentTime * 1_000;
+      if (sourceNowMs > lastSourceNowMs + 20) {
+        lastSourceNowMs = sourceNowMs;
+        lastProgressAt = performance.now();
+      } else if (performance.now() - lastProgressAt > 10_000) {
+        finish(new Error("Source playback stopped advancing for 10 seconds. The partial video was rejected; retry with a shorter browser-compatible clip."));
+        return;
+      }
       const elapsedMs = Math.max(0, Math.min(durationMs, sourceNowMs - startMs));
       try {
         drawFrameAt(context, video, scenes, timelineOffsetMs + elapsedMs);
