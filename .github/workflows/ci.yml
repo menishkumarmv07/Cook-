@@ -7,6 +7,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Keep only the newest verification run for a given PR/ref. Rapid, focused V3
+# commits should not run multiple full desktop/mobile E2E suites concurrently.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
