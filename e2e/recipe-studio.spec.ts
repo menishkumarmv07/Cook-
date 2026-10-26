@@ -1945,6 +1945,10 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
 
   // Test the actual file download, not only the in-memory preview. This synthetic
   // fixture proves the WebM/container path; it does not represent real cooking video.
+  // Validate IndexedDB state before the final gesture. The actual native download
+  // click must stay synchronous after confirmation for Chromium and Android browsers.
+  await page.getByRole("button", { name: "Prepare reviewed WebM download", exact: true }).click();
+  await expect(page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true })).toBeEnabled();
   const reviewedConfirm = page.waitForEvent("dialog");
   const renderedDownloadPromise = page.waitForEvent("download");
   const reviewedClickPromise = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
