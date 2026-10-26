@@ -200,7 +200,7 @@ export function detectV3CreatorCopyRepetition(
       message:
         (exact ? "This platform copy duplicates " : "This platform copy closely resembles ") +
         "\"" + otherTitle + "\" on " + cleanSourceText(current.platform || "the selected platform") +
-        ". Rewrite it with recipe-specific educational value or document a substantive editorial reason before export. Text similarity is a review signal, not a verdict.",
+        ". Revise the copy so it has meaningfully distinct, recipe-specific educational value before export. This warning keeps the owner checklist NOT READY until the text is materially differentiated. Text similarity is a review signal, not a verdict.",
     });
   }
 

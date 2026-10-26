@@ -102,3 +102,14 @@ test("does not flag unrelated copy or an incomplete current draft", () => {
   assert.deepEqual(detectV3CreatorCopyRepetition(current, [different]), []);
   assert.deepEqual(detectV3CreatorCopyRepetition(snapshot("empty", { title: "", caption: "" }), [current]), []);
 });
+
+test("explains that repeated copy stays NOT READY until materially differentiated", () => {
+  const current = snapshot("current");
+  const previous = snapshot("previous", { projectTitle: "Previous Garlic Rice" });
+  const warnings = detectV3CreatorCopyRepetition(current, [previous]);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /owner checklist NOT READY/i);
+  assert.match(warnings[0].message, /materially differentiated/i);
+  assert.doesNotMatch(warnings[0].message, /document a substantive editorial reason/i);
+});
+

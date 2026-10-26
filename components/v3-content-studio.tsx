@@ -3380,7 +3380,7 @@ export default function V3ContentStudio() {
                 <ul>
                   {creatorCopyRepetitionWarnings.map((warning) => <li key={warning.otherProjectId}>{warning.message}</li>)}
                 </ul>
-                <p>Similarity checks are local text signals, not a verdict on originality. Rewrite the copy with recipe-specific educational value or document a substantive editorial reason before export.</p>
+                <p>Similarity checks are local text signals, not a verdict on originality. Keep this item NOT READY until the copy is materially differentiated with recipe-specific educational value.</p>
               </div>
             )}
             {creatorReadinessIssues.length === 0 ? (
