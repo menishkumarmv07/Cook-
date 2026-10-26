@@ -31,6 +31,9 @@ async function signInOwner(page: import("@playwright/test").Page) {
 }
 
 async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  // Let persisted navigation hydrate before inspecting the active screen; otherwise a saved
+  // tool can replace Home after the drawer button has been queried, making desktop tests flaky.
+  await expect(page.locator(".shell")).toHaveAttribute("data-navigation-ready", "true");
   // Tools are dedicated screens. Return Home before opening another tool or using chat.
   const activeTool = await page.locator(".shell").getAttribute("data-active-tool");
   if (activeTool && activeTool !== "home") {
