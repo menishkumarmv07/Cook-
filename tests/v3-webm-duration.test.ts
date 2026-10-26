@@ -62,6 +62,19 @@ test("updates a finite Segment size when Duration is inserted", () => {
   assert.equal(readV3WebmDurationMs(patched), 800);
 });
 
+test("recognizes MediaRecorder WebM with an eight-byte unknown Segment size", () => {
+  const short = minimalWebm();
+  const eightByteUnknownSize = new Uint8Array([0x01, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff]);
+  const source = new Uint8Array(short.length + 7);
+  source.set(short.subarray(0, 9), 0);
+  source.set(eightByteUnknownSize, 9);
+  source.set(short.subarray(10), 17);
+
+  const patched = patchV3WebmDurationBytes(source, 950);
+  assert.equal(readV3WebmDurationMs(patched), 950);
+  assert.equal(patched.length, source.length + 11);
+});
+
 test("updates SeekHead offsets that point to tracks after the extended Info element", () => {
   const source = minimalWebm({ seekToTracks: true });
   const segmentDataStart = 10; // 5-byte EBML header, then the 4-byte Segment ID and 1-byte size.
