@@ -1,3 +1,11 @@
+## Browser storage quota warning — 26 October 2026
+
+- Added a best-effort browser-origin storage estimate in V3.6. A warning appears at 80% usage and a critical warning at 90%; it gives backup-first guidance and never deletes data or uploads content.
+- Estimate absence/failure is treated as unknown, not as zero usage or a false green status. Displayed byte counts are browser estimates for this site, not precise per-project accounting.
+- Added pure unit coverage for thresholds, invalid estimates, percentage clamping and byte formatting. Exact-head CI is pending; do not treat this change as validated until GitHub Actions completes.
+
+---
+
 # V3 Build Log — Cooking Creator
 
 ## Creator-readiness dependency hardening — 26 October 2026

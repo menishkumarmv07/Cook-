@@ -62,6 +62,7 @@ import {
   type V3MediaKind,
   type V3MediaRightsStatus,
 } from "@/lib/v3-rendering";
+import { assessV3StorageQuota, formatV3StorageBytes, type V3StorageQuotaStatus } from "@/lib/v3-storage-quota";
 
 const RECIPE_STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
@@ -1105,6 +1106,7 @@ export default function V3ContentStudio() {
   const [references, setReferences] = useState<StoredV3Reference[]>([]);
   const [referencePreviewUrls, setReferencePreviewUrls] = useState<Record<string, string>>({});
   const [mediaAssets, setMediaAssets] = useState<StoredV3Media[]>([]);
+  const [storageQuotaStatus, setStorageQuotaStatus] = useState<V3StorageQuotaStatus | null>(null);
   const [mediaPreviewUrls, setMediaPreviewUrls] = useState<Record<string, string>>({});
   const [mediaRightsNoteDrafts, setMediaRightsNoteDrafts] = useState<Record<string, string>>({});
   const [mediaKindDraft, setMediaKindDraft] = useState<V3MediaKind>("video");
@@ -1143,6 +1145,34 @@ export default function V3ContentStudio() {
     () => recipes.find((recipe) => String(recipe.id) === selectedRecipeId) ?? null,
     [recipes, selectedRecipeId],
   );
+
+  // Browser quota estimates are local metadata only; they do not upload file content.
+  // Recheck after saved-project revisions or local asset sizes/counts change.
+  const storageEstimateKey = [
+    projects.map((project) => project.id + ":" + project.revision).join("|"),
+    references.reduce((total, reference) => total + reference.file.size, 0),
+    mediaAssets.reduce((total, asset) => total + asset.file.size, 0),
+  ].join(":");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function inspectBrowserStorage() {
+      try {
+        if (typeof navigator === "undefined" || typeof navigator.storage?.estimate !== "function") {
+          if (!cancelled) setStorageQuotaStatus(null);
+          return;
+        }
+        const estimate = await navigator.storage.estimate();
+        const status = assessV3StorageQuota(estimate.usage, estimate.quota);
+        if (!cancelled) setStorageQuotaStatus(status);
+      } catch {
+        // Estimation is best-effort; saves and exports still validate their own results.
+        if (!cancelled) setStorageQuotaStatus(null);
+      }
+    }
+    void inspectBrowserStorage();
+    return () => { cancelled = true; };
+  }, [storageEstimateKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2343,6 +2373,16 @@ export default function V3ContentStudio() {
       </div>
 
       <p className="v3-studio-honesty"><strong>Important:</strong> V3 can create an editable scene plan and, when device checks pass, assemble actual owner-supplied moving footage with narration and captions into a playable local WebM. It does not generate AI cooking footage. Reference-guided AI generation is unavailable unless a qualifying genuinely free/no-card service is verified. Nothing is uploaded by this screen.</p>
+
+      {storageQuotaStatus && (
+        <p className={storageQuotaStatus.severity === "critical" ? "v3-storage-warning is-critical" : "v3-storage-warning"}
+          role="status" aria-live="polite" aria-label="Browser storage warning">
+          <strong>{storageQuotaStatus.severity === "critical" ? "Storage is nearly full." : "Storage space is getting low."}</strong>{" "}
+          This site is using an estimated {formatV3StorageBytes(storageQuotaStatus.usageBytes)} of
+          {" "}{formatV3StorageBytes(storageQuotaStatus.quotaBytes)} available browser storage
+          ({storageQuotaStatus.usedPercent}%). Export the project JSON and a production-bundle ZIP for projects whose media must be recoverable before importing more large files. Nothing is deleted automatically.
+        </p>
+      )}
 
       {error && <p className="v3-studio-alert" role="alert">{error}</p>}
       {message && <p className="message" role="status" aria-live="polite">{message}</p>}
