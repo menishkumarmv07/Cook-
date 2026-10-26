@@ -29,6 +29,7 @@ import {
   getV3CreatorReadinessIssues,
   getV3CreatorReadinessWarnings,
   normalizeV3CreatorReadiness,
+  patchV3CreatorReadiness,
   validateV3CreatorReadiness,
   type V3CreatorReadiness,
   type V3CreatorReviewCheckKey,
@@ -1967,7 +1968,7 @@ export default function V3ContentStudio() {
   ) {
     if (!activeProject) return;
     setProjects((existing) => existing.map((project) => project.id === activeProject.id
-      ? { ...project, creatorReadiness: { ...project.creatorReadiness, ...patch } }
+      ? { ...project, creatorReadiness: patchV3CreatorReadiness(project.creatorReadiness, patch) }
       : project));
     setDirty(true);
     setMessage("");
