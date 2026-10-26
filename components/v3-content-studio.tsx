@@ -38,6 +38,7 @@ import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
   reviewV3ContinuityClip,
+  hasRequiredV3ContinuityReferenceRoles,
   MAX_V3_REFERENCE_BYTES,
   validateV3ContinuityBible,
   validateV3ContinuityReference,
@@ -1185,14 +1186,17 @@ export default function V3ContentStudio() {
   const visualReviewChecklistAllPass = V3_VISUAL_REVIEW_ITEMS.every(
     (item) => visualReviewChecklist[item.key] === "pass",
   );
+  const approvedPinnedReferenceRoles = activeProject
+    ? activeProject.referenceBible.referenceIds.flatMap((id) => {
+        const reference = references.find((item) => item.metadata.id === id);
+        return reference?.metadata.reviewState === "approved" ? [reference.metadata.role] : [];
+      })
+    : [];
   const hasApprovedPinnedReferences = Boolean(
     activeProject &&
     activeProject.referenceBible.referenceIds.length > 0 &&
-    activeProject.referenceBible.referenceIds.every((id) =>
-      references.some((reference) =>
-        reference.metadata.id === id && reference.metadata.reviewState === "approved",
-      ),
-    ),
+    approvedPinnedReferenceRoles.length === activeProject.referenceBible.referenceIds.length &&
+    hasRequiredV3ContinuityReferenceRoles(approvedPinnedReferenceRoles)
   );
 
   useEffect(() => {
@@ -1850,6 +1854,7 @@ export default function V3ContentStudio() {
         renderOutput.sha256,
         visualReviewChecklist,
         outcome,
+        approvedPinnedReferenceRoles,
       );
       const candidate: V3StudioProject = {
         ...activeProject,

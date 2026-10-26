@@ -1,5 +1,14 @@
 # V3 Build Log — Cooking Creator
 
+## Implementation hardening — 26 October 2026
+
+- Tightened the visual realism PASS contract: it now requires both an owner-approved pinned `chef-identity` reference and an owner-approved pinned `kitchen-wide` or `kitchen-detail` reference. A generic pinned image or a wardrobe-only image is not sufficient.
+- Added unit coverage for no-reference, chef-only, kitchen-only, wardrobe-only, and valid chef+kitchen combinations.
+- This is a guardrail for the manual review workflow; it does not turn manual review into AI vision analysis and does not certify that any clip is realistic. The actual reference files and actual owner-footage still need human review.
+- Preceding exact-head run #696 was triggered for commit `7239e1a003dfdc45a3555a9d92aa36fb711f878f`; it must not be used to verify this newer change. Check the GitHub run attached to the new commit and record its actual final result.
+
+---
+
 > Project: `menishkumarmv07/Cook-` only. Keep this separate from App Market/MV and GKworks.
 > Branch: `v3/ai-chef-content-studio`.
 > Base: verified V2 main `5d0da951e2a73c5098ba82308f23438556b3f80c`.

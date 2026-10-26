@@ -62,6 +62,15 @@ const REFERENCE_ROLES: readonly V3ReferenceRole[] = [
   "cookware-prop",
   "finished-dish",
 ];
+
+/** Require both approved chef identity and kitchen references before a realism PASS. */
+export function hasRequiredV3ContinuityReferenceRoles(
+  roles: readonly V3ReferenceRole[],
+): boolean {
+  const roleSet = new Set(roles);
+  return roleSet.has("chef-identity") &&
+    (roleSet.has("kitchen-wide") || roleSet.has("kitchen-detail"));
+}
 const REVIEW_STATES: readonly V3ReferenceReviewState[] = ["not-reviewed", "approved", "rejected"];
 const VISUAL_REVIEW_STATES: readonly V3VisualReviewState[] = ["not-tested", "pass", "fail"];
 const CHECKLIST_KEYS = [
@@ -195,6 +204,7 @@ export function reviewV3ContinuityClip(
   clipId: string,
   checklist: V3ContinuityBible["reviewChecklist"],
   outcome: Exclude<V3VisualReviewState, "not-tested">,
+  approvedPinnedReferenceRoles: readonly V3ReferenceRole[],
 ): V3ContinuityBible {
   if (!validateV3ContinuityBible(bible)) throw new Error("Cannot review clips against an invalid Chef & Kitchen Bible.");
   if (!clipId.trim() || clipId.length > 160) throw new Error("A clip ID is required for a visual review.");
@@ -208,6 +218,11 @@ export function reviewV3ContinuityClip(
   }
   if (outcome === "pass" && anyFailed) {
     throw new Error("A clip with a failed realism criterion cannot be approved.");
+  }
+  if (outcome === "pass" &&
+      (bible.referenceIds.length === 0 ||
+       !hasRequiredV3ContinuityReferenceRoles(approvedPinnedReferenceRoles))) {
+    throw new Error("A visual realism PASS requires pinned, owner-approved references for both the chef identity and the kitchen.");
   }
   return {
     ...bible,

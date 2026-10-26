@@ -4,6 +4,7 @@ import {
   createEmptyV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
   reviewV3ContinuityClip,
+  hasRequiredV3ContinuityReferenceRoles,
   validateV3ContinuityBible,
   validateV3ContinuityReference,
   MAX_V3_REFERENCE_BYTES,
@@ -35,6 +36,15 @@ test("validates owner reference metadata and rejects invalid file facts", () => 
   assert.equal(validateV3ContinuityReference({ ...validReference(), role: "imaginary-role" }), false);
 });
 
+test("realism review requires an approved chef identity and kitchen reference", () => {
+  assert.equal(hasRequiredV3ContinuityReferenceRoles([]), false);
+  assert.equal(hasRequiredV3ContinuityReferenceRoles(["chef-identity"]), false);
+  assert.equal(hasRequiredV3ContinuityReferenceRoles(["kitchen-wide"]), false);
+  assert.equal(hasRequiredV3ContinuityReferenceRoles(["chef-wardrobe", "kitchen-detail"]), false);
+  assert.equal(hasRequiredV3ContinuityReferenceRoles(["chef-identity", "kitchen-wide"]), true);
+  assert.equal(hasRequiredV3ContinuityReferenceRoles(["chef-identity", "kitchen-detail"]), true);
+});
+
 test("empty Bible starts explicitly NOT TESTED and does not invent references", () => {
   const bible = createEmptyV3ContinuityBible();
   assert.equal(validateV3ContinuityBible(bible), true);
@@ -55,7 +65,8 @@ test("Bible changes create a new version and reset all previous visual approvals
     temporalMotion: "pass",
     audioAndCaptions: "pass",
   } satisfies Record<string, V3VisualReviewState>;
-  const reviewed = reviewV3ContinuityClip(original, "clip-1", passed, "pass");
+  const withPinnedRefs = { ...original, referenceIds: ["chef-ref", "kitchen-ref"] };
+  const reviewed = reviewV3ContinuityClip(withPinnedRefs, "clip-1", passed, "pass", ["chef-identity", "kitchen-wide"]);
   assert.equal(reviewed.visualRealismStatus, "pass");
   const updated = incrementV3ContinuityBibleVersion(reviewed, {
     ownerConfirmedAppearanceNotes: "Updated by owner after checking the real reference.",
@@ -70,7 +81,7 @@ test("Bible changes create a new version and reset all previous visual approvals
 test("cannot mark a clip passed while any criterion is untested or failed", () => {
   const bible = createEmptyV3ContinuityBible();
   const incomplete = { ...bible.reviewChecklist, chefIdentity: "pass" as const };
-  assert.throws(() => reviewV3ContinuityClip(bible, "clip-1", incomplete, "pass"), /every required/i);
+  assert.throws(() => reviewV3ContinuityClip(bible, "clip-1", incomplete, "pass", ["chef-identity", "kitchen-wide"]), /every required/i);
   const failed = {
     chefIdentity: "pass",
     wardrobe: "pass",
@@ -81,15 +92,15 @@ test("cannot mark a clip passed while any criterion is untested or failed", () =
     temporalMotion: "pass",
     audioAndCaptions: "pass",
   } satisfies Record<string, V3VisualReviewState>;
-  assert.throws(() => reviewV3ContinuityClip(bible, "clip-2", failed, "pass"), /every required/i);
-  const recorded = reviewV3ContinuityClip(bible, "clip-2", failed, "fail");
+  assert.throws(() => reviewV3ContinuityClip(bible, "clip-2", failed, "pass", ["chef-identity", "kitchen-wide"]), /every required/i);
+  const recorded = reviewV3ContinuityClip(bible, "clip-2", failed, "fail", []);
   assert.equal(recorded.visualRealismStatus, "fail");
   assert.deepEqual(recorded.lastReviewedClipIds, ["clip-2"]);
 
   // The Bible stores only the most recent clip's checklist; a prior clip must not
   // inherit the latest clip's PASS/FAIL status because historical per-clip checklists
   // are not stored.
-  const priorPass = reviewV3ContinuityClip(bible, "clip-1", ({
+  const priorPass = reviewV3ContinuityClip({ ...bible, referenceIds: ["chef-ref", "kitchen-ref"] }, "clip-1", ({
     chefIdentity: "pass",
     wardrobe: "pass",
     kitchenLayout: "pass",
@@ -98,8 +109,8 @@ test("cannot mark a clip passed while any criterion is untested or failed", () =
     ingredientAndFoodState: "pass",
     temporalMotion: "pass",
     audioAndCaptions: "pass",
-  }), "pass");
-  const latestFail = reviewV3ContinuityClip(priorPass, "clip-2", failed, "fail");
+  }), "pass", ["chef-identity", "kitchen-wide"]);
+  const latestFail = reviewV3ContinuityClip(priorPass, "clip-2", failed, "fail", []);
   assert.deepEqual(latestFail.lastReviewedClipIds, ["clip-2"]);
   assert.equal(latestFail.visualRealismStatus, "fail");
 });
