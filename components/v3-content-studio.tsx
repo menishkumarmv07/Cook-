@@ -371,18 +371,44 @@ async function persistNewReference(reference: StoredV3Reference, current: readon
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(REFERENCE_STORE, "readwrite");
       const store = transaction.objectStore(REFERENCE_STORE);
-      const duplicateRequest = store.get(reference.metadata.id);
+      const currentRequest = store.getAll();
       let safeError: Error | null = null;
-      duplicateRequest.onsuccess = () => {
-        if (duplicateRequest.result !== undefined) {
+      currentRequest.onsuccess = () => {
+        const records: unknown[] = Array.isArray(currentRequest.result) ? currentRequest.result : [];
+        if (records.some((record) => !isStoredReference(record))) {
+          safeError = new Error("The reference library contains an invalid stored record. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        const existing = records as StoredV3Reference[];
+        if (existing.length >= MAX_V3_REFERENCE_COUNT) {
+          safeError = new Error("The local reference library reached its 20-reference limit in another tab. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        const totalBytes = existing.reduce((sum, item) => sum + item.file.size, 0);
+        if (totalBytes + reference.file.size > MAX_V3_REFERENCE_TOTAL_BYTES) {
+          safeError = new Error("The local reference library reached its 80 MiB limit in another tab. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        if (existing.some((item) => item.metadata.sha256 === reference.metadata.sha256 && item.metadata.role === reference.metadata.role)) {
+          safeError = new Error("That exact image was already saved with this reference role in another tab. No duplicate was added.");
+          transaction.abort();
+          return;
+        }
+        if (existing.some((item) => item.metadata.id === reference.metadata.id)) {
           safeError = new Error("This reference ID already exists. Nothing was overwritten.");
           transaction.abort();
           return;
         }
-        store.add(reference);
+        const addRequest = store.add(reference);
+        addRequest.onerror = () => {
+          safeError = new Error("Could not save the local reference. Check available browser storage; no existing reference was overwritten.");
+        };
       };
-      duplicateRequest.onerror = () => {
-        safeError = new Error("Could not check the reference ID. Nothing was saved.");
+      currentRequest.onerror = () => {
+        safeError = new Error("Could not check the current reference library. Nothing was saved.");
         transaction.abort();
       };
       transaction.oncomplete = () => resolve();
@@ -614,18 +640,44 @@ async function persistNewMedia(asset: StoredV3Media, current: readonly StoredV3M
     await new Promise<void>((resolve, reject) => {
       const transaction = database.transaction(MEDIA_STORE, "readwrite");
       const store = transaction.objectStore(MEDIA_STORE);
-      const request = store.get(asset.metadata.id);
+      const currentRequest = store.getAll();
       let safeError: Error | null = null;
-      request.onsuccess = () => {
-        if (request.result !== undefined) {
+      currentRequest.onsuccess = () => {
+        const records: unknown[] = Array.isArray(currentRequest.result) ? currentRequest.result : [];
+        if (records.some((record) => !isStoredMedia(record))) {
+          safeError = new Error("The media library contains an invalid stored record. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        const existing = records as StoredV3Media[];
+        if (existing.length >= MAX_V3_MEDIA_ASSETS) {
+          safeError = new Error("The local media library reached its 30-file limit in another tab. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        const totalBytes = existing.reduce((sum, item) => sum + item.file.size, 0);
+        if (totalBytes + asset.file.size > MAX_V3_MEDIA_LIBRARY_BYTES) {
+          safeError = new Error("The local media library reached its 400 MiB limit in another tab. Nothing new was saved.");
+          transaction.abort();
+          return;
+        }
+        if (existing.some((item) => item.metadata.sha256 === asset.metadata.sha256 && item.metadata.kind === asset.metadata.kind)) {
+          safeError = new Error("This exact media file was already imported in the same role in another tab. No duplicate was added.");
+          transaction.abort();
+          return;
+        }
+        if (existing.some((item) => item.metadata.id === asset.metadata.id)) {
           safeError = new Error("This media ID already exists. Nothing was overwritten.");
           transaction.abort();
           return;
         }
-        store.add(asset);
+        const addRequest = store.add(asset);
+        addRequest.onerror = () => {
+          safeError = new Error("Could not save local media. Check available browser storage; no existing file was overwritten.");
+        };
       };
-      request.onerror = () => {
-        safeError = new Error("Could not check this media ID. Nothing was saved.");
+      currentRequest.onerror = () => {
+        safeError = new Error("Could not check the current media library. Nothing was saved.");
         transaction.abort();
       };
       transaction.oncomplete = () => resolve();
