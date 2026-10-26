@@ -2243,7 +2243,7 @@ test("V3 preserves project blueprints and JSON recovery when a saved media recor
   // The fixture contains no real media or personal assets and is scoped to this test browser.
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("cooking-creator-v3-content-studio", 3);
+      const request = indexedDB.open("cooking-creator-v3-content-studio", 4);
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error ?? new Error("Could not open the V3 test database."));
     });
