@@ -2102,6 +2102,14 @@ test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its
   await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Reviewed owner-footage video downloaded locally" })).toBeVisible();
   // Owner download confirmation cannot upgrade the separate visual-realism result.
   await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
+
+  // The status ledger stores no media bytes and must survive a page reload.
+  const history = page.locator(".v3-studio-warnings").filter({ hasText: "Recent render attempts" });
+  await expect(history).toContainText("COMPLETED");
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".v3-studio-warnings").filter({ hasText: "Recent render attempts" }))
+    .toContainText("COMPLETED");
 });
 
 test("V3 shows backup-first guidance when the browser-origin storage estimate is critical", async ({ page }) => {
