@@ -167,6 +167,19 @@ export function validateV3ContinuityBible(value: unknown): value is V3Continuity
   return true;
 }
 
+/**
+ * The Bible stores the checklist for the latest reviewed clip only. Older
+ * pre-release records may have accumulated clip IDs, so only the last ID may
+ * receive the saved checklist/status; earlier clips must be reviewed again.
+ */
+export function isLatestV3ClipReviewed(bible: V3ContinuityBible, clipId: string): boolean {
+  return validateV3ContinuityBible(bible) &&
+    typeof clipId === "string" &&
+    clipId.length > 0 &&
+    bible.lastReviewedClipIds.length > 0 &&
+    bible.lastReviewedClipIds[bible.lastReviewedClipIds.length - 1] === clipId;
+}
+
 export function incrementV3ContinuityBibleVersion(
   bible: V3ContinuityBible,
   changes: Partial<Pick<V3ContinuityBible,
