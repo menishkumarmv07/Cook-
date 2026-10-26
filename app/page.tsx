@@ -1906,7 +1906,7 @@ export default function Home() {
   }
 
   return (
-    <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
+    <main className="shell" data-theme={theme} data-active-tool={activeTool} data-navigation-ready={activeToolReady ? "true" : "false"} data-has-current={current ? "true" : "false"}>
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
       {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={closeOverlays} />}
       {messageActionMenu && <div className="message-action-popover" style={{ left: messageActionMenu.x, top: messageActionMenu.y }} role="menu" aria-label="Message actions">
