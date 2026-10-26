@@ -2162,3 +2162,77 @@ test("V3 refuses a stale-tab project save and preserves the newer revision", asy
     await secondPage.close();
   }
 });
+
+test("V3 preserves project blueprints and JSON recovery when a saved media record is corrupt", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 asset recovery QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 asset recovery QA recipe" })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 asset recovery QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor")).toContainText("V3 asset recovery QA recipe");
+
+  // Inject a malformed media record to exercise the non-destructive failure path.
+  // The fixture contains no real media or personal assets and is scoped to this test browser.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("cooking-creator-v3-content-studio", 3);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("Could not open the V3 test database."));
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction("media", "readwrite");
+        transaction.objectStore("media").add({
+          metadata: { id: "ci-corrupt-media-recovery-fixture" },
+          file: new Blob(["not a valid V3 media asset"], { type: "text/plain" }),
+        });
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error ?? new Error("Could not write the corruption fixture."));
+        transaction.onabort = () => reject(transaction.error ?? new Error("Writing the corruption fixture was aborted."));
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 asset recovery QA recipe");
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText(/some local assets failed integrity checks/i);
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText(/they were not changed/i);
+
+  // Even when a media store fails validation, the owner must still be able to
+  // recover the editable recipe-specific blueprint instead of losing the whole studio.
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  const backup = await backupDownload;
+  expect(backup.suggestedFilename()).toMatch(/v3-asset-recovery-qa-recipe.*\.v3-blueprint\.json$/);
+  const backupPath = await backup.path();
+  expect(backupPath).toBeTruthy();
+  const raw = await readFile(backupPath as string, "utf8");
+  const parsed = JSON.parse(raw) as { recipeTitle?: string; scenes?: unknown[] };
+  expect(parsed.recipeTitle).toBe("V3 asset recovery QA recipe");
+  expect(parsed.scenes?.length).toBe(4);
+});
