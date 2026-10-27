@@ -7,7 +7,7 @@ import MonetizationWorkspace from "@/components/monetization-workspace";
 import dynamic from "next/dynamic";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
-  buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
+  buildDescriptiveGrowthInsights, buildGrowthEvidenceInsights, createGrowthWorkspaceBackupJSON,
   mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
   serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
   type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
@@ -478,6 +478,7 @@ export default function Home() {
   const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
   const growthSummary = useMemo(() => summarizeGrowthMetrics(growthMetrics), [growthMetrics]);
   const growthInsights = useMemo(() => buildDescriptiveGrowthInsights(growthMetrics), [growthMetrics]);
+  const growthEvidenceInsights = useMemo(() => buildGrowthEvidenceInsights(growthMetrics), [growthMetrics]);
   const recentGrowthMetrics = useMemo(() => growthMetrics.slice().sort((a, b) => b.publishedDate.localeCompare(a.publishedDate)).slice(0, 50), [growthMetrics]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -2156,6 +2157,11 @@ export default function Home() {
                 <section className="growth-subpanel" aria-labelledby="growth-insights-title">
                   <div className="subsection-head"><div><h3 id="growth-insights-title">Descriptive comparisons</h3><p className="muted">Only actual view counts are considered. Estimates never enter the comparison. The app does not call a result “viral” or infer a causal effect.</p></div></div>
                   <ul className="growth-insight-list">{growthInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-evidence-insights-title">
+                  <div className="subsection-head"><div><h3 id="growth-evidence-insights-title">Observed performance signals</h3><p className="muted">Actual rows only, with a minimum sample gate. Median outcomes reduce the influence of a single outlier; this is descriptive evidence, not a promise or forecast.</p></div></div>
+                  <ul className="growth-insight-list">{growthEvidenceInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
                 </section>
 
                 <section className="growth-subpanel" aria-labelledby="growth-records-title">
