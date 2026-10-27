@@ -1412,7 +1412,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
 
   const csv = [
     "published_date,platform,content_title,concept,data_kind,views,reach,average_watch_seconds,retention_percent,likes,comments,shares,saves,followers_gained,link_clicks,revenue_usd",
-    "2026-10-21,Instagram Reels,Tomato pasta,Weeknight meals,estimate,500,,,,,,,,,,0.40",
+    "2026-10-21,YouTube Shorts,Tomato pasta,Weeknight meals,estimate,500,,,,,,,,,,0.40",
     "2026-02-30,Instagram Reels,Bad date,Weeknight meals,actual,20,,,,,,,,,,",
   ].join("\n");
   await page.locator("#growth-csv-file").setInputFiles({
