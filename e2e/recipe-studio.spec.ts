@@ -1444,6 +1444,16 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await card.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(card.locator(".growth-status-reviewed")).toContainText("reviewed");
 
+  await card.getByRole("button", { name: "Check matching metrics" }).click();
+  const evidencePanel = card.getByRole("region", { name: /Evidence match for/ });
+  await expect(evidencePanel).toContainText("1 actual");
+  await expect(evidencePanel).toContainText("1 estimate");
+  await expect(evidencePanel).toContainText("No exact content title was set");
+  await expect(evidencePanel).toContainText("not causal attribution");
+  await expect(evidencePanel).toContainText("Collect more comparable actual platform records");
+  await card.getByRole("button", { name: "Hide evidence match" }).click();
+  await expect(evidencePanel).toHaveCount(0);
+
   const csvDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export metrics CSV" }).click();
   const csvDownload = await csvDownloadPromise;
