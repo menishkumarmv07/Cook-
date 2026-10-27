@@ -125,6 +125,39 @@ export function createEmptyV3ContinuityBible(): V3ContinuityBible {
   };
 }
 
+/**
+ * Create an editable starting visual Bible from the owner's chosen style references.
+ * This adds text guidance only: it does not import any private image bytes or certify realism.
+ * Keep the character clearly fictional rather than reproducing a real actor's identity or voice.
+ */
+export function createStarterV3ContinuityBible(): V3ContinuityBible {
+  const empty = createEmptyV3ContinuityBible();
+  return {
+    ...empty,
+    ownerConfirmedAppearanceNotes: [
+      "Owner-selected wardrobe and silhouette: adult male chef with tousled light-brown/wavy hair and aviator-style sunglasses.",
+      "White chef shirt with rolled sleeves; black apron with dark-brown leather straps; black trousers and black shoes.",
+      "Keep the face clearly original and distinguishable from any real actor or film character. Do not reproduce a real person's exact facial identity, voice, accent, cadence, mannerisms or performance.",
+      "Use an original voice or owner-recorded narration; do not imitate a real person's voice.",
+    ].join(" "),
+    ownerConfirmedKitchenNotes: [
+      "Warm cinematic kitchen with dark green brick backsplash, rich dark timber cabinets and ceiling, dark stone counters, and a central wooden prep island.",
+      "Dark cookware and shelves, one warm pendant light, a large window with woven blinds, soft daylight and plants.",
+      "Keep the kitchen layout, counter orientation, lighting direction, materials and prop placement coherent across scenes; avoid unexplained layout flips.",
+    ].join(" "),
+    allowedVariations: [
+      "Camera angle, framing, hand position, steam, ingredient level and non-identifying expression may vary when the recipe requires it.",
+      "Keep the fictional chef's face, hairstyle, wardrobe, apron straps, kitchen geometry, materials, lighting direction and recipe-specific food-state progression consistent.",
+      "These are editable creative notes, not an AI-generation capability or proof that any clip is realistic. Real clips still require owner review.",
+    ].join(" "),
+    notes: Array.from(new Set([
+      ...empty.notes,
+      "Starter visual notes reflect the owner's supplied reference style and remain editable; no image bytes were auto-imported.",
+      "The character must remain original and must not imitate a real actor's exact likeness, voice or acting performance.",
+    ])),
+  };
+}
+
 export function validateV3ContinuityReference(value: unknown): value is V3ContinuityReference {
   if (!isRecord(value)) return false;
   if (typeof value.id !== "string" || value.id.trim().length === 0 || value.id.length > 160) return false;
