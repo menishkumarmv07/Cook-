@@ -444,7 +444,7 @@ test("provisional experiment evidence matches exact platform/title/date and keep
   assert.equal(summary.medianActualRetentionPercent, 60);
   assert.equal(summary.actualRevenueUsdTotal, 10);
   assert.ok(summary.notes.some((note) => /estimates are displayed separately/i.test(note)));
-  assert.ok(summary.notes.some((note) => /fewer than five/i.test(note)));
+  assert.ok(summary.notes.some((note) => /only 2 matched actual record/i.test(note)));
   assert.ok(summary.notes.some((note) => /not causal attribution/i.test(note)));
   assert.match(summary.nextActionHint, /more comparable actual platform records/i);
 });
