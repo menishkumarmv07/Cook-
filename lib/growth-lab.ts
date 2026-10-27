@@ -12,6 +12,23 @@ export type GrowthPlatform = (typeof GROWTH_PLATFORMS)[number];
 export type GrowthDataKind = "actual" | "estimate";
 export type GrowthExperimentStatus = "planned" | "reviewed" | "closed";
 
+export const GROWTH_EXPERIMENT_PRIMARY_METRICS = [
+  { value: "views", label: "Views" },
+  { value: "averageWatchSeconds", label: "Average watch duration" },
+  { value: "retentionPercent", label: "Retention (%)" },
+  { value: "followersGained", label: "Followers / subscribers gained" },
+  { value: "linkClicks", label: "Link clicks" },
+  { value: "revenueUsd", label: "Reported content revenue (USD)" },
+  { value: "other", label: "Other (write the definition in the hypothesis)" },
+] as const;
+
+export type GrowthExperimentPrimaryMetric =
+  (typeof GROWTH_EXPERIMENT_PRIMARY_METRICS)[number]["value"];
+
+function isGrowthExperimentPrimaryMetric(value: unknown): value is GrowthExperimentPrimaryMetric {
+  return GROWTH_EXPERIMENT_PRIMARY_METRICS.some((metric) => metric.value === value);
+}
+
 export type GrowthMetric = {
   id: string;
   publishedDate: string;
@@ -39,6 +56,10 @@ export type GrowthExperiment = {
   variableChanged: string;
   platform: GrowthPlatform;
   contentTitle: string;
+  // Optional only to load older workspaces. New experiments require all three planning fields.
+  audience?: string;
+  primaryMetric?: GrowthExperimentPrimaryMetric | "";
+  reviewByDate?: string;
   startedDate: string;
   resultDate: string;
   outcome: string;
@@ -48,7 +69,7 @@ export type GrowthExperiment = {
 
 export type GrowthWorkspaceBackup = {
   format: "cooking-creator-growth-lab";
-  version: 2;
+  version: 3;
   exportedAt: string;
   metrics: GrowthMetric[];
   experiments: GrowthExperiment[];
@@ -425,7 +446,7 @@ export function createGrowthWorkspaceBackupJSON(
   const safeExperiments = experiments.filter(isGrowthExperiment);
   const backup: GrowthWorkspaceBackup = {
     format: "cooking-creator-growth-lab",
-    version: 2,
+    version: 3,
     exportedAt,
     metrics: safeMetrics,
     experiments: safeExperiments,
@@ -439,6 +460,12 @@ export function isGrowthExperiment(value: unknown): value is GrowthExperiment {
   if (!validText(value.hypothesis, 500, true) || !validText(value.variableChanged, 240, true)) return false;
   if (!isGrowthPlatform(value.platform) || !validText(value.contentTitle, MAX_TEXT_TITLE, false)) return false;
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) return false;
+  if (value.audience !== undefined && !validText(value.audience, 160, true)) return false;
+  if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) return false;
+  if (value.reviewByDate !== undefined &&
+      (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) return false;
+  if (typeof value.reviewByDate === "string" && value.reviewByDate &&
+      isValidDateOnly(value.reviewByDate) && value.reviewByDate < value.startedDate) return false;
   if (typeof value.resultDate !== "string" || (value.resultDate !== "" && !isValidDateOnly(value.resultDate))) return false;
   if (value.resultDate && value.resultDate < value.startedDate) return false;
   if (!validText(value.outcome, 1200, false) || !validText(value.nextAction, 500, false)) return false;
@@ -458,6 +485,17 @@ export function validateGrowthExperiment(value: unknown): string[] {
   if (!isGrowthPlatform(value.platform)) errors.push("Choose a supported platform.");
   if (!validText(value.contentTitle, MAX_TEXT_TITLE, false)) errors.push("Content title must be 180 characters or fewer.");
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) errors.push("Start date must be a real YYYY-MM-DD date.");
+  if (value.audience !== undefined && !validText(value.audience, 160, true)) errors.push("Audience must be 160 characters or fewer.");
+  if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose a supported primary outcome metric.");
+  if (value.reviewByDate !== undefined &&
+      (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) {
+    errors.push("Planned review date must be blank or a real YYYY-MM-DD date.");
+  }
+  if (typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) &&
+      typeof value.reviewByDate === "string" && value.reviewByDate && isValidDateOnly(value.reviewByDate) &&
+      value.reviewByDate < value.startedDate) {
+    errors.push("Planned review date cannot be before the experiment start date.");
+  }
   if (typeof value.resultDate !== "string" || (value.resultDate !== "" && !isValidDateOnly(value.resultDate))) errors.push("Result date must be blank or a real YYYY-MM-DD date.");
   if (typeof value.startedDate === "string" && typeof value.resultDate === "string" && value.resultDate && isValidDateOnly(value.startedDate) && isValidDateOnly(value.resultDate) && value.resultDate < value.startedDate) {
     errors.push("Result date cannot be before the experiment start date.");
@@ -488,6 +526,19 @@ export function validateGrowthExperiment(value: unknown): string[] {
   return errors;
 }
 
+export function validateGrowthExperimentPlan(value: unknown): string[] {
+  const errors = validateGrowthExperiment(value);
+  if (!isPlainObject(value)) return errors;
+  if (!validText(value.audience, 160, false)) errors.push("Describe the intended audience in 160 characters or fewer.");
+  if (!isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose one measurable primary outcome metric.");
+  if (typeof value.reviewByDate !== "string" || !isValidDateOnly(value.reviewByDate)) {
+    errors.push("Choose a real planned review date.");
+  } else if (typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) && value.reviewByDate < value.startedDate) {
+    errors.push("Planned review date cannot be before the experiment start date.");
+  }
+  return errors;
+}
+
 export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBackup | null {
   if (raw.length > MAX_WORKSPACE_CHARACTERS) return null;
   let parsed: unknown;
@@ -498,7 +549,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   }
   if (!isPlainObject(parsed) ||
       parsed.format !== "cooking-creator-growth-lab" ||
-      (parsed.version !== 1 && parsed.version !== 2) ||
+      (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
       typeof parsed.exportedAt !== "string" ||
       !isValidIsoTimestamp(parsed.exportedAt) ||
       !Array.isArray(parsed.metrics) ||
@@ -533,6 +584,10 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     // discarding an otherwise recoverable owner's workspace.
     const candidate: Record<string, unknown> = {
       ...value,
+      // V3 adds experiment design fields. Preserve old records without inventing values.
+      audience: value.audience === undefined ? "" : value.audience,
+      primaryMetric: value.primaryMetric === undefined ? "" : value.primaryMetric,
+      reviewByDate: value.reviewByDate === undefined ? "" : value.reviewByDate,
       nextAction: value.nextAction === undefined ? "" : value.nextAction,
       outcome: value.outcome === undefined ? "" : value.outcome,
     };
@@ -577,7 +632,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   }
   return {
     format: "cooking-creator-growth-lab",
-    version: 2,
+    version: 3,
     exportedAt: parsed.exportedAt,
     metrics: metrics as GrowthMetric[],
     experiments: experiments as GrowthExperiment[],

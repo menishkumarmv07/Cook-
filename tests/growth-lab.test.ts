@@ -15,6 +15,7 @@ import {
   serializeGrowthMetricsCsv,
   summarizeGrowthMetrics,
   validateGrowthExperiment,
+  validateGrowthExperimentPlan,
   validateGrowthMetric,
   type GrowthExperiment,
   type GrowthMetric,
@@ -52,6 +53,9 @@ const experiment = (overrides: Partial<GrowthExperiment> = {}): GrowthExperiment
   variableChanged: "Opening shot",
   platform: "YouTube Shorts",
   contentTitle: "Lemon rice in 30 seconds",
+  audience: overrides.audience ?? "US home cooks",
+  primaryMetric: overrides.primaryMetric ?? "retentionPercent",
+  reviewByDate: overrides.reviewByDate ?? overrides.startedDate ?? "2026-10-01",
   startedDate: "2026-10-01",
   resultDate: "",
   outcome: "",
@@ -215,6 +219,12 @@ test("experiment lifecycle requires evidence and a next action before review", (
   assert.equal(isGrowthExperiment(experiment()), true);
   assert.deepEqual(validateGrowthExperiment(experiment()), []);
   assert.ok(validateGrowthExperiment(experiment({ hypothesis: "" })).some((x) => /hypothesis/.test(x)));
+  assert.deepEqual(validateGrowthExperimentPlan(experiment()), []);
+  assert.ok(validateGrowthExperimentPlan(experiment({ audience: "" })).some((x) => /intended audience/i.test(x)));
+  assert.ok(validateGrowthExperimentPlan(experiment({ primaryMetric: "" })).some((x) => /primary outcome metric/i.test(x)));
+  assert.ok(validateGrowthExperimentPlan(experiment({ reviewByDate: "" })).some((x) => /planned review date/i.test(x)));
+  assert.ok(validateGrowthExperiment(experiment({ reviewByDate: "2026-09-30" })).some((x) => /review date cannot be before/i.test(x)));
+  assert.ok(validateGrowthExperiment(experiment({ primaryMetric: "arbitrary" as GrowthExperiment["primaryMetric"] })).some((x) => /supported primary outcome metric/i.test(x)));
   assert.ok(validateGrowthExperiment(experiment({
     resultDate: "2026-09-30",
     status: "reviewed",
@@ -264,22 +274,25 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   const backup = createGrowthWorkspaceBackupJSON(metrics, experiments, exportedAt);
   const restored = parseGrowthWorkspaceBackupJSON(backup);
   assert.ok(restored);
-  assert.equal(restored.version, 2);
+  assert.equal(restored.version, 3);
   assert.equal(restored.exportedAt, exportedAt);
   assert.deepEqual(restored.metrics, metrics);
   assert.deepEqual(restored.experiments, experiments);
   assert.equal(parseGrowthWorkspaceBackupJSON("not JSON"), null);
-  assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 3, exportedAt, metrics, experiments })), null);
+  assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 4, exportedAt, metrics, experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{ ...metrics[0], views: -1 }], experiments })), null);
   assert.equal(parseGrowthWorkspaceBackupJSON(JSON.stringify({ format: "cooking-creator-growth-lab", version: 1, exportedAt: "not time", metrics, experiments })), null);
   const legacyV1 = parseGrowthWorkspaceBackupJSON(JSON.stringify({
     format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{
       ...actualMetric(), revenueUsd: undefined,
-    }], experiments,
+    }], experiments: experiments.map(({ audience, primaryMetric, reviewByDate, ...legacyExperiment }) => legacyExperiment),
   }));
   assert.ok(legacyV1);
-  assert.equal(legacyV1.version, 2);
+  assert.equal(legacyV1.version, 3);
   assert.equal(legacyV1.metrics[0].revenueUsd, null);
+  assert.equal(legacyV1.experiments[0].audience, "");
+  assert.equal(legacyV1.experiments[0].primaryMetric, "");
+  assert.equal(legacyV1.experiments[0].reviewByDate, "");
 
   const today = getTestDateOnly();
   const legacyCompletedWithoutNextAction = parseGrowthWorkspaceBackupJSON(JSON.stringify({

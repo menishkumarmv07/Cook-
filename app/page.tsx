@@ -6,11 +6,11 @@ import EditorialCalendar from "@/components/editorial-calendar";
 import MonetizationWorkspace from "@/components/monetization-workspace";
 import dynamic from "next/dynamic";
 import {
-  GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
+  GROWTH_EXPERIMENT_PRIMARY_METRICS, GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
   buildDescriptiveGrowthInsights, buildGrowthEvidenceInsights, summarizeGrowthExperimentEvidence, createGrowthWorkspaceBackupJSON,
   mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
-  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
-  type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
+  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthExperimentPlan, validateGrowthMetric,
+  type GrowthCsvImportResult, type GrowthExperiment, type GrowthExperimentPrimaryMetric, type GrowthMetric, type GrowthPlatform,
 } from "@/lib/growth-lab";
 import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
@@ -104,7 +104,10 @@ type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retent
 type GrowthMetricDraft = {
   publishedDate: string; platform: GrowthPlatform; contentTitle: string; concept: string; dataKind: "actual" | "estimate";
 } & Record<GrowthNumericDraftKey, string>;
-type GrowthExperimentDraft = { hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string; startedDate: string };
+type GrowthExperimentDraft = {
+  hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string;
+  audience: string; primaryMetric: GrowthExperimentPrimaryMetric; reviewByDate: string; startedDate: string;
+};
 type GrowthCsvPreview = GrowthCsvImportResult & { fileName: string };
 const GROWTH_METRIC_INPUTS: Array<{ key: GrowthNumericDraftKey; label: string; id: string; step: string; hint?: string }> = [
   { key: "views", label: "Views", id: "growth-views", step: "1" },
@@ -463,7 +466,8 @@ export default function Home() {
     shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
   });
   const [growthExperimentDraft, setGrowthExperimentDraft] = useState<GrowthExperimentDraft>({
-    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: "",
+    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "",
+    audience: "", primaryMetric: "views", reviewByDate: "", startedDate: "",
   });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -1858,19 +1862,21 @@ export default function Home() {
     const candidate: GrowthExperiment = {
       id: makeId(),
       ...growthExperimentDraft,
+      audience: growthExperimentDraft.audience.trim(),
       resultDate: "",
       outcome: "",
       nextAction: "",
       status: "planned",
     };
-    const errors = validateGrowthExperiment(candidate);
+    const errors = validateGrowthExperimentPlan(candidate);
     if (errors.length) {
       setGrowthMessage(errors.join(" "));
       return;
     }
     setGrowthExperiments((existing) => [candidate, ...existing]);
     setGrowthExperimentDraft({
-      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: getLocalDateOnly(),
+      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "",
+      audience: "", primaryMetric: "views", reviewByDate: "", startedDate: getLocalDateOnly(),
     });
     setGrowthMessage("Experiment added locally. Record one main variable and review actual platform data when available.");
   }
@@ -2129,7 +2135,10 @@ export default function Home() {
                       <div><label htmlFor="growth-experiment-variable">Variable changed *</label><input id="growth-experiment-variable" value={growthExperimentDraft.variableChanged} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, variableChanged: event.target.value }))} maxLength={240} required placeholder="e.g. opening shot only" /></div>
                       <div><label htmlFor="growth-experiment-platform">Platform *</label><select id="growth-experiment-platform" value={growthExperimentDraft.platform} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
                       <div><label htmlFor="growth-experiment-title">Content / recipe family</label><input id="growth-experiment-title" value={growthExperimentDraft.contentTitle} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} placeholder="Optional label" /></div>
+                      <div><label htmlFor="growth-experiment-audience">Intended audience *</label><input id="growth-experiment-audience" value={growthExperimentDraft.audience} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, audience: event.target.value }))} maxLength={160} required placeholder="e.g. US home cooks looking for quick dinners" /></div>
+                      <div><label htmlFor="growth-experiment-primary-metric">Primary outcome metric *</label><select id="growth-experiment-primary-metric" value={growthExperimentDraft.primaryMetric} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, primaryMetric: event.target.value as GrowthExperimentPrimaryMetric }))} required>{GROWTH_EXPERIMENT_PRIMARY_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
                       <div><label htmlFor="growth-experiment-start-date">Start date *</label><input id="growth-experiment-start-date" type="date" value={growthExperimentDraft.startedDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: event.target.value }))} required /></div>
+                      <div><label htmlFor="growth-experiment-review-date">Planned review date *</label><input id="growth-experiment-review-date" type="date" min={growthExperimentDraft.startedDate || undefined} value={growthExperimentDraft.reviewByDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, reviewByDate: event.target.value }))} required /></div>
                     </div>
                     <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add experiment</button></div>
                   </form>
@@ -2137,9 +2146,12 @@ export default function Home() {
                     <div className="growth-experiment-list">
                       {growthExperiments.map((item) => (
                         <article className="growth-experiment-card" key={item.id}>
-                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
+                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""} · audience: {item.audience?.trim() || "not recorded"} · primary metric: {GROWTH_EXPERIMENT_PRIMARY_METRICS.find((metric) => metric.value === item.primaryMetric)?.label ?? "not recorded"} · review by {item.reviewByDate || "not set"}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
                           <p><b>Variable:</b> {item.variableChanged}</p>
                           <div className="growth-form-grid">
+                            <div><label htmlFor={"growth-audience-" + item.id}>Audience</label><input id={"growth-audience-" + item.id} maxLength={160} value={item.audience ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { audience: event.target.value })} /></div>
+                            <div><label htmlFor={"growth-primary-metric-" + item.id}>Primary metric</label><select id={"growth-primary-metric-" + item.id} value={item.primaryMetric ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { primaryMetric: event.target.value as GrowthExperimentPrimaryMetric | "" })}><option value="">Not recorded (legacy)</option>{GROWTH_EXPERIMENT_PRIMARY_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                            <div><label htmlFor={"growth-review-date-" + item.id}>Planned review date</label><input id={"growth-review-date-" + item.id} type="date" min={item.startedDate} value={item.reviewByDate ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { reviewByDate: event.target.value })} /></div>
                             <div><label htmlFor={"growth-result-date-" + item.id}>Result date</label><input id={"growth-result-date-" + item.id} type="date" value={item.resultDate} min={item.startedDate} onChange={(event) => patchGrowthExperiment(item.id, { resultDate: event.target.value })} /></div>
                             <div className="growth-span-two"><label htmlFor={"growth-outcome-" + item.id}>Observed outcome (use actual numbers where available)</label><textarea id={"growth-outcome-" + item.id} rows={2} maxLength={1200} value={item.outcome} onChange={(event) => patchGrowthExperiment(item.id, { outcome: event.target.value })} /></div>
                             <div className="growth-span-two"><label htmlFor={"growth-next-action-" + item.id}>Next action</label><textarea id={"growth-next-action-" + item.id} rows={2} maxLength={500} value={item.nextAction} onChange={(event) => patchGrowthExperiment(item.id, { nextAction: event.target.value })} /></div>

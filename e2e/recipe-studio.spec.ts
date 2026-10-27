@@ -1432,9 +1432,16 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await page.getByLabel("Hypothesis").fill("A clearer close-up will improve viewer retention.");
   await page.getByLabel("Variable changed").fill("Opening shot");
   await page.locator("#growth-experiment-start-date").fill("2026-10-20");
+  await page.locator("#growth-experiment-audience").fill("US home cooks looking for fast dinners");
+  await page.locator("#growth-experiment-primary-metric").selectOption("retentionPercent");
+  await page.locator("#growth-experiment-review-date").fill("2026-10-24");
   await page.getByRole("button", { name: "Add experiment" }).click();
   const card = page.locator(".growth-experiment-card").filter({ hasText: "A clearer close-up will improve viewer retention." });
   await expect(card).toBeVisible();
+  await expect(card).toContainText("US home cooks looking for fast dinners");
+  await expect(card).toContainText("Retention (%)");
+  await expect(card).toContainText("review by 2026-10-24");
+  await card.getByLabel("Planned review date").fill("2026-10-25");
   await card.getByLabel("Result date").fill("2026-10-22");
   await card.getByLabel("Observed outcome (use actual numbers where available)").fill("Recorded 1,200 actual views; the sample remains small.");
   await card.getByRole("button", { name: "Mark reviewed" }).click();

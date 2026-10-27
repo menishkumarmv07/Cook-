@@ -10,7 +10,7 @@ The app is a personal cooking-content production and business-planning workspace
 
 ## V4 — Revenue Scenario Planner
 
-### Implemented in code; awaiting exact-head verification on its latest commit
+### Implemented and automated checks green; production release gates remain open
 
 - Added `lib/revenue-scenario.ts` with bounded inputs, validation, scenario math, safe JSON backup parsing, and explicit unknown assumptions.
 - Added `components/revenue-scenario-planner.tsx` and a **Revenue scenarios** sub-navigation screen under the existing Monetization Readiness workspace.
@@ -23,7 +23,7 @@ The app is a personal cooking-content production and business-planning workspace
 
 ### V4 release criteria
 
-- Exact-head audit, unit tests, lint, type check, production build, owner-auth smoke and desktop/mobile E2E all pass on one recorded commit.
+- Exact-head audit, unit tests, lint, type check, production build, owner-auth smoke and desktop/mobile E2E passed on code commit `8620d8bf17a451479bda3d45320bc7a26621ce72` (run #821); following docs-only HEAD `d6ef810a016ef452a6f506922266a26994bc2237` also passed run #822.
 - Review the revenue formula and edge cases on both desktop and mobile; confirm unknown rates cannot create an overconfident result.
 - Check export/import restoration in a real browser and ensure estimates do not mutate the separate actual-receipts ledger.
 - Keep publication and external account integrations manual. No API keys, external uploads, paid provider or platform connection is required for this planner.
