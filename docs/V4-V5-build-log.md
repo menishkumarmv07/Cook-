@@ -1,13 +1,13 @@
 # V4/V5 Build Log — Cooking Creator
 
-## Latest verified code checkpoint — 27 October 2026
+## Latest verified code checkpoint — 27 October 2026 (16:56 UTC)
 
 **Project:** `menishkumarmv07/Cook-`  
 **Branch:** `v3/ai-chef-content-studio`  
-**Verified code commit:** `8620d8bf17a451479bda3d45320bc7a26621ce72`  
+**Verified code commit:** `0710b00807ec7f07b769ae78a71ee3981f540ac4`  
 **Base remains:** V2/main `5d0da951e2a73c5098ba82308f23438556b3f80c`  
-**Exact-head GitHub Actions:** [run #821](https://github.com/menishkumarmv07/Cook-/actions/runs/40490715760) — **SUCCESS**.  
-**Exact-head Vercel preview:** [deployment inspector](https://vercel.com/menishkumarmv07/cook/9oFXNnMJDKmbxnc1xuDqaw3o9UZN) — **READY**, mapped to the same SHA.
+**Exact-head GitHub Actions:** [run #824](https://github.com/menishkumarmv07/Cook-/actions/runs/40545214098) — **SUCCESS** on the exact code SHA.  
+**Exact-head Vercel preview:** [open the preview](https://cook-19ccceqq1-menishkumarmv07.vercel.app/) · [deployment inspector](https://vercel.com/menishkumarmv07/cook/GVrk4nmzYADykPcmffrw4JxKf1pj) — **READY**, mapped to the same SHA.
 
 ### Verification results
 
@@ -16,8 +16,9 @@
 - Owner-auth browser smoke: **10 passed**.
 - Desktop/mobile Playwright E2E: **112 passed**.
 - ESLint, TypeScript check, production build, Chromium setup: **all passed**.
-- Vercel aggregated runtime-error query for the last 24 hours: **no runtime errors found**. A targeted preview-runtime query for the last 30 minutes returned no error/fatal logs. Runtime log retention is limited on Hobby; absence of logs in this window is not proof of zero errors or complete traffic coverage.
-- No test password or secret value is stored in this document. The owner-auth smoke uses a test-only CI configuration and does not establish that the production account has been successfully unlocked by the owner on their physical device.
+- The initial run #823 identified two regression-test issues in the new experiment plan/legacy migration; these were corrected and the next exact-head run #824 passed. The failed run is retained in history: [run #823](https://github.com/menishkumarmv07/Cook-/actions/runs/40544991859).
+- Earlier limited Vercel log queries reported no runtime errors in their requested windows. This is not proof of zero errors or complete traffic coverage.
+- No test password or secret value is stored in this document. The owner-auth smoke uses test-only CI configuration and does not establish that the owner completed authentication on a physical device.
 
 ### V4 — Revenue Scenario Planner
 
@@ -27,12 +28,14 @@
 - Added `components/revenue-scenario-planner.tsx` with local save/restore, validated JSON export/import and explicit caveats. Access path: **Monetization Readiness → Revenue scenarios**.
 - Unit tests: `tests/revenue-scenario.test.ts`. E2E coverage verifies unknown RPM handling, modeled arithmetic, persistence, JSON export and mobile-width overflow.
 
-### V5 — Experiment evidence review
+### V5 — Experiment evidence review and planned experiment design
 
 - Added `summarizeGrowthExperimentEvidence()` in `lib/growth-lab.ts` to provisionally match metric rows to an experiment by platform, date window and exact title when supplied.
 - Estimates stay separate; only valid actual rows feed the actual views, median-retention and entered content-level revenue summaries. The panel warns about small samples and makes clear that a record match does not establish causation.
-- Growth Lab renders this only when the owner clicks **Check matching metrics** on an experiment card.
-- Unit tests cover platform/title/date exclusions, estimate separation, small-sample warnings and invalid experiment input. Browser tests cover the new panel and cautionary language.
+- New experiments now require an intended audience, one primary outcome metric, start date and planned review date, in addition to a hypothesis and one changed variable. The card keeps those design details editable.
+- Growth Lab renders evidence matching only when the owner clicks **Check matching metrics** on an experiment card.
+- Backup schema version 3 migrates older V1/V2 records by leaving newly introduced planning fields blank instead of inventing data. Tests cover strict new-plan validation, malformed fields, and legacy migration.
+- Exact-head run #824 covers these changes: 238 unit tests, owner-auth smoke 10/10, Playwright desktop/mobile 112/112, dependency audit 0 vulnerabilities, ESLint, TypeScript and production build all passed.
 - No external social connection, publication, scraping, paid API, unexpected upload or model call was added.
 
 ### Important non-code release blockers
