@@ -1384,6 +1384,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await page.goto("/");
   await chooseMenuTool(page, "Growth Lab");
   await expect(page.getByRole("heading", { name: "Growth Lab" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Observed performance signals" })).toBeVisible();
 
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   const tomorrowDate = await page.evaluate(() => {
