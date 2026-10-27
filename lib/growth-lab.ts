@@ -719,3 +719,61 @@ export function buildDescriptiveGrowthInsights(metrics: GrowthMetric[]): string[
   if (!insights.length) insights.push(`No within-platform comparison is shown yet. Record at least 10 actual rows with view counts for the same platform; the current data contains ${actual.length} actual row(s) with views in total.`);
   return insights;
 }
+
+/**
+ * Summarize observed actual creator outcomes without turning sparse records into forecasts.
+ * Estimates and blank fields never enter medians or ratios.
+ */
+export function buildGrowthEvidenceInsights(metrics: GrowthMetric[]): string[] {
+  const actual = metrics.filter((metric) => isGrowthMetric(metric) && metric.dataKind === "actual");
+  const byPlatform = new Map<GrowthPlatform, GrowthMetric[]>();
+  for (const metric of actual) {
+    byPlatform.set(metric.platform, [...(byPlatform.get(metric.platform) ?? []), metric]);
+  }
+
+  const median = (values: number[]): number | null => {
+    const sorted = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+  const fmt = (value: number, digits = 1) => value.toLocaleString("en-US", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+  const summaries: string[] = [];
+
+  for (const [platform, rows] of byPlatform) {
+    const withViews = rows.filter((row) => row.views !== null);
+    if (withViews.length < 10) continue;
+
+    const medianViews = median(withViews.map((row) => row.views as number));
+    const withRetention = withViews.filter((row) => row.retentionPercent !== null);
+    const retention = withRetention.length >= 5
+      ? median(withRetention.map((row) => row.retentionPercent as number))
+      : null;
+    const followerRates = withViews
+      .filter((row) => row.views! > 0 && row.followersGained !== null)
+      .map((row) => (row.followersGained as number) / (row.views as number) * 1000);
+    const clickRates = withViews
+      .filter((row) => row.views! > 0 && row.linkClicks !== null)
+      .map((row) => (row.linkClicks as number) / (row.views as number) * 1000);
+    const revenueRows = rows.filter((row) => row.revenueUsd !== null);
+    const revenueTotal = revenueRows.reduce((sum, row) => sum + (row.revenueUsd as number), 0);
+    const parts = [
+      `${platform}: median recorded views are ${fmt(medianViews ?? 0, 0)} across ${withViews.length} actual row(s)`,
+      `from ${rows.length} valid actual record(s)`,
+    ];
+    if (retention !== null) parts.push(`median recorded retention is ${fmt(retention)}% across ${withRetention.length} row(s)`);
+    if (followerRates.length >= 5) parts.push(`median owner-reported follower gains are ${fmt(median(followerRates) ?? 0)} per 1,000 views across ${followerRates.length} row(s)`);
+    if (clickRates.length >= 5) parts.push(`median owner-reported link clicks are ${fmt(median(clickRates) ?? 0)} per 1,000 views across ${clickRates.length} row(s)`);
+    if (revenueRows.length) parts.push(`revenue was entered for ${revenueRows.length} row(s) (entered total ${fmt(revenueTotal, 2)} USD; check reporting periods for overlap before treating this as aggregate income)`);
+    summaries.push(parts.join("; ") + ". These are descriptive historical signals, not an earnings forecast or proof of causation. Use the results to choose a small, clearly defined next experiment; change one main variable at a time and record actual outcomes.");
+  }
+
+  if (summaries.length) return summaries;
+  const actualViewRows = actual.filter((metric) => metric.views !== null);
+  return [
+    `Evidence summaries are hidden until a platform has at least 10 valid actual rows with recorded views. Current data: ${actualViewRows.length} actual view row(s); estimates are excluded. Record retention, follower gains, link clicks and revenue only when the source dashboard reports them; blank values stay unknown. This is not a revenue prediction.`,
+  ];
+}
