@@ -777,3 +777,88 @@ export function buildGrowthEvidenceInsights(metrics: GrowthMetric[]): string[] {
     `Evidence summaries are hidden until a platform has at least 10 valid actual rows with recorded views. Current data: ${actualViewRows.length} actual view row(s); estimates are excluded. Record retention, follower gains, link clicks and revenue only when the source dashboard reports them; blank values stay unknown. This is not a revenue prediction.`,
   ];
 }
+
+
+export type GrowthExperimentEvidenceSummary = {
+  matchingActualRows: number;
+  matchingEstimateRows: number;
+  actualRowsWithViews: number;
+  actualViewsTotal: number | null;
+  medianActualRetentionPercent: number | null;
+  actualRevenueUsdTotal: number | null;
+  notes: string[];
+  nextActionHint: string;
+};
+
+/**
+ * Find potentially relevant metric rows for an experiment using platform, date window,
+ * and (when supplied) exact normalized title. This is only a provisional local match:
+ * it does not establish that a metric row was caused by the experiment.
+ */
+export function summarizeGrowthExperimentEvidence(
+  experiment: GrowthExperiment,
+  metrics: GrowthMetric[],
+): GrowthExperimentEvidenceSummary {
+  if (!isGrowthExperiment(experiment)) {
+    return {
+      matchingActualRows: 0,
+      matchingEstimateRows: 0,
+      actualRowsWithViews: 0,
+      actualViewsTotal: null,
+      medianActualRetentionPercent: null,
+      actualRevenueUsdTotal: null,
+      notes: ["Experiment data is invalid, so no metric rows were matched."],
+      nextActionHint: "Fix the experiment record before reviewing results.",
+    };
+  }
+
+  const titleKey = fingerprintString(experiment.contentTitle);
+  const endDate = experiment.resultDate || getLocalDateOnly();
+  const matching = metrics.filter((metric) =>
+    isGrowthMetric(metric) &&
+    metric.platform === experiment.platform &&
+    metric.publishedDate >= experiment.startedDate &&
+    metric.publishedDate <= endDate &&
+    (!titleKey || fingerprintString(metric.contentTitle) === titleKey)
+  );
+  const actual = matching.filter((metric) => metric.dataKind === "actual");
+  const estimates = matching.filter((metric) => metric.dataKind === "estimate");
+  const withViews = actual.filter((metric) => metric.views !== null);
+  const withRetention = actual
+    .map((metric) => metric.retentionPercent)
+    .filter((value): value is number => value !== null);
+  const withRevenue = actual
+    .map((metric) => metric.revenueUsd)
+    .filter((value): value is number => value !== null);
+
+  const median = (values: number[]): number | null => {
+    const ordered = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+    if (!ordered.length) return null;
+    const middle = Math.floor(ordered.length / 2);
+    return ordered.length % 2 === 1 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+  };
+
+  const notes: string[] = [];
+  if (matching.length === 0) {
+    notes.push("No valid metric rows matched this platform/date/title filter.");
+  } else {
+    notes.push(`Provisional match: ${actual.length} actual record(s) and ${estimates.length} estimate(s); inspect the records to ensure they belong to this experiment.`);
+  }
+  if (!titleKey) notes.push("No exact content title was set, so the match uses platform and date only and may include unrelated posts.");
+  if (estimates.length > 0) notes.push("Estimates are displayed separately and excluded from actual-view, retention and revenue summaries.");
+  if (withViews.length < 5) notes.push(`Only ${withViews.length} matched actual record(s) have views; treat any pattern as anecdotal until more comparable observations exist.`);
+  notes.push("This is descriptive record matching, not causal attribution. Timing, topic, distribution, seasonality and other changes can explain differences.");
+
+  return {
+    matchingActualRows: actual.length,
+    matchingEstimateRows: estimates.length,
+    actualRowsWithViews: withViews.length,
+    actualViewsTotal: withViews.length ? withViews.reduce((sum, metric) => sum + (metric.views ?? 0), 0) : null,
+    medianActualRetentionPercent: median(withRetention),
+    actualRevenueUsdTotal: withRevenue.length ? withRevenue.reduce((sum, value) => sum + value, 0) : null,
+    notes,
+    nextActionHint: withViews.length < 5
+      ? "Collect more comparable actual platform records and verify the exact content/date match before drawing a conclusion."
+      : "Compare the observed metric with a pre-defined baseline, then test one clearly recorded variable at a time. Do not interpret the match as proof of causation.",
+  };
+}
