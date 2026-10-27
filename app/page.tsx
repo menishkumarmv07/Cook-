@@ -7,7 +7,7 @@ import MonetizationWorkspace from "@/components/monetization-workspace";
 import dynamic from "next/dynamic";
 import {
   GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
-  buildDescriptiveGrowthInsights, buildGrowthEvidenceInsights, createGrowthWorkspaceBackupJSON,
+  buildDescriptiveGrowthInsights, buildGrowthEvidenceInsights, summarizeGrowthExperimentEvidence, createGrowthWorkspaceBackupJSON,
   mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
   serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
   type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
@@ -455,6 +455,7 @@ export default function Home() {
   const [growthDataReady, setGrowthDataReady] = useState(false);
   const [growthStorageBlocked, setGrowthStorageBlocked] = useState(false);
   const [growthMessage, setGrowthMessage] = useState("");
+  const [growthEvidenceExperimentId, setGrowthEvidenceExperimentId] = useState<string | null>(null);
   const [growthCsvPreview, setGrowthCsvPreview] = useState<GrowthCsvPreview | null>(null);
   const [growthMetricDraft, setGrowthMetricDraft] = useState<GrowthMetricDraft>({
     publishedDate: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
@@ -2146,8 +2147,24 @@ export default function Home() {
                           <div className="action-row">
                             <button className="secondary" type="button" disabled={item.status === "reviewed" || item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "reviewed")}>Mark reviewed</button>
                             <button className="secondary" type="button" disabled={item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "closed")}>Close experiment</button>
+                            <button className="secondary" type="button" aria-expanded={growthEvidenceExperimentId === item.id} aria-controls={"growth-experiment-evidence-" + item.id} onClick={() => setGrowthEvidenceExperimentId((currentId) => currentId === item.id ? null : item.id)}>{growthEvidenceExperimentId === item.id ? "Hide evidence match" : "Check matching metrics"}</button>
                             <button className="secondary" type="button" onClick={() => setGrowthExperiments((existing) => existing.filter((candidate) => candidate.id !== item.id))}>Remove</button>
                           </div>
+                          {growthEvidenceExperimentId === item.id && (() => {
+                            const evidence = summarizeGrowthExperimentEvidence(item, growthMetrics);
+                            return (
+                              <div id={"growth-experiment-evidence-" + item.id} className="growth-subpanel" role="region" aria-label={"Evidence match for " + (item.contentTitle || item.hypothesis)}>
+                                <h4>Provisional evidence match</h4>
+                                <p className="muted">This is a local match by platform, date window, and exact title when supplied. Verify each record; it does not prove the experiment caused an outcome.</p>
+                                <p><strong>Matched records:</strong> {evidence.matchingActualRows} actual · {evidence.matchingEstimateRows} estimate(s)</p>
+                                <p><strong>Actual rows with views:</strong> {evidence.actualRowsWithViews} · <strong>Sum of entered actual views:</strong> {evidence.actualViewsTotal === null ? "not recorded" : evidence.actualViewsTotal.toLocaleString("en-US")}</p>
+                                <p><strong>Median actual retention:</strong> {evidence.medianActualRetentionPercent === null ? "not recorded" : evidence.medianActualRetentionPercent.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%"}</p>
+                                <p><strong>Entered actual content-level revenue:</strong> {evidence.actualRevenueUsdTotal === null ? "not recorded" : evidence.actualRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</p>
+                                <ul>{evidence.notes.map((note, noteIndex) => <li key={noteIndex}>{note}</li>)}</ul>
+                                <p><strong>Suggested next action:</strong> {evidence.nextActionHint}</p>
+                              </div>
+                            );
+                          })()}
                         </article>
                       ))}
                     </div>
