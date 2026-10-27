@@ -1,38 +1,49 @@
 # V4/V5 Build Log — Cooking Creator
 
-## Latest implementation checkpoint — 27 October 2026
+## Latest verified code checkpoint — 27 October 2026
 
-**Current code slice:** V4 revenue scenario planning + V5 provisional experiment-evidence review.  
-**Branch:** `v3/ai-chef-content-studio`.  
-**Base remains:** V2/main `5d0da951e2a73c5098ba82308f23438556b3f80c`.  
-**Latest feature commit at checkpoint:** `7529ef1915c1fdf6b35ef90884df0cca702349b9`.  
-**Automated verification:** GitHub Actions run [#817](https://github.com/menishkumarmv07/Cook-/actions/runs/40489248209) is pending at this checkpoint; no V4/V5 code result is declared passed until that exact-head run completes.
+**Project:** `menishkumarmv07/Cook-`  
+**Branch:** `v3/ai-chef-content-studio`  
+**Verified code commit:** `8620d8bf17a451479bda3d45320bc7a26621ce72`  
+**Base remains:** V2/main `5d0da951e2a73c5098ba82308f23438556b3f80c`  
+**Exact-head GitHub Actions:** [run #821](https://github.com/menishkumarmv07/Cook-/actions/runs/40490715760) — **SUCCESS**.  
+**Exact-head Vercel preview:** [deployment inspector](https://vercel.com/menishkumarmv07/cook/9oFXNnMJDKmbxnc1xuDqaw3o9UZN) — **READY**, mapped to the same SHA.
+
+### Verification results
+
+- Dependency audit: **0 vulnerabilities**.
+- Unit tests: **238 passed, 0 failed**.
+- Owner-auth browser smoke: **10 passed**.
+- Desktop/mobile Playwright E2E: **112 passed**.
+- ESLint, TypeScript check, production build, Chromium setup: **all passed**.
+- Vercel aggregated runtime-error query for the last 24 hours: **no runtime errors found**. A targeted preview-runtime query for the last 30 minutes returned no error/fatal logs. Runtime log retention is limited on Hobby; absence of logs in this window is not proof of zero errors or complete traffic coverage.
+- No test password or secret value is stored in this document. The owner-auth smoke uses a test-only CI configuration and does not establish that the production account has been successfully unlocked by the owner on their physical device.
 
 ### V4 — Revenue Scenario Planner
 
-- New module `lib/revenue-scenario.ts` validates bounded, user-entered inputs and calculates ad-RPM, affiliate, sponsorship and operating-cost scenarios.
-- Unknown revenue assumptions remain unknown when activity exists but a required rate is absent. Incomplete streams are not silently reported as known zero revenue.
-- “Additional monthly views needed” is calculated only when the view RPM and the other active revenue assumptions are present. The default $1,500/month is an editable target only, not a forecast.
-- New `components/revenue-scenario-planner.tsx` adds local save/restore, validated JSON export/import and visible assumption caveats. It is reachable via **Monetization Readiness → Revenue scenarios**.
-- Unit test file: `tests/revenue-scenario.test.ts`. Browser test: `revenue scenario planner labels estimates, persists locally and exports assumptions`.
-- Source/module/UI/test integration commit range is included in PR #83; final CI is required to confirm type, build and real browser behavior.
+- Added `lib/revenue-scenario.ts` for bounded, user-entered inputs and separately calculated ad-RPM, affiliate, sponsorship and operating-cost scenarios.
+- Unknown revenue assumptions stay unknown when activity exists but a required rate is missing; incomplete streams are not silently reported as known zero revenue.
+- “Additional monthly views needed” is calculated only when the required assumptions are present. The default $1,500/month is an editable planning target, not a forecast.
+- Added `components/revenue-scenario-planner.tsx` with local save/restore, validated JSON export/import and explicit caveats. Access path: **Monetization Readiness → Revenue scenarios**.
+- Unit tests: `tests/revenue-scenario.test.ts`. E2E coverage verifies unknown RPM handling, modeled arithmetic, persistence, JSON export and mobile-width overflow.
 
 ### V5 — Experiment evidence review
 
-- New `summarizeGrowthExperimentEvidence()` function in `lib/growth-lab.ts` provisionally matches metric rows to an experiment using platform, date window and exact title when supplied.
-- It keeps estimates separate, summarizes actual views/median retention/entered content-level revenue only from valid actual rows, warns when samples are small, and states that this matching is descriptive and does not show causation.
-- Growth Lab now displays this information only when the owner clicks **Check matching metrics** on an experiment card. The collapsed-on-demand panel avoids calculating matches for every experiment during every render.
-- New unit tests cover exact matching, date/platform/title exclusions, estimate separation, small-sample warnings and malformed experiment input. The existing Growth Lab browser flow asserts the new panel and safe caveats.
-- No social account connection, publication, scraping, data upload, paid API, or model call was added.
+- Added `summarizeGrowthExperimentEvidence()` in `lib/growth-lab.ts` to provisionally match metric rows to an experiment by platform, date window and exact title when supplied.
+- Estimates stay separate; only valid actual rows feed the actual views, median-retention and entered content-level revenue summaries. The panel warns about small samples and makes clear that a record match does not establish causation.
+- Growth Lab renders this only when the owner clicks **Check matching metrics** on an experiment card.
+- Unit tests cover platform/title/date exclusions, estimate separation, small-sample warnings and invalid experiment input. Browser tests cover the new panel and cautionary language.
+- No external social connection, publication, scraping, paid API, unexpected upload or model call was added.
 
-### Guardrails and known limits
+### Important non-code release blockers
 
-- This is evidence-led planning, not an income promise. Actual revenue, offers, contracts and estimates remain separate in the existing workspace.
-- No celebrity face/voice impersonation was added. The fictional chef continuity starter reflects broad visual styling only; reference files have not been auto-imported or committed.
-- V1/V2 code is still isolated from the main branch because PR #83 remains draft/unmerged. Do not merge until all tests and owner acceptance gates pass.
-- The existing V3 blockers are still open: reference-guided AI video generation under the user's ₹0/no-card/privacy/commercial-rights constraints is not enabled; actual owner-footage export realism/audio/caption review is pending; physical Android Chrome acceptance is pending; and compliant commercial/private hosting has not been verified. The GitHub repository is still public at this checkpoint.
-- Vercel Hobby Terms currently restrict use to personal/non-commercial use; this project’s intended monetized creator workflow must not be deployed as production until an eligible, terms-compatible hosting decision is made. Do not buy credits, enter payment details, falsify eligibility, or bypass provider terms.
+- PR #83 remains **OPEN / DRAFT / NOT MERGED** so V1/V2 remains isolated from main.
+- GitHub still reports the repository as **PUBLIC**. Do not place private reference files, private footage, voice recordings or credentials in the repository. The currently available GitHub connector actions do not expose the visibility-change operation; public visibility has not been silently represented as fixed.
+- Reference-guided realistic AI cooking-video generation satisfying all of the user's ₹0/no-card/privacy/commercial-rights conditions is **not enabled**. A local renderer for owner-supplied footage exists, but real footage has not passed manual review for plausible actions, food-state progression, playback, audio and caption sync. Synthetic CI clips test rendering mechanics only.
+- Physical Android Chrome acceptance has not been directly observed in this workflow. Playwright mobile-emulation coverage is not a substitute for an owner using their actual Android device.
+- Hosting/privacy compliance remains unresolved for the intended monetized use. The current Vercel Hobby plan is not an accepted production solution for this project's commercial/private requirements. Do not pay, add card details, misstate account eligibility or bypass provider terms.
+- The app assists a creator workflow; it cannot guarantee views, audience growth, platform approval, sponsorships, or income. Use actual platform metrics and receipts separately from estimates, obey platform rules, keep disclosures clear, and avoid celebrity impersonation or copied cooking footage.
 
-### Exact-head status rule
+## Release rule
 
-Only the final status from the latest completed workflow run may be copied into this log. If a test fails, inspect its step log, fix the code on the same feature branch, and wait for a new exact-head run before recording success. A ready deployment is not proof of authenticated owner acceptance or physical-device success.
+The exact code commit `8620d8bf17a451479bda3d45320bc7a26621ce72` passed the automated checks listed above. Any later code change needs its own completed exact-head CI run. A successful automated run and READY preview do not satisfy the unresolved owner media, device, repository-privacy and compliant-hosting gates. Do not call V3/V4/V5 a fully released production product until those external and owner-controlled gates have evidence of completion.
