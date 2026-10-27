@@ -27,7 +27,7 @@ export type RevenueScenarioOutput = {
   operatingCostsUsd: number;
   modeledNetUsd: number;
   targetGapUsd: number;
-  requiredMonthlyViews: number | null;
+  additionalMonthlyViewsNeeded: number | null;
   incompleteAssumptions: string[];
   caveats: string[];
 };
@@ -129,13 +129,13 @@ export function calculateRevenueScenario(input: RevenueScenarioInputs): RevenueS
   const nonAdStreamsKnown =
     affiliateRevenueUsd !== null &&
     sponsorshipRevenueUsd !== null;
-  let requiredMonthlyViews: number | null = null;
+  let additionalMonthlyViewsNeeded: number | null = null;
   if (targetGapUsd === 0) {
-    requiredMonthlyViews = 0;
+    additionalMonthlyViewsNeeded = 0;
   } else if (nonAdStreamsKnown && input.assumedAdRpmUsd !== null && input.assumedAdRpmUsd > 0) {
-    const requiredGrossAdUsd = input.targetMonthlyNetUsd + input.monthlyOperatingCostsUsd -
-      (affiliateRevenueUsd ?? 0) - (sponsorshipRevenueUsd ?? 0);
-    requiredMonthlyViews = Math.max(0, Math.ceil((requiredGrossAdUsd / input.assumedAdRpmUsd) * 1_000));
+    // The targetGap already subtracts current modeled ad revenue. This is incremental,
+    // not total, additional view volume needed under the entered assumptions.
+    additionalMonthlyViewsNeeded = Math.ceil((targetGapUsd / input.assumedAdRpmUsd) * 1_000);
   }
 
   return {
@@ -148,7 +148,7 @@ export function calculateRevenueScenario(input: RevenueScenarioInputs): RevenueS
     operatingCostsUsd: input.monthlyOperatingCostsUsd,
     modeledNetUsd,
     targetGapUsd,
-    requiredMonthlyViews,
+    additionalMonthlyViewsNeeded,
     incompleteAssumptions,
     caveats: [
       "This is a scenario calculator, not an earnings forecast, guarantee, or recommendation to spend money.",
