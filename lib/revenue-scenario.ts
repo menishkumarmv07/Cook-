@@ -32,6 +32,108 @@ export type RevenueScenarioOutput = {
   caveats: string[];
 };
 
+export type RevenueScenarioDraft = {
+  targetMonthlyNetUsd: string;
+  expectedMonthlyViews: string;
+  assumedAdRpmUsd: string;
+  expectedAffiliateClicks: string;
+  assumedAffiliateConversionPercent: string;
+  assumedCommissionPerConversionUsd: string;
+  expectedSponsoredDealsPerMonth: string;
+  assumedSponsorFeeUsd: string;
+  monthlyOperatingCostsUsd: string;
+};
+
+export const DEFAULT_REVENUE_SCENARIO_DRAFT: RevenueScenarioDraft = {
+  targetMonthlyNetUsd: "1500",
+  expectedMonthlyViews: "0",
+  assumedAdRpmUsd: "",
+  expectedAffiliateClicks: "0",
+  assumedAffiliateConversionPercent: "",
+  assumedCommissionPerConversionUsd: "",
+  expectedSponsoredDealsPerMonth: "0",
+  assumedSponsorFeeUsd: "",
+  monthlyOperatingCostsUsd: "0",
+};
+
+const DRAFT_FIELDS: readonly (keyof RevenueScenarioDraft)[] = [
+  "targetMonthlyNetUsd",
+  "expectedMonthlyViews",
+  "assumedAdRpmUsd",
+  "expectedAffiliateClicks",
+  "assumedAffiliateConversionPercent",
+  "assumedCommissionPerConversionUsd",
+  "expectedSponsoredDealsPerMonth",
+  "assumedSponsorFeeUsd",
+  "monthlyOperatingCostsUsd",
+];
+
+export function validateRevenueScenarioDraft(value: unknown): string[] {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return ["Scenario draft must be an object."];
+  const object = value as Record<string, unknown>;
+  const errors: string[] = [];
+  for (const field of DRAFT_FIELDS) {
+    const draftValue = object[field];
+    if (typeof draftValue !== "string" || draftValue.length > 64 ||
+        (draftValue !== "" && !/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(draftValue))) {
+      errors.push(field + " must be a blank or valid non-negative numeric input of 64 characters or fewer.");
+    }
+  }
+  return errors;
+}
+
+export function createRevenueScenarioBackupJSON(draft: RevenueScenarioDraft, exportedAt = new Date().toISOString()): string {
+  const errors = validateRevenueScenarioDraft(draft);
+  if (errors.length) throw new Error(errors.join(" "));
+  if (!Number.isFinite(Date.parse(exportedAt))) throw new Error("Export timestamp must be a valid ISO date/time.");
+  return JSON.stringify({
+    format: "cooking-creator-revenue-scenario",
+    version: REVENUE_SCENARIO_SCHEMA_VERSION,
+    exportedAt,
+    draft,
+  }, null, 2);
+}
+
+export function parseRevenueScenarioBackupJSON(raw: string): RevenueScenarioDraft | null {
+  if (typeof raw !== "string" || raw.length > 100_000) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+    const object = parsed as Record<string, unknown>;
+    if (object.format !== "cooking-creator-revenue-scenario" ||
+        object.version !== REVENUE_SCENARIO_SCHEMA_VERSION ||
+        typeof object.exportedAt !== "string" || !Number.isFinite(Date.parse(object.exportedAt))) return null;
+    return validateRevenueScenarioDraft(object.draft).length === 0
+      ? object.draft as RevenueScenarioDraft
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function parseInput(value: string, blankValue: number | null = null): number | null {
+  if (value.trim() === "") return blankValue;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+export function revenueScenarioInputsFromDraft(draft: RevenueScenarioDraft): RevenueScenarioInputs {
+  const errors = validateRevenueScenarioDraft(draft);
+  if (errors.length) throw new Error(errors.join(" "));
+  const required = (value: string): number => parseInput(value, Number.NaN) as number;
+  return {
+    targetMonthlyNetUsd: required(draft.targetMonthlyNetUsd),
+    expectedMonthlyViews: required(draft.expectedMonthlyViews),
+    assumedAdRpmUsd: parseInput(draft.assumedAdRpmUsd),
+    expectedAffiliateClicks: required(draft.expectedAffiliateClicks),
+    assumedAffiliateConversionPercent: parseInput(draft.assumedAffiliateConversionPercent),
+    assumedCommissionPerConversionUsd: parseInput(draft.assumedCommissionPerConversionUsd),
+    expectedSponsoredDealsPerMonth: required(draft.expectedSponsoredDealsPerMonth),
+    assumedSponsorFeeUsd: parseInput(draft.assumedSponsorFeeUsd),
+    monthlyOperatingCostsUsd: required(draft.monthlyOperatingCostsUsd),
+  };
+}
+
 export const DEFAULT_REVENUE_SCENARIO_INPUTS: RevenueScenarioInputs = {
   // Editable goal equivalent to $50/day over a 30-day planning month.
   // It is a target supplied as an example, not a claim that the app can earn it.
