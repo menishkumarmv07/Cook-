@@ -76,7 +76,7 @@ test("unused stream rates may remain blank when the modeled activity count is ze
 
 test("target already met reports zero additional views even if ad RPM is not supplied", () => {
   const result = calculateRevenueScenario(inputs({
-    targetMonthlyNetUsd: 300,
+    targetMonthlyNetUsd: 150,
     expectedMonthlyViews: 0,
     expectedAffiliateClicks: 100,
     assumedAffiliateConversionPercent: 10,
@@ -86,8 +86,8 @@ test("target already met reports zero additional views even if ad RPM is not sup
     monthlyOperatingCostsUsd: 0,
   }));
   assert.equal(result.modeledNetUsd, 150);
-  assert.equal(result.targetGapUsd, 150);
-  assert.equal(result.additionalMonthlyViewsNeeded, null);
+  assert.equal(result.targetGapUsd, 0);
+  assert.equal(result.additionalMonthlyViewsNeeded, 0);
 });
 
 test("validation rejects negative, non-finite, fractional count and out-of-range inputs", () => {
