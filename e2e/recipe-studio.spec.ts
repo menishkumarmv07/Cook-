@@ -1670,11 +1670,15 @@ test("revenue scenario planner labels estimates, persists locally and exports as
   await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
   await expect(page.getByRole("heading", { name: "Revenue scenario planner" })).toBeVisible();
   await expect(page.locator("#scenario-rpm")).toHaveValue("");
-  await expect(page.getByText("Needs an assumption", { exact: true }).first()).toBeVisible();
+  const adScenarioCard = page.locator(".monetization-summary-grid article").filter({ hasText: "Ad revenue in scenario" });
+  await expect(adScenarioCard.locator("strong")).toHaveText("$0.00");
+  // Unknown RPM is not needed while expected activity is zero; once views are entered,
+  // the same blank assumption must remain unknown rather than becoming zero revenue.
+  await page.locator("#scenario-views").fill("100000");
+  await expect(adScenarioCard.locator("strong")).toHaveText("Needs an assumption");
 
   await page.locator("#scenario-target").fill("1500");
   await page.locator("#scenario-costs").fill("100");
-  await page.locator("#scenario-views").fill("100000");
   await page.locator("#scenario-rpm").fill("4");
   await page.locator("#scenario-affiliate-clicks").fill("100");
   await page.locator("#scenario-affiliate-rate").fill("5");
