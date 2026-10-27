@@ -39,6 +39,7 @@ import { discoverV3RecordedVideoDurationMs, renderV3OwnerFootageVideo } from "@/
 import { createV3ProductionBundle } from "@/lib/v3-production-bundle";
 import {
   createEmptyV3ContinuityBible,
+  createStarterV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
   isLatestV3ClipReviewed,
   reviewV3ContinuityClip,
@@ -2409,7 +2410,7 @@ export default function V3ContentStudio() {
         updatedAt: now,
         revision: 1,
         blueprint,
-        referenceBible: createEmptyV3ContinuityBible(),
+        referenceBible: createStarterV3ContinuityBible(),
         narrationMediaId: null,
         creatorReadiness: createEmptyV3CreatorReadiness(),
       };
@@ -2585,7 +2586,7 @@ export default function V3ContentStudio() {
         revision: 1,
         blueprint: restoredBlueprint,
         // Reference/media binaries are deliberately excluded from blueprint JSON backups.
-        referenceBible: createEmptyV3ContinuityBible(),
+        referenceBible: createStarterV3ContinuityBible(),
         narrationMediaId: null,
         creatorReadiness: createEmptyV3CreatorReadiness(),
       };
