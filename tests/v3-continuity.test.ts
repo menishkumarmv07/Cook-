@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createEmptyV3ContinuityBible,
+  createStarterV3ContinuityBible,
   incrementV3ContinuityBibleVersion,
   isLatestV3ClipReviewed,
   reviewV3ContinuityClip,
@@ -26,6 +27,22 @@ const validReference = (): V3ContinuityReference => ({
   height: 1800,
   importedAt: "2026-10-25T16:00:00.000Z",
   reviewState: "approved",
+});
+
+test("starter Bible captures the chosen chef and kitchen style without celebrity identity or voice imitation", () => {
+  const bible = createStarterV3ContinuityBible();
+  assert.equal(validateV3ContinuityBible(bible), true);
+  assert.match(bible.ownerConfirmedAppearanceNotes, /aviator-style sunglasses/i);
+  assert.match(bible.ownerConfirmedAppearanceNotes, /black apron with dark-brown leather straps/i);
+  assert.match(bible.ownerConfirmedAppearanceNotes, /clearly original/i);
+  assert.match(bible.ownerConfirmedAppearanceNotes, /do not reproduce a real person's exact facial identity/i);
+  assert.match(bible.ownerConfirmedAppearanceNotes, /do not imitate a real person's voice/i);
+  assert.match(bible.ownerConfirmedKitchenNotes, /dark green brick backsplash/i);
+  assert.match(bible.ownerConfirmedKitchenNotes, /central wooden prep island/i);
+  assert.match(bible.allowedVariations, /not a[n]? AI-generation capability/i);
+  assert.equal(bible.visualRealismStatus, "not-tested");
+  assert.deepEqual(bible.referenceIds, []);
+  assert.ok(bible.notes.some((note) => /no image bytes were auto-imported/i.test(note)));
 });
 
 test("validates owner reference metadata and rejects invalid file facts", () => {
