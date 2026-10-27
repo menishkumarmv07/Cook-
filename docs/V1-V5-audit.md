@@ -37,11 +37,11 @@ The latest code commit `0710b00807ec7f07b769ae78a71ee3981f540ac4` passed exact-h
 
 ## Safe completion sequence
 
-1. Keep PR #83 separate from `main`; run the full CI suite on the exact latest feature commit and fix all genuine failures.
+1. Keep PR #83 separate from `main`. The V5 code commit passed run #824 and the following documentation-only HEAD passed run #825; repeat the suite after any future code change and fix every genuine failure.
 2. Change repository visibility and review public Git history before introducing any private material.
 3. Choose and verify a zero-cost hosting route only after confirming eligibility and terms. Verify a deployed commit SHA, owner auth and privacy end-to-end.
 4. Import owner-approved references locally and test one short, rights-cleared real-footage edit on desktop and physical Android; inspect downloaded file, playback, audio/caption sync, storage and recovery.
 5. Complete the V1 Android and cooking-trial checklist. Document each pass/fail/blocked state using actual evidence.
 6. Review V2 regressions and V3–V5 gates together on one exact commit. Only then decide, with the owner, whether PR #83 should be made ready for review or merged.
 
-**Status: V1–V5 engineering work is materially implemented; production release is blocked by a mix of new-code CI (pending), privacy/hosting requirements and owner-controlled device/media acceptance.**
+**Status: V1–V5 engineering work is materially implemented and the latest code/doc checkpoints passed CI. Production release remains blocked by repository privacy, suitable hosting, actual owner media validation, physical Android acceptance, and the outstanding V1 manual cooking/device checklist.**
