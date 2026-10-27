@@ -1653,6 +1653,47 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
+test("revenue scenario planner labels estimates, persists locally and exports assumptions", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Monetization Readiness");
+  await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
+  await expect(page.getByRole("heading", { name: "Revenue scenario planner" })).toBeVisible();
+  await expect(page.locator("#scenario-rpm")).toHaveValue("");
+  await expect(page.getByText("Needs an assumption", { exact: true }).first()).toBeVisible();
+
+  await page.locator("#scenario-target").fill("1500");
+  await page.locator("#scenario-costs").fill("100");
+  await page.locator("#scenario-views").fill("100000");
+  await page.locator("#scenario-rpm").fill("4");
+  await page.locator("#scenario-affiliate-clicks").fill("100");
+  await page.locator("#scenario-affiliate-rate").fill("5");
+  await page.locator("#scenario-commission").fill("10");
+  await page.locator("#scenario-sponsor-count").fill("2");
+  await page.locator("#scenario-sponsor-fee").fill("200");
+  await expect(page.getByText("$750.00", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("187,500", { exact: true })).toBeVisible();
+  await expect(page.getByText(/not an earnings forecast/i).first()).toBeVisible();
+
+  await page.reload();
+  await chooseMenuTool(page, "Monetization Readiness");
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
+  await expect(page.locator("#scenario-rpm")).toHaveValue("4");
+  await expect(page.locator("#scenario-sponsor-fee")).toHaveValue("200");
+  await expect(page.getByText("187,500", { exact: true })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export scenario JSON backup" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-revenue-scenario.json");
+  const raw = await readFile(await download.path(), "utf8");
+  const backup = JSON.parse(raw) as { format: string; version: number; draft: { assumedAdRpmUsd: string } };
+  expect(backup.format).toBe("cooking-creator-revenue-scenario");
+  expect(backup.version).toBe(1);
+  expect(backup.draft.assumedAdRpmUsd).toBe("4");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
 async function makeSyntheticWebmFixture(page: import("@playwright/test").Page): Promise<Buffer> {
   const generated = await page.evaluate(async () => {
     const canvas = document.createElement("canvas");
