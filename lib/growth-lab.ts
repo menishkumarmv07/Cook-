@@ -460,7 +460,7 @@ export function isGrowthExperiment(value: unknown): value is GrowthExperiment {
   if (!validText(value.hypothesis, 500, true) || !validText(value.variableChanged, 240, true)) return false;
   if (!isGrowthPlatform(value.platform) || !validText(value.contentTitle, MAX_TEXT_TITLE, false)) return false;
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) return false;
-  if (value.audience !== undefined && !validText(value.audience, 160, true)) return false;
+  if (value.audience !== undefined && !validText(value.audience, 160, false)) return false;
   if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) return false;
   if (value.reviewByDate !== undefined &&
       (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) return false;
@@ -485,7 +485,7 @@ export function validateGrowthExperiment(value: unknown): string[] {
   if (!isGrowthPlatform(value.platform)) errors.push("Choose a supported platform.");
   if (!validText(value.contentTitle, MAX_TEXT_TITLE, false)) errors.push("Content title must be 180 characters or fewer.");
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) errors.push("Start date must be a real YYYY-MM-DD date.");
-  if (value.audience !== undefined && !validText(value.audience, 160, true)) errors.push("Audience must be 160 characters or fewer.");
+  if (value.audience !== undefined && !validText(value.audience, 160, false)) errors.push("Audience must be 160 characters or fewer.");
   if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose a supported primary outcome metric.");
   if (value.reviewByDate !== undefined &&
       (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) {
@@ -529,7 +529,7 @@ export function validateGrowthExperiment(value: unknown): string[] {
 export function validateGrowthExperimentPlan(value: unknown): string[] {
   const errors = validateGrowthExperiment(value);
   if (!isPlainObject(value)) return errors;
-  if (!validText(value.audience, 160, false)) errors.push("Describe the intended audience in 160 characters or fewer.");
+  if (!validText(value.audience, 160, true)) errors.push("Describe the intended audience in 160 characters or fewer.");
   if (!isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose one measurable primary outcome metric.");
   if (typeof value.reviewByDate !== "string" || !isValidDateOnly(value.reviewByDate)) {
     errors.push("Choose a real planned review date.");
