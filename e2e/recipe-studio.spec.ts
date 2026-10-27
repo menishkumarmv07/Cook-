@@ -1686,7 +1686,8 @@ test("revenue scenario planner labels estimates, persists locally and exports as
   await page.locator("#scenario-sponsor-count").fill("2");
   await page.locator("#scenario-sponsor-fee").fill("200");
   await expect(page.getByText("$750.00", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText("187,500", { exact: true })).toBeVisible();
+  const additionalViewsOutput = page.locator("p").filter({ hasText: "Additional monthly views needed to close the modeled gap:" });
+  await expect(additionalViewsOutput).toContainText("187,500");
   await expect(page.getByText(/not an earnings forecast/i).first()).toBeVisible();
 
   await page.reload();
@@ -1694,7 +1695,7 @@ test("revenue scenario planner labels estimates, persists locally and exports as
   await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
   await expect(page.locator("#scenario-rpm")).toHaveValue("4");
   await expect(page.locator("#scenario-sponsor-fee")).toHaveValue("200");
-  await expect(page.getByText("187,500", { exact: true })).toBeVisible();
+  await expect(additionalViewsOutput).toContainText("187,500");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export scenario JSON backup" }).click();
