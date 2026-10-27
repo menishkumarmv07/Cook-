@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildDescriptiveGrowthInsights,
   buildGrowthEvidenceInsights,
+  summarizeGrowthExperimentEvidence,
   createGrowthWorkspaceBackupJSON,
   growthMetricFingerprint,
   isGrowthExperiment,
@@ -414,4 +415,58 @@ test("evidence insights do not infer missing values or draw conclusions from spa
   assert.match(insight, /1 actual view row\(s\)/);
   assert.match(insight, /estimates are excluded/);
   assert.match(insight, /blank values stay unknown/);
+});
+
+
+test("provisional experiment evidence matches exact platform/title/date and keeps estimates separate", () => {
+  const experimentRecord = experiment({
+    platform: "YouTube Shorts",
+    contentTitle: "Lemon rice in 30 seconds",
+    startedDate: "2026-10-01",
+    resultDate: "2026-10-05",
+    status: "reviewed",
+    outcome: "Views recorded from Studio",
+    nextAction: "Test a different opening shot only",
+  });
+  const rows: GrowthMetric[] = [
+    actualMetric({ id: "actual-a", publishedDate: "2026-10-02", views: 100, retentionPercent: 50, revenueUsd: 3 }),
+    actualMetric({ id: "actual-b", publishedDate: "2026-10-03", views: 200, retentionPercent: 70, revenueUsd: 7 }),
+    estimateMetric({ id: "estimate-a", publishedDate: "2026-10-04", views: 99_999, retentionPercent: 99, revenueUsd: 999 }),
+    actualMetric({ id: "outside-date", publishedDate: "2026-10-06", views: 10_000 }),
+    actualMetric({ id: "other-title", contentTitle: "Different recipe", publishedDate: "2026-10-03", views: 20_000 }),
+    actualMetric({ id: "other-platform", platform: "TikTok", publishedDate: "2026-10-03", views: 30_000 }),
+  ];
+  const summary = summarizeGrowthExperimentEvidence(experimentRecord, rows);
+  assert.equal(summary.matchingActualRows, 2);
+  assert.equal(summary.matchingEstimateRows, 1);
+  assert.equal(summary.actualRowsWithViews, 2);
+  assert.equal(summary.actualViewsTotal, 300);
+  assert.equal(summary.medianActualRetentionPercent, 60);
+  assert.equal(summary.actualRevenueUsdTotal, 10);
+  assert.ok(summary.notes.some((note) => /estimates are displayed separately/i.test(note)));
+  assert.ok(summary.notes.some((note) => /fewer than five/i.test(note)));
+  assert.ok(summary.notes.some((note) => /not causal attribution/i.test(note)));
+  assert.match(summary.nextActionHint, /more comparable actual platform records/i);
+});
+
+test("experiment evidence warns when title is absent and matched metrics are insufficient", () => {
+  const experimentRecord = experiment({
+    contentTitle: "",
+    startedDate: "2026-10-01",
+    resultDate: "2026-10-05",
+  });
+  const summary = summarizeGrowthExperimentEvidence(experimentRecord, [
+    actualMetric({ id: "actual-1", publishedDate: "2026-10-02", contentTitle: "Lemon rice", views: 120 }),
+  ]);
+  assert.equal(summary.matchingActualRows, 1);
+  assert.equal(summary.matchingEstimateRows, 0);
+  assert.ok(summary.notes.some((note) => /no exact content title/i.test(note)));
+  assert.ok(summary.notes.some((note) => /only 1 matched actual record/i.test(note)));
+});
+
+test("experiment evidence returns a safe message for invalid experiment data", () => {
+  const invalid = { ...experiment(), status: "invalid" } as unknown as GrowthExperiment;
+  const summary = summarizeGrowthExperimentEvidence(invalid, [actualMetric()]);
+  assert.equal(summary.matchingActualRows, 0);
+  assert.ok(summary.notes.some((note) => /experiment data is invalid/i.test(note)));
 });
