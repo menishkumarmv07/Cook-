@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildDescriptiveGrowthInsights,
+  buildGrowthEvidenceInsights,
   createGrowthWorkspaceBackupJSON,
   growthMetricFingerprint,
   isGrowthExperiment,
@@ -375,4 +376,42 @@ test("descriptive insights require ten actual rows per platform and avoid causal
   assert.match(adequateSample[0], /Recipe 10/);
   assert.match(adequateSample[0], /descriptive only/);
   assert.match(adequateSample[0], /does not show that a format caused the result/);
+});
+
+
+test("evidence insights use actual rows only, report robust medians, and never forecast earnings", () => {
+  const actualRows = Array.from({ length: 10 }, (_, i) => actualMetric({
+    id: `actual-${i}`,
+    views: i === 9 ? 100_000 : (i + 1) * 100,
+    retentionPercent: 40 + i,
+    followersGained: i,
+    linkClicks: i * 2,
+    revenueUsd: i < 3 ? 0.25 : null,
+  }));
+  const estimatedOutlier = estimateMetric({
+    id: "estimate-outlier",
+    views: 9_999_999,
+    revenueUsd: 999_999,
+  });
+  const insight = buildGrowthEvidenceInsights([...actualRows, estimatedOutlier]).join(" ");
+  assert.match(insight, /median recorded views are 550/);
+  assert.match(insight, /across 10 actual row\(s\)/);
+  assert.match(insight, /median recorded retention is 44\.5%/);
+  assert.match(insight, /revenue was entered for 3 row\(s\)/);
+  assert.match(insight, /0\.75 USD/);
+  assert.match(insight, /not an earnings forecast or proof of causation/i);
+  assert.doesNotMatch(insight, /9,999,999|999,999 USD/);
+});
+
+test("evidence insights do not infer missing values or draw conclusions from sparse platform data", () => {
+  const sparse = [
+    actualMetric({ id: "with-data", views: 1_000, retentionPercent: null, followersGained: null, linkClicks: null, revenueUsd: null }),
+    actualMetric({ id: "blank-views", views: null, retentionPercent: null, followersGained: null, linkClicks: null, revenueUsd: null }),
+    estimateMetric({ id: "estimate-only", views: 50_000, revenueUsd: 100 }),
+  ];
+  const insight = buildGrowthEvidenceInsights(sparse).join(" ");
+  assert.match(insight, /at least 10 valid actual rows/);
+  assert.match(insight, /1 actual view row\(s\)/);
+  assert.match(insight, /estimates are excluded/);
+  assert.match(insight, /blank values stay unknown/);
 });
