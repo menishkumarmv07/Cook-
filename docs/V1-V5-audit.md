@@ -1,9 +1,24 @@
 # Cooking Creator App — V1 to V5 audit and release gate
 
-**Audit date:** 27 October 2026  
+**Audit date:** 28 October 2026  
 **Repository:** `menishkumarmv07/Cook-`  
 **Development branch:** `v3/ai-chef-content-studio`  
 **Verified V2/main base:** `5d0da951e2a73c5098ba82308f23438556b3f80c`  
+
+
+## Fresh verification checkpoint — 28 October 2026
+
+The repository was re-checked across V1–V5 against the branch, pull request, workflow logs, and preview deployment.
+
+- **Current development branch:** `v3/ai-chef-content-studio`, head `c34af571433ea74c663a1c9c9cf008ad0a7b7fd8`.
+- **V1/V2 baseline:** `main` remains at `5d0da951e2a73c5098ba82308f23438556b3f80c`; the development PR is still open as a draft and is not merged.
+- **Latest CI:** [GitHub Actions run #826](https://github.com/menishkumarmv07/Cook-/actions/runs/40546789662) succeeded. The workflow tested the PR merge candidate (base plus current feature head); logs show npm audit **0 vulnerabilities**, **238/238 unit tests**, owner-auth browser smoke **10/10**, desktop/mobile Playwright **112/112**, ESLint with **0 errors and 3 warnings**, TypeScript, production build, and Chromium setup all passed. The install log emits a deprecation warning for the installed ESLint version; it should be reviewed before changing versions.
+- **Latest branch preview:** [deployment](https://vercel.com/menishkumarmv07/cook/A6HGaJ3TmkmYGhWDCH5CECrHMfJ8) is **READY** and maps to current head `c34af571433ea74c663a1c9c9cf008ad0a7b7fd8`. This confirms a successful preview build, not production suitability or real-device acceptance.
+- **Current version-by-version result:** V1 foundation and V2 planning/research/monetisation-readiness remain implemented with automated regression coverage; V3 owner-footage renderer and workflow foundation are implemented but AI-generated realistic video is not available or validated; V4 scenario calculator is implemented as assumption-based planning, not a forecast; V5 evidence summaries and experiment planning are implemented, but metrics are manually entered and do not prove causality.
+- **Remaining release blockers are still real:** repository is public; no suitable terms-compliant production host has been accepted; no owner-approved reference set or real footage has passed the full visual/audio/caption review; and physical Android Chrome acceptance plus the full V1 hands-on cooking/device checklist remain incomplete. These require owner/device/provider actions and cannot honestly be marked complete from CI alone.
+- **No production release or merge was performed.** No income, AI-video realism, media rights, private-hosting compliance or physical-device success is inferred from automated tests.
+
+
 **Release policy:** keep PR #83 draft and unmerged until code, privacy, hosting and owner-acceptance gates are explicitly satisfied.
 
 ## Overall conclusion
