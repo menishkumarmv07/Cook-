@@ -1,5 +1,15 @@
 # V4/V5 Build Log — Cooking Creator
 
+## Re-check recorded 28 October 2026
+
+- **Code checkpoint reviewed:** `c34af571433ea74c663a1c9c9cf008ad0a7b7fd8` on branch `v3/ai-chef-content-studio`; the V1/V2 base is still `5d0da951e2a73c5098ba82308f23438556b3f80c`.
+- **Latest completed quality run at review time:** [GitHub Actions #826](https://github.com/menishkumarmv07/Cook-/actions/runs/40546789662) — **SUCCESS**. The checked-out PR merge candidate included the feature head and the unchanged V1/V2 base. Detailed logs confirm `npm ci`, dependency audit (**0 vulnerabilities**), **238 unit tests passed / 0 failed**, owner-auth smoke **10/10**, Playwright desktop/mobile **112/112**, TypeScript, production build and Chromium setup passed.
+- **Lint note:** ESLint reported **0 errors and 3 warnings**. The install also emitted a deprecated/unsupported-version warning for ESLint. These are non-blocking today but should be reviewed; a dependency major-version upgrade must not be done blindly without compatibility testing.
+- **Latest preview at review time:** [Vercel preview inspector](https://vercel.com/menishkumarmv07/cook/A6HGaJ3TmkmYGhWDCH5CECrHMfJ8) is **READY** and maps to that feature head. A READY preview is not a production approval.
+- **V1–V5 status:** V1 and V2 core workflows remain represented in automated unit and browser regression suites; V3 blueprint/local reference/rendering foundations exist; V4 scenario modelling exists; V5 manual metric matching and experiment-planning/evidence views exist. These are engineering features—not automatic social publishing, connected live analytics, a demonstrated AI video generator, or guaranteed earnings.
+- **Not closed by CI:** repository visibility remains public; production hosting terms/eligibility for the planned private/commercial workflow are not resolved; owner-approved references/real footage have not passed manual video-quality review; physical Android Chrome acceptance and the full V1 hands-on recipe/device checklist remain incomplete. Keep PR #83 draft/unmerged and keep private media/secrets out of this public repository until the privacy gate is actually resolved.
+- **This entry records a code/test checkpoint before documentation-only audit updates.** Any source-code change requires fresh exact-head tests; the latest generated CI result should be checked in GitHub Actions after the audit notes are pushed.
+
 ## Latest verified code checkpoint — 27 October 2026 (16:56 UTC)
 
 **Project:** `menishkumarmv07/Cook-`  
