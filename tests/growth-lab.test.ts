@@ -285,7 +285,13 @@ test("Growth Lab backup round-trips validated metrics and experiments and reject
   const legacyV1 = parseGrowthWorkspaceBackupJSON(JSON.stringify({
     format: "cooking-creator-growth-lab", version: 1, exportedAt, metrics: [{
       ...actualMetric(), revenueUsd: undefined,
-    }], experiments: experiments.map(({ audience, primaryMetric, reviewByDate, ...legacyExperiment }) => legacyExperiment),
+    }], experiments: experiments.map((value) => {
+      const legacyExperiment = { ...value };
+      delete legacyExperiment.audience;
+      delete legacyExperiment.primaryMetric;
+      delete legacyExperiment.reviewByDate;
+      return legacyExperiment;
+    }),
   }));
   assert.ok(legacyV1);
   assert.equal(legacyV1.version, 3);
