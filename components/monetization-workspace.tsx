@@ -44,6 +44,7 @@ import {
   type ReportedValueKind,
 } from "@/lib/monetization-workspace";
 import { getLocalDateOnly } from "@/lib/recipe";
+import RevenueScenarioPlanner from "@/components/revenue-scenario-planner";
 
 const STORAGE_KEY = "cooking-creator-monetization-workspace-v1";
 const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
@@ -139,7 +140,7 @@ export default function MonetizationWorkspace() {
   const [ready, setReady] = useState(false);
   const [storageBlocked, setStorageBlocked] = useState(false);
   const [message, setMessage] = useState("");
-  const [activeSection, setActiveSection] = useState<"overview" | "media-kit" | "partnerships" | "affiliates" | "readiness">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "media-kit" | "partnerships" | "affiliates" | "readiness" | "scenarios">("overview");
   const [mediaKitPreview, setMediaKitPreview] = useState("");
 
   useEffect(() => {
@@ -394,6 +395,7 @@ export default function MonetizationWorkspace() {
     { value: "partnerships", label: "Partnerships" },
     { value: "affiliates", label: "Affiliate links" },
     { value: "readiness", label: "Readiness checklist" },
+    { value: "scenarios", label: "Revenue scenarios" },
   ];
 
   return (
@@ -438,6 +440,8 @@ export default function MonetizationWorkspace() {
           <div className="monetization-overview-links"><button className="secondary" type="button" onClick={() => setActiveSection("media-kit")}>Prepare media kit</button><button className="secondary" type="button" onClick={() => setActiveSection("partnerships")}>Track a partnership</button><button className="secondary" type="button" onClick={() => setActiveSection("affiliates")}>Review affiliate disclosures</button><button className="secondary" type="button" onClick={() => setActiveSection("readiness")}>Review readiness checklist</button></div>
         </div>
       </>}
+
+      {activeSection === "scenarios" && <RevenueScenarioPlanner />}
 
       {activeSection === "media-kit" && <>
         <div className="monetization-subpanel">

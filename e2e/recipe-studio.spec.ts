@@ -31,6 +31,9 @@ async function signInOwner(page: import("@playwright/test").Page) {
 }
 
 async function chooseMenuTool(page: import("@playwright/test").Page, label: string) {
+  // Let persisted navigation hydrate before inspecting the active screen; otherwise a saved
+  // tool can replace Home after the drawer button has been queried, making desktop tests flaky.
+  await expect(page.locator(".shell")).toHaveAttribute("data-navigation-ready", "true");
   // Tools are dedicated screens. Return Home before opening another tool or using chat.
   const activeTool = await page.locator(".shell").getAttribute("data-active-tool");
   if (activeTool && activeTool !== "home") {
@@ -1381,6 +1384,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await page.goto("/");
   await chooseMenuTool(page, "Growth Lab");
   await expect(page.getByRole("heading", { name: "Growth Lab" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Observed performance signals" })).toBeVisible();
 
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   const tomorrowDate = await page.evaluate(() => {
@@ -1408,7 +1412,7 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
 
   const csv = [
     "published_date,platform,content_title,concept,data_kind,views,reach,average_watch_seconds,retention_percent,likes,comments,shares,saves,followers_gained,link_clicks,revenue_usd",
-    "2026-10-21,Instagram Reels,Tomato pasta,Weeknight meals,estimate,500,,,,,,,,,,0.40",
+    "2026-10-21,YouTube Shorts,Tomato pasta,Weeknight meals,estimate,500,,,,,,,,,,0.40",
     "2026-02-30,Instagram Reels,Bad date,Weeknight meals,actual,20,,,,,,,,,,",
   ].join("\n");
   await page.locator("#growth-csv-file").setInputFiles({
@@ -1428,9 +1432,16 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await page.getByLabel("Hypothesis").fill("A clearer close-up will improve viewer retention.");
   await page.getByLabel("Variable changed").fill("Opening shot");
   await page.locator("#growth-experiment-start-date").fill("2026-10-20");
+  await page.locator("#growth-experiment-audience").fill("US home cooks looking for fast dinners");
+  await page.locator("#growth-experiment-primary-metric").selectOption("retentionPercent");
+  await page.locator("#growth-experiment-review-date").fill("2026-10-24");
   await page.getByRole("button", { name: "Add experiment" }).click();
   const card = page.locator(".growth-experiment-card").filter({ hasText: "A clearer close-up will improve viewer retention." });
   await expect(card).toBeVisible();
+  await expect(card).toContainText("US home cooks looking for fast dinners");
+  await expect(card).toContainText("Retention (%)");
+  await expect(card).toContainText("review by 2026-10-24");
+  await card.getByLabel("Planned review date").fill("2026-10-25");
   await card.getByLabel("Result date").fill("2026-10-22");
   await card.getByLabel("Observed outcome (use actual numbers where available)").fill("Recorded 1,200 actual views; the sample remains small.");
   await card.getByRole("button", { name: "Mark reviewed" }).click();
@@ -1439,6 +1450,16 @@ test("Growth Lab validates manual metrics, previews CSV errors and exports local
   await card.getByLabel("Next action").fill("Repeat cautiously with one variable changed and compare actual results.");
   await card.getByRole("button", { name: "Mark reviewed" }).click();
   await expect(card.locator(".growth-status-reviewed")).toContainText("reviewed");
+
+  await card.getByRole("button", { name: "Check matching metrics" }).click();
+  const evidencePanel = card.getByRole("region", { name: /Evidence match for/ });
+  await expect(evidencePanel).toContainText("1 actual");
+  await expect(evidencePanel).toContainText("1 estimate");
+  await expect(evidencePanel).toContainText("No exact content title was set");
+  await expect(evidencePanel).toContainText("not causal attribution");
+  await expect(evidencePanel).toContainText("Collect more comparable actual platform records");
+  await card.getByRole("button", { name: "Hide evidence match" }).click();
+  await expect(evidencePanel).toHaveCount(0);
 
   const csvDownloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export metrics CSV" }).click();
@@ -1648,3 +1669,938 @@ test("V2.5 monetization workspace separates real USD receipts, gates contracts, 
   await expect(page.locator(".monetization-summary-grid")).toContainText("$85.00");
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
+
+test("revenue scenario planner labels estimates, persists locally and exports assumptions", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "Monetization Readiness");
+  await expect(page.getByRole("heading", { name: "Monetization readiness" })).toBeVisible();
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
+  await expect(page.getByRole("heading", { name: "Revenue scenario planner" })).toBeVisible();
+  await expect(page.locator("#scenario-rpm")).toHaveValue("");
+  const adScenarioCard = page.locator(".monetization-summary-grid article").filter({ hasText: "Ad revenue in scenario" });
+  await expect(adScenarioCard.locator("strong")).toHaveText("$0.00");
+  // Unknown RPM is not needed while expected activity is zero; once views are entered,
+  // the same blank assumption must remain unknown rather than becoming zero revenue.
+  await page.locator("#scenario-views").fill("100000");
+  await expect(adScenarioCard.locator("strong")).toHaveText("Needs an assumption");
+
+  await page.locator("#scenario-target").fill("1500");
+  await page.locator("#scenario-costs").fill("100");
+  await page.locator("#scenario-rpm").fill("4");
+  await page.locator("#scenario-affiliate-clicks").fill("100");
+  await page.locator("#scenario-affiliate-rate").fill("5");
+  await page.locator("#scenario-commission").fill("10");
+  await page.locator("#scenario-sponsor-count").fill("2");
+  await page.locator("#scenario-sponsor-fee").fill("200");
+  await expect(page.getByText("$750.00", { exact: true }).first()).toBeVisible();
+  const additionalViewsOutput = page.locator("p").filter({ hasText: "Additional monthly views needed to close the modeled gap:" });
+  await expect(additionalViewsOutput).toContainText("187,500");
+  await expect(page.getByText(/not an earnings forecast/i).first()).toBeVisible();
+
+  await page.reload();
+  await chooseMenuTool(page, "Monetization Readiness");
+  await page.locator(".monetization-subnav").getByRole("button", { name: "Revenue scenarios" }).click();
+  await expect(page.locator("#scenario-rpm")).toHaveValue("4");
+  await expect(page.locator("#scenario-sponsor-fee")).toHaveValue("200");
+  await expect(additionalViewsOutput).toContainText("187,500");
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export scenario JSON backup" }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe("cooking-creator-revenue-scenario.json");
+  const raw = await readFile(await download.path(), "utf8");
+  const backup = JSON.parse(raw) as { format: string; version: number; draft: { assumedAdRpmUsd: string } };
+  expect(backup.format).toBe("cooking-creator-revenue-scenario");
+  expect(backup.version).toBe(1);
+  expect(backup.draft.assumedAdRpmUsd).toBe("4");
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+});
+
+async function makeSyntheticWebmFixture(page: import("@playwright/test").Page): Promise<Buffer> {
+  const generated = await page.evaluate(async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 568;
+    const context = canvas.getContext("2d");
+    if (!context || typeof MediaRecorder === "undefined" || !HTMLCanvasElement.prototype.captureStream) {
+      throw new Error("CI browser does not support a local video fixture for the V3 render smoke test.");
+    }
+    const mimeType = ["video/webm;codecs=vp8", "video/webm"].find((candidate) => MediaRecorder.isTypeSupported(candidate));
+    if (!mimeType) throw new Error("CI browser has no WebM encoder for the V3 render smoke test.");
+    const stream = canvas.captureStream(15);
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 350_000 });
+    const chunks: Blob[] = [];
+    const stopped = new Promise<Blob>((resolve, reject) => {
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) chunks.push(event.data);
+      };
+      recorder.onerror = () => reject(new Error("Synthetic CI video recording failed."));
+      recorder.onstop = () => resolve(new Blob(chunks, { type: recorder.mimeType || mimeType }));
+    });
+    recorder.start();
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const draw = () => {
+        const elapsedMs = performance.now() - startedAt;
+        context.fillStyle = `hsl(${Math.floor(elapsedMs / 8) % 360} 35% 42%)`;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#ffffff";
+        context.font = "bold 22px sans-serif";
+        context.fillText("SYNTHETIC CI FOOTAGE", 15, 50);
+        context.fillText(Math.round(elapsedMs) + " ms", 15, 88);
+        if (elapsedMs >= 2_400) {
+          recorder.stop();
+          resolve();
+        } else {
+          requestAnimationFrame(draw);
+        }
+      };
+      draw();
+    });
+    const blob = await stopped;
+    stream.getTracks().forEach((track) => track.stop());
+    if (blob.size < 32 || !blob.type.toLowerCase().startsWith("video/webm")) {
+      throw new Error("Synthetic CI video did not produce a valid WebM blob.");
+    }
+    return { mimeType: blob.type, bytes: Array.from(new Uint8Array(await blob.arrayBuffer())) };
+  });
+  return Buffer.from(generated.bytes);
+}
+
+function makeSyntheticWavFixture(durationSeconds = 1.8, sampleRate = 22_050): Buffer {
+  const sampleCount = Math.round(durationSeconds * sampleRate);
+  const dataSize = sampleCount * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+  buffer.write("RIFF", 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write("WAVE", 8);
+  buffer.write("fmt ", 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM.
+  buffer.writeUInt16LE(1, 22); // Mono.
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write("data", 36);
+  buffer.writeUInt32LE(dataSize, 40);
+  for (let index = 0; index < sampleCount; index += 1) {
+    const fade = Math.min(1, index / (sampleRate * 0.03), (sampleCount - index) / (sampleRate * 0.03));
+    const sample = Math.sin((2 * Math.PI * 220 * index) / sampleRate) * 0.06 * Math.max(0, fade);
+    buffer.writeInt16LE(Math.round(sample * 32_767), 44 + index * 2);
+  }
+  return buffer;
+}
+
+test("V3 creates a traced scene blueprint from a saved V2 recipe and exports its editable backup", async ({ page }) => {
+  // The real browser renderer is part of this integration path, so allow it more time
+  // than the standard UI smoke test while retaining a strict bounded failure.
+  // The browser encoder performs a real encode/decode pass; allow time for CI's two browser projects,
+  // but keep the download event itself bounded so failures report the application error rather than hanging.
+  test.setTimeout(180_000);
+  const runtimeErrors: string[] = [];
+  page.on("pageerror", (error) => runtimeErrors.push(error.stack ?? error.message));
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 blueprint QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 blueprint QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByLabel("Ingredient 1 prep").fill("rinsed");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Boil the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".shell")).toHaveAttribute("data-active-tool", "studio");
+  // AI Chef Studio is dynamically imported to keep the V1/V2 first-load bundle smaller.
+  // Wait for its actual heading instead of asserting that the chunk mounted synchronously.
+  await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" }))
+    .toBeVisible({ timeout: 15_000 });
+  const studioMount = await page.evaluate(() => ({
+    activeTool: document.querySelector(".shell")?.getAttribute("data-active-tool"),
+    sectionCount: document.querySelectorAll("#v3-content-studio").length,
+    headingTexts: Array.from(document.querySelectorAll("h1,h2,h3,h4,h5")).map((node) => node.textContent?.trim() ?? ""),
+    hiddenAncestors: (() => {
+      const node = document.querySelector("#v3-content-studio");
+      const result: string[] = [];
+      let current: Element | null = node;
+      while (current) {
+        const style = window.getComputedStyle(current);
+        if (style.display === "none" || style.visibility === "hidden" || current.getAttribute("aria-hidden") === "true") {
+          result.push(current.tagName.toLowerCase() + (current.id ? "#" + current.id : "") + (current.className ? "." + String(current.className).replace(/\s+/g, ".") : ""));
+        }
+        current = current.parentElement;
+      }
+      return result;
+    })(),
+    bodyTail: document.body.innerText.slice(-2_500),
+  }));
+  if (studioMount.sectionCount !== 1 || !studioMount.headingTexts.includes("Create a cooking-video blueprint")) {
+    throw new Error("V3 studio failed to mount after navigation: " + JSON.stringify({ studioMount, runtimeErrors }));
+  }
+  await expect(page.getByRole("heading", { name: "Create a cooking-video blueprint" })).toBeVisible();
+  const savedRecipeOption = page.locator("#v3-recipe-select option").filter({ hasText: "V3 blueprint QA recipe" }).first();
+  const savedRecipeId = await savedRecipeOption.getAttribute("value");
+  expect(savedRecipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(savedRecipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-scene-card")).toHaveCount(4);
+  await expect(page.locator(".v3-studio-editor")).toContainText("V3 blueprint QA recipe");
+  await expect(page.locator(".v3-scene-source-notes").filter({ hasText: "step:" })).toHaveCount(1);
+
+  const startInputs = page.locator('input[id^="v3-caption-start-"]');
+  const endInputs = page.locator('input[id^="v3-caption-end-"]');
+  await expect(startInputs).toHaveCount(4);
+  await expect(endInputs).toHaveCount(4);
+  for (let index = 0; index < 4; index += 1) {
+    await startInputs.nth(index).fill(String(index));
+    await endInputs.nth(index).fill(String(index + 1));
+  }
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible();
+  const subtitleDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export SRT", exact: true }).click();
+  expect((await subtitleDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.srt$/);
+
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  expect((await backupDownload).suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*\.v3-blueprint\.json$/);
+  await expect(page.locator(".v3-studio-editor .v3-studio-honesty").filter({ hasText: "Visual realism: NOT TESTED" })).toContainText("NOT TESTED");
+
+  // An empty-media project must not be allowed to render a fake video. The fallback
+  // should produce a real ZIP whose label and manifest make its status unambiguous.
+  await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeDisabled();
+  const bundleDialogPromise = page.waitForEvent("dialog");
+  const bundleDownloadPromise = page.waitForEvent("download");
+  const bundleClickPromise = page.getByRole("button", { name: "Export production bundle ZIP", exact: true }).click();
+  const bundleDialog = await bundleDialogPromise;
+  expect(bundleDialog.type()).toBe("confirm");
+  expect(bundleDialog.message()).toContain("NOT a rendered video");
+  await bundleDialog.accept();
+  await bundleClickPromise;
+  const bundleDownload = await bundleDownloadPromise;
+  expect(bundleDownload.suggestedFilename()).toMatch(/v3-blueprint-qa-recipe.*-production-bundle\.zip$/);
+  const bundlePath = await bundleDownload.path();
+  expect(bundlePath).toBeTruthy();
+  const bundleBytes = await readFile(bundlePath as string);
+  expect(Array.from(bundleBytes.subarray(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+  expect(bundleBytes.includes(Buffer.from("creator-readiness.json"))).toBe(true);
+  expect(bundleBytes.includes(Buffer.from("youtube-shorts"))).toBe(true);
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Production bundle downloaded locally" })).toBeVisible();
+
+  // The selected platform copy is saved as part of the local project and remains
+  // NOT READY until the owner identifies the real media origin and completes reviews.
+  await page.locator("#v3-target-platform").selectOption("instagram-reels");
+  await page.locator("#v3-platform-title").fill("V3 QA recipe title");
+  await page.locator("#v3-platform-caption").fill("A recipe-specific caption for review.");
+  await page.locator("#v3-platform-cta").fill("Save this for later.");
+  await page.locator("#v3-platform-hashtags").fill("#cooking #recipe");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible();
+  await page.reload();
+  await expect(page.locator("#v3-target-platform")).toHaveValue("instagram-reels");
+  await expect(page.getByLabel("Title / hook (up to 100 characters)")).toHaveValue("V3 QA recipe title");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+  const readinessLayout = await page.evaluate(() => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    bodyWidth: document.body.scrollWidth,
+  }));
+  expect(Math.max(readinessLayout.documentWidth, readinessLayout.bodyWidth)).toBeLessThanOrEqual(readinessLayout.viewportWidth + 1);
+
+  const creatorCopyPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export creator copy", exact: true }).click();
+  const creatorCopy = await creatorCopyPromise;
+  expect(creatorCopy.suggestedFilename().toLowerCase().endsWith(".creator-copy.txt")).toBe(true);
+  const creatorCopyPath = await creatorCopy.path();
+  expect(creatorCopyPath).toBeTruthy();
+  const creatorCopyText = await readFile(creatorCopyPath as string, "utf8");
+  expect(creatorCopyText).toContain("Instagram Reels");
+  expect(creatorCopyText).toContain("V3 QA recipe title");
+  expect(creatorCopyText).toContain("A recipe-specific caption for review.");
+  expect(creatorCopyText).toContain("NOT READY");
+  expect(creatorCopyText).toContain("Nothing was published or uploaded");
+
+  // Integration smoke: render a tiny procedurally-created QA clip plus a test-tone
+  // WAV locally. These fixtures are generated at runtime and are never committed.
+  // The output proves browser encoding/playback only; it is not cooking footage,
+  // human narration, or a visual-realism acceptance test.
+  const syntheticVideo = await makeSyntheticWebmFixture(page);
+  await page.locator("#v3-media-label").fill("Synthetic CI footage — do not publish");
+  await page.locator("#v3-media-rights").selectOption("owner-recorded");
+  await page.locator("#v3-media-rights-note").fill("Procedurally generated CI fixture for local encoder testing only; not for publishing.");
+  await page.locator("#v3-media-file").setInputFiles({
+    name: "v3-ci-footage.webm",
+    mimeType: "video/webm",
+    buffer: syntheticVideo,
+  });
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Video clip imported into this browser only" })).toBeVisible({ timeout: 15_000 });
+  const videoCard = page.locator(".v3-media-card").filter({ hasText: "Synthetic CI footage — do not publish" });
+  await videoCard.getByRole("button", { name: "I reviewed and clear it", exact: true }).click();
+  await expect(videoCard.locator(".v3-reference-badge")).toContainText("OWNER-CLEARED");
+
+  await page.locator("#v3-media-kind").selectOption("narration");
+  await page.locator("#v3-media-label").fill("Synthetic CI QA tone — not speech");
+  await page.locator("#v3-media-rights").selectOption("owner-recorded");
+  await page.locator("#v3-media-rights-note").fill("Synthetic tone fixture generated only to test audio mixing; not speech and not for publishing.");
+  await page.locator("#v3-media-file").setInputFiles({
+    name: "v3-ci-test-tone.wav",
+    mimeType: "audio/wav",
+    buffer: makeSyntheticWavFixture(),
+  });
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Narration imported into this browser only" })).toBeVisible({ timeout: 15_000 });
+  const audioCard = page.locator(".v3-media-card").filter({ hasText: "Synthetic CI QA tone — not speech" });
+  await audioCard.getByRole("button", { name: "I reviewed and clear it", exact: true }).click();
+  await expect(audioCard.locator(".v3-reference-badge")).toContainText("OWNER-CLEARED");
+
+  const narrationOption = page.locator("#v3-project-narration option").filter({ hasText: "Synthetic CI QA tone — not speech" }).first();
+  const narrationId = await narrationOption.getAttribute("value");
+  expect(narrationId).toBeTruthy();
+  await page.locator("#v3-project-narration").selectOption(narrationId as string);
+
+  const sceneCards = page.locator(".v3-scene-card");
+  await expect(sceneCards).toHaveCount(4);
+  const videoOption = sceneCards.first().locator('select[id^="v3-scene-video-"] option').filter({ hasText: "Synthetic CI footage — do not publish" }).first();
+  const videoId = await videoOption.getAttribute("value");
+  expect(videoId).toBeTruthy();
+  for (let index = 0; index < 4; index += 1) {
+    const scene = sceneCards.nth(index);
+    await scene.locator('select[id^="v3-scene-video-"]').selectOption(videoId as string);
+    await scene.locator('input[id^="v3-source-start-"]').fill("0");
+    await scene.locator('input[id^="v3-source-end-"]').fill("0.4");
+    await scene.locator('textarea[id^="v3-scene-caption-"]').fill("Synthetic QA test clip — not for publishing");
+    await scene.locator('input[id^="v3-caption-start-"]').fill(String(index * 0.4));
+    await scene.locator('input[id^="v3-caption-end-"]').fill(String((index + 1) * 0.4));
+    // Every edit invalidates approval, so review only after all scene fields are final.
+  }
+  for (let index = 0; index < 4; index += 1) {
+    await sceneCards.nth(index).locator(".v3-scene-review-button").click();
+  }
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Edits saved locally" })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator(".v3-render-preflight")).toContainText("Ready for a short owner-footage render");
+  await expect(page.getByRole("button", { name: "Render real owner footage", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Render real owner footage", exact: true }).click();
+  // Fail with the actual renderer error/progress message instead of a generic
+  // "heading missing" timeout if the browser cannot complete one of the media stages.
+  await expect.poll(async () => {
+    if (await page.getByRole("heading", { name: "Rendered video preview", exact: true }).count()) return "RENDERED";
+    const errors = await page.locator("#v3-content-studio [role='alert']").allInnerTexts();
+    const usefulErrors = errors.map((value) => value.trim()).filter(Boolean);
+    if (usefulErrors.length) return "RENDER ERROR: " + usefulErrors.join(" | ");
+    const progress = await page.locator("#v3-content-studio [role='status']").allInnerTexts();
+    const usefulProgress = progress.map((value) => value.trim()).filter(Boolean);
+    return "RENDERING: " + usefulProgress.slice(-3).join(" | ");
+  }, { timeout: 60_000, intervals: [250, 500, 1_000] }).toBe("RENDERED");
+  const renderPreview = page.locator("#v3-content-studio video.v3-render-preview");
+  await expect(renderPreview).toHaveCount(1);
+  await expect.poll(() => renderPreview.evaluate((element) => {
+    const video = element as HTMLVideoElement;
+    return video.videoWidth === 720 &&
+      video.videoHeight === 1280 &&
+      Number.isFinite(video.duration) &&
+      video.duration > 0 &&
+      video.currentSrc.startsWith("blob:");
+  }), { timeout: 15_000 }).toBe(true);
+  await expect(page.locator(".v3-render-output .v3-reference-meta").filter({ hasText: "video/webm" })).toBeVisible();
+  await expect(page.locator(".v3-render-output .v3-studio-honesty")).toContainText("not AI-generated footage");
+  await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
+
+  // Test the actual file download, not only the in-memory preview. This synthetic
+  // fixture proves the WebM/container path; it does not represent real cooking video.
+  // Validate IndexedDB state before the final gesture. The actual native download
+  // click must stay synchronous after confirmation for Chromium and Android browsers.
+  await page.getByRole("button", { name: "Prepare reviewed WebM download", exact: true }).click();
+  await expect.poll(async () => {
+    const downloadButton = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true });
+    if (await downloadButton.count()) {
+      if (await downloadButton.isEnabled()) return "PREPARED";
+      const staleStatus = await page.locator("#v3-content-studio [role='status']").allInnerTexts();
+      if (staleStatus.some((value) => /prepared download is blocked/i.test(value))) return "PREPARED BUT STALE: " + staleStatus.filter((value) => /prepared download is blocked/i.test(value)).join(" | ");
+      return "PREPARED BUT DISABLED";
+    }
+    const alerts = (await page.locator("#v3-content-studio [role='alert']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    if (alerts.length) return "PREPARE ERROR: " + alerts.join(" | ");
+    const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    return "PREPARING: " + statuses.slice(-3).join(" | ");
+  }, { timeout: 20_000, intervals: [250, 500, 1_000] }).toBe("PREPARED");
+  const reviewedConfirm = page.waitForEvent("dialog");
+  let downloadWaitError = "";
+  const renderedDownloadPromise = page.waitForEvent("download", { timeout: 15_000 }).catch((error: unknown) => {
+    downloadWaitError = error instanceof Error ? error.message : String(error);
+    return null;
+  });
+  const reviewedClickPromise = page.getByRole("button", { name: "I reviewed the video — download WebM", exact: true }).click();
+  const reviewedDialog = await reviewedConfirm;
+  expect(reviewedDialog.type()).toBe("confirm");
+  expect(reviewedDialog.message()).toContain("checked the cooking actions");
+  await reviewedDialog.accept();
+  await reviewedClickPromise;
+  const renderedDownload = await renderedDownloadPromise;
+  if (!renderedDownload) {
+    const alerts = (await page.locator("#v3-content-studio [role='alert']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    const statuses = (await page.locator("#v3-content-studio [role='status']").allInnerTexts()).map((value) => value.trim()).filter(Boolean);
+    throw new Error("Reviewed WebM download did not start. App alerts: " + (alerts.join(" | ") || "none") +
+      ". App status: " + (statuses.slice(-4).join(" | ") || "none") + ". Browser wait: " + downloadWaitError);
+  }
+  expect(renderedDownload.suggestedFilename().toLowerCase().endsWith(".webm")).toBe(true);
+  const renderedFilePath = await renderedDownload.path();
+  expect(renderedFilePath).toBeTruthy();
+  const renderedBytes = await readFile(renderedFilePath as string);
+  expect(renderedBytes.length).toBeGreaterThan(256);
+  // EBML header signature used by WebM/Matroska containers.
+  expect(Array.from(renderedBytes.subarray(0, 4))).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+
+  // Re-open the bytes read back from Playwright's downloaded file as a new media
+  // resource. This is stronger than checking only the in-memory preview or header.
+  const downloadedPlayback = await page.evaluate(async (rawBytes: number[]) => {
+    const ownedBytes = new Uint8Array(rawBytes.length);
+    ownedBytes.set(rawBytes);
+    const blob = new Blob([ownedBytes.buffer], { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => finish(new Error("Downloaded WebM metadata timed out.")), 10_000);
+        const cleanup = () => {
+          window.clearTimeout(timeout);
+          video.removeEventListener("loadedmetadata", onMetadata);
+          video.removeEventListener("error", onError);
+        };
+        const finish = (error?: Error) => {
+          cleanup();
+          if (error) reject(error);
+          else resolve();
+        };
+        const onMetadata = () => finish();
+        const onError = () => finish(new Error("Downloaded WebM could not be decoded when reopened."));
+        video.addEventListener("loadedmetadata", onMetadata, { once: true });
+        video.addEventListener("error", onError, { once: true });
+        video.src = url;
+        video.load();
+      });
+      const metadata = {
+        width: video.videoWidth,
+        height: video.videoHeight,
+        reportedDuration: Number.isFinite(video.duration) ? video.duration : null,
+      };
+      if (metadata.width !== 720 || metadata.height !== 1280) {
+        throw new Error("Downloaded WebM has invalid reopened frame dimensions: " + JSON.stringify(metadata));
+      }
+
+      // MediaRecorder WebM files can validly report Infinity for duration even when
+      // they decode and play. Mirror the production renderer's fallback: seek to the
+      // end and use the final decoded timestamp rather than treating Infinity as a
+      // broken file or weakening the playable-file check.
+      await video.play();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      video.pause();
+
+      let effectiveDuration = metadata.reportedDuration;
+      if (effectiveDuration === null || effectiveDuration <= 0) {
+        effectiveDuration = await new Promise<number>((resolve, reject) => {
+          const timeout = window.setTimeout(() => finish(new Error("Downloaded WebM did not seek to a finite end position.")), 8_000);
+          let settled = false;
+          const cleanup = () => {
+            window.clearTimeout(timeout);
+            video.removeEventListener("seeked", onSeeked);
+            video.removeEventListener("durationchange", onDurationChange);
+            video.removeEventListener("error", onError);
+          };
+          const finish = (error?: Error, duration?: number) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (error) reject(error);
+            else if (duration !== undefined && Number.isFinite(duration) && duration > 0) resolve(duration);
+            else reject(new Error("Downloaded WebM did not expose a positive final playback timestamp."));
+          };
+          const resolveDuration = () => {
+            if (Number.isFinite(video.duration) && video.duration > 0) finish(undefined, video.duration);
+          };
+          const onDurationChange = () => resolveDuration();
+          const onSeeked = () => {
+            resolveDuration();
+            if (!settled && Number.isFinite(video.currentTime) && video.currentTime > 0) finish(undefined, video.currentTime);
+          };
+          const onError = () => finish(new Error("Downloaded WebM failed during the end-seek playback check."));
+          video.addEventListener("seeked", onSeeked);
+          video.addEventListener("durationchange", onDurationChange);
+          video.addEventListener("error", onError);
+          try {
+            video.currentTime = Number.MAX_SAFE_INTEGER;
+          } catch {
+            finish(new Error("Browser refused to seek the reopened WebM to its end."));
+          }
+        });
+      }
+      if (!Number.isFinite(effectiveDuration) || effectiveDuration <= 0) {
+        throw new Error("Downloaded WebM has no positive playable duration: " + JSON.stringify(metadata));
+      }
+      return { ...metadata, duration: effectiveDuration, played: true };
+    } finally {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      URL.revokeObjectURL(url);
+    }
+  }, Array.from(renderedBytes));
+  expect(downloadedPlayback.width).toBe(720);
+  expect(downloadedPlayback.height).toBe(1280);
+  expect(downloadedPlayback.duration).toBeGreaterThan(0);
+  expect(downloadedPlayback.played).toBe(true);
+
+  await expect(page.locator("#v3-content-studio [role='status']").filter({ hasText: "Reviewed owner-footage video downloaded locally" })).toBeVisible();
+  // Owner download confirmation cannot upgrade the separate visual-realism result.
+  await expect(page.locator(".v3-visual-review [role='status']").filter({ hasText: "NOT TESTED for this exact clip" })).toBeVisible();
+
+  // The status ledger stores no media bytes and must survive a page reload.
+  const history = page.locator(".v3-studio-warnings").filter({ hasText: "Recent render attempts" });
+  await expect(history).toContainText("COMPLETED");
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".v3-studio-warnings").filter({ hasText: "Recent render attempts" }))
+    .toContainText("COMPLETED");
+});
+
+test("V3 offers local recipe-based copy variants and resets originality review when a variant is applied", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 creator copy QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 creator copy QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Stir the rice gently");
+  await page.getByLabel("Timing").nth(0).fill("5 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 creator copy QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+
+  const originalityCheck = page.getByLabel("The content includes recipe-specific educational value and is not repetitive filler.");
+  await originalityCheck.check();
+  await page.getByRole("button", { name: "Suggest recipe-based title & caption options" }).click();
+  const variants = page.locator("#v3-copy-variant-options article");
+  await expect(variants).toHaveCount(3);
+  await expect(variants.nth(1)).toContainText("Stir the rice gently");
+  const chosenTitle = await variants.nth(1).locator(".v3-copy-variant-title").innerText();
+
+  await variants.nth(1).getByRole("button", { name: "Use title + caption" }).click();
+  await expect(page.locator("#v3-platform-title")).toHaveValue(chosenTitle);
+  await expect(page.locator("#v3-platform-caption")).toHaveValue(/saved method step/);
+  await expect(originalityCheck).not.toBeChecked();
+  await expect(page.getByRole("button", { name: "Save changes", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Edits saved locally" })).toBeVisible();
+
+  // Create a second independent V3 project from the same saved V2 recipe.
+  // Matching platform copy must trigger a manual-repeat-review warning, and the
+  // downloaded creator copy must carry that pending review instead of saying ready.
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 creator copy QA recipe");
+
+  const suggestionsButton = page.getByRole("button", {
+    name: /Suggest recipe-based title & caption options|Hide local copy suggestions/,
+  });
+  if (await suggestionsButton.getAttribute("aria-expanded") !== "true") {
+    await suggestionsButton.click();
+  }
+  await expect(variants).toHaveCount(3);
+  await variants.nth(1).getByRole("button", { name: "Use title + caption" }).click();
+  await expect(page.locator("#v3-platform-title")).toHaveValue(chosenTitle);
+  await expect(page.locator("#v3-platform-caption")).toHaveValue(/saved method step/);
+
+  const repeatedWarning = page.locator("#v3-content-studio .v3-studio-alert[role='status']")
+    .filter({ hasText: "Possible repeated template — manual review required." });
+  await expect(repeatedWarning).toBeVisible();
+  await expect(repeatedWarning).toContainText("Text similarity is a review signal, not a verdict.");
+  await expect(page.locator(".v3-publish-status[role='status']")).toContainText("NOT READY");
+
+  const creatorCopyDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export creator copy", exact: true }).click();
+  const creatorCopy = await creatorCopyDownload;
+  expect(creatorCopy.suggestedFilename().toLowerCase().endsWith(".creator-copy.txt")).toBe(true);
+  const creatorCopyPath = await creatorCopy.path();
+  expect(creatorCopyPath).toBeTruthy();
+  const creatorCopyText = await readFile(creatorCopyPath as string, "utf8");
+  expect(creatorCopyText).toContain("NOT READY");
+  expect(creatorCopyText).toContain('duplicates "V3 creator copy QA recipe"');
+  expect(creatorCopyText).toContain("PENDING REVIEW ITEMS");
+});
+
+test("V3 shows backup-first guidance when the browser-origin storage estimate is critical", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.storage, "estimate", {
+      configurable: true,
+      value: async () => ({ usage: 95, quota: 100 }),
+    });
+  });
+  await page.goto("/");
+  await chooseMenuTool(page, "AI Chef Studio");
+
+  const warning = page.locator('[aria-label="Browser storage warning"]');
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText("Storage is nearly full.");
+  await expect(warning).toContainText("95%");
+  await expect(warning).toContainText("Export the project JSON and a production-bundle ZIP");
+  await expect(warning).toContainText("Nothing is deleted automatically.");
+
+  // Run in both Playwright desktop and mobile projects: no horizontal overflow in
+  // the full screen or in the V3 section at narrow widths (Android Chrome friendly).
+  const widths = await page.evaluate(() => {
+    const studio = document.querySelector<HTMLElement>("#v3-content-studio");
+    return {
+      viewportWidth: window.innerWidth,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      studioClientWidth: studio?.clientWidth ?? 0,
+      studioScrollWidth: studio?.scrollWidth ?? 0,
+    };
+  });
+  expect(widths.documentScrollWidth).toBeLessThanOrEqual(widths.viewportWidth);
+  expect(widths.studioScrollWidth).toBeLessThanOrEqual(widths.studioClientWidth);
+});
+
+test("V3 refuses a stale-tab project save and preserves the newer revision", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 stale save QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 stale save QA recipe" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+  // Wait until localStorage hydration has restored the recipe editor before navigating.
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 stale save QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-scene-card")).toHaveCount(4);
+  const primarySceneDirections = page.locator('textarea[id^="v3-scene-visual-"]');
+  await expect(primarySceneDirections).toHaveCount(4);
+
+  // Open a second real browser tab while both tabs still have revision 1.
+  const secondPage = await page.context().newPage();
+  try {
+    await secondPage.goto("/");
+    await chooseMenuTool(secondPage, "AI Chef Studio");
+    await expect(secondPage.locator(".v3-studio-editor"))
+      .toContainText("V3 stale save QA recipe");
+    const staleSceneDirections = secondPage.locator('textarea[id^="v3-scene-visual-"]');
+    await expect(staleSceneDirections).toHaveCount(4);
+
+    // The primary tab saves a new revision after the other tab has loaded its copy.
+    await primarySceneDirections.first().fill("Saved from the primary tab; must survive.");
+    await page.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(page.locator("#v3-content-studio [role='status']")
+      .filter({ hasText: "Edits saved locally" })).toBeVisible();
+
+    // The stale copy must fail its revision compare-and-swap rather than overwrite
+    // the newer project. Reopening the tab must recover the primary tab's saved edit.
+    await staleSceneDirections.first().fill("Stale tab edit; must never overwrite newer data.");
+    await secondPage.getByRole("button", { name: "Save changes", exact: true }).click();
+    await expect(secondPage.locator("#v3-content-studio [role='alert']"))
+      .toContainText(/changed in another tab/i);
+
+    await secondPage.reload();
+    await chooseMenuTool(secondPage, "AI Chef Studio");
+    const recoveredSceneDirections = secondPage.locator('textarea[id^="v3-scene-visual-"]');
+    await expect(recoveredSceneDirections).toHaveCount(4);
+    await expect(recoveredSceneDirections.first())
+      .toHaveValue("Saved from the primary tab; must survive.");
+    await expect(recoveredSceneDirections.first())
+      .not.toHaveValue("Stale tab edit; must never overwrite newer data.");
+  } finally {
+    await secondPage.close();
+  }
+});
+
+test("V3 preserves project blueprints and JSON recovery when a saved media record is corrupt", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 asset recovery QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 asset recovery QA recipe" })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 asset recovery QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor")).toContainText("V3 asset recovery QA recipe");
+
+  // Inject a malformed media record to exercise the non-destructive failure path.
+  // The fixture contains no real media or personal assets and is scoped to this test browser.
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("cooking-creator-v3-content-studio", 4);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("Could not open the V3 test database."));
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction("media", "readwrite");
+        transaction.objectStore("media").add({
+          metadata: { id: "ci-corrupt-media-recovery-fixture" },
+          file: new Blob(["not a valid V3 media asset"], { type: "text/plain" }),
+        });
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error ?? new Error("Could not write the corruption fixture."));
+        transaction.onabort = () => reject(transaction.error ?? new Error("Writing the corruption fixture was aborted."));
+      });
+    } finally {
+      database.close();
+    }
+  });
+
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 asset recovery QA recipe");
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText(/some local assets failed integrity checks/i);
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText(/asset stores were not changed/i);
+
+  // Even when a media store fails validation, the owner must still be able to
+  // recover the editable recipe-specific blueprint instead of losing the whole studio.
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  const backup = await backupDownload;
+  expect(backup.suggestedFilename()).toMatch(/v3-asset-recovery-qa-recipe.*\.v3-blueprint\.json$/);
+  const backupPath = await backup.path();
+  expect(backupPath).toBeTruthy();
+  const raw = await readFile(backupPath as string, "utf8");
+  const parsed = JSON.parse(raw) as { recipeTitle?: string; scenes?: unknown[] };
+  expect(parsed.recipeTitle).toBe("V3 asset recovery QA recipe");
+  expect(parsed.scenes?.length).toBe(4);
+});
+
+test("V3 restores validated blueprint backups as new drafts and leaves existing projects untouched on invalid imports", async ({ page }) => {
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill("V3 backup restore QA recipe");
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: "V3 backup restore QA recipe" })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Simmer the rice gently");
+  await page.getByLabel("Timing").nth(0).fill("12 minutes");
+  await page.reload();
+  await expect(page.getByLabel("Ingredient 1 name")).toHaveValue("rice");
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: "V3 backup restore QA recipe" }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+
+  const backupDownload = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON backup", exact: true }).click();
+  const backup = await backupDownload;
+  expect(backup.suggestedFilename()).toMatch(/v3-backup-restore-qa-recipe.*\.v3-blueprint\.json$/);
+  const backupPath = await backup.path();
+  expect(backupPath).toBeTruthy();
+  const originalBackup = JSON.parse(await readFile(backupPath as string, "utf8")) as {
+    recipeTitle?: string;
+    scenes?: unknown[];
+  };
+  expect(originalBackup.recipeTitle).toBe("V3 backup restore QA recipe");
+  expect(originalBackup.scenes?.length).toBe(4);
+
+  const savedProjects = page.locator(".v3-studio-project");
+  const importInput = page.locator("#v3-blueprint-import");
+  await expect(savedProjects).toHaveCount(1);
+
+  // A verified restore always creates a new draft; repeating it cannot overwrite
+  // the original or silently transfer scene approvals from the source project.
+  await importInput.setInputFiles(backupPath as string);
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "The blueprint backup was verified and restored locally" })).toBeVisible();
+  await expect(savedProjects).toHaveCount(2);
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 backup restore QA recipe");
+  await importInput.setInputFiles(backupPath as string);
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "The blueprint backup was verified and restored locally" })).toBeVisible();
+  await expect(savedProjects).toHaveCount(3);
+
+  // Malformed input must not overwrite/delete any of the three already saved drafts.
+  await importInput.setInputFiles({
+    name: "corrupt-blueprint.v3-blueprint.json",
+    mimeType: "application/json",
+    buffer: Buffer.from("{not valid JSON"),
+  });
+  await expect(page.locator("#v3-content-studio [role='alert']"))
+    .toContainText("The backup failed schema or source-fingerprint verification. Existing projects were not changed.");
+  await expect(savedProjects).toHaveCount(3);
+  await expect(page.locator(".v3-studio-editor"))
+    .toContainText("V3 backup restore QA recipe");
+});
+
+test("V3 keeps chef reference assets local, owner-approvable, pinned, and recoverable after reload", async ({ page }) => {
+  const recipeTitle = "V3 local reference privacy QA recipe";
+  const referenceLabel = "Synthetic CI reference — never publish";
+  const externalRequests: string[] = [];
+
+  await page.goto("/");
+  await chooseMenuTool(page, "New recipe");
+  await page.locator("#name").fill(recipeTitle);
+  await page.locator("#servings").fill("2");
+  await page.getByRole("button", { name: /Create recipe draft/ }).click();
+  await expect(page.getByRole("heading", { name: recipeTitle })).toBeVisible();
+  await page.getByRole("button", { name: /Add ingredient/ }).click();
+  await page.getByLabel("Ingredient 1 amount").fill("1");
+  await page.getByLabel("Ingredient 1 unit").fill("cup");
+  await page.getByLabel("Ingredient 1 name").fill("rice");
+  await page.getByRole("button", { name: /Add step/ }).click();
+  await page.getByLabel("Action / instruction").nth(0).fill("Cook the rice");
+  await page.getByLabel("Timing").nth(0).fill("15 minutes");
+  await page.reload();
+
+  await chooseMenuTool(page, "AI Chef Studio");
+  const recipeOption = page.locator("#v3-recipe-select option")
+    .filter({ hasText: recipeTitle }).first();
+  const recipeId = await recipeOption.getAttribute("value");
+  expect(recipeId).toBeTruthy();
+  await page.getByLabel("Saved recipe").selectOption(recipeId as string);
+  await page.getByRole("button", { name: "Create blueprint", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Blueprint saved locally" })).toBeVisible();
+  await expect(page.locator(".v3-studio-editor")).toContainText(recipeTitle);
+
+  // Create a small disposable PNG inside the test browser. This is only a
+  // storage/privacy fixture; it is not the owner's real chef or kitchen image.
+  const fixturePngBase64 = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 48;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas was unavailable for the local reference fixture.");
+    context.fillStyle = "#f5e2d4";
+    context.fillRect(0, 0, 48, 48);
+    context.fillStyle = "#81543b";
+    context.beginPath();
+    context.arc(24, 24, 14, 0, Math.PI * 2);
+    context.fill();
+    return canvas.toDataURL("image/png").split(",")[1];
+  });
+
+  const appOrigin = new URL(page.url()).origin;
+  page.on("request", (request) => {
+    const requestUrl = new URL(request.url());
+    if ((requestUrl.protocol === "http:" || requestUrl.protocol === "https:") && requestUrl.origin !== appOrigin) {
+      externalRequests.push(request.method() + " " + requestUrl.origin);
+    }
+  });
+
+  await page.locator("#v3-reference-role").selectOption("chef-identity");
+  await page.locator("#v3-reference-label").fill(referenceLabel);
+  await page.locator("#v3-reference-details").fill("Synthetic automated-test fixture only; not a real owner reference.");
+  await page.locator("#v3-reference-file").setInputFiles({
+    name: "v3-ci-reference.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(fixturePngBase64, "base64"),
+  });
+
+  const referenceCard = page.locator(".v3-reference-card").filter({ hasText: referenceLabel });
+  await expect(referenceCard).toHaveCount(1);
+  await expect(referenceCard).toContainText("Chef identity");
+  await expect(referenceCard).toContainText("NOT REVIEWED");
+  await expect(referenceCard).toContainText("Local only");
+  const initialPreview = await referenceCard.locator(".v3-reference-preview")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(initialPreview).toContain("blob:");
+
+  await referenceCard.getByRole("button", { name: "I reviewed this reference", exact: true }).click();
+  await expect(referenceCard).toContainText("OWNER-APPROVED");
+  await referenceCard.getByRole("button", { name: "Pin to current project", exact: true }).click();
+  await expect(page.locator(".v3-pinned-reference-list")).toContainText(referenceLabel);
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.locator("#v3-content-studio [role='status']")
+    .filter({ hasText: "Edits saved locally" })).toBeVisible();
+  expect(externalRequests).toEqual([]);
+
+  // A reload must recover the validated image bytes and its approved/pinned
+  // metadata from IndexedDB; a URL link or a metadata-only ghost card is not enough.
+  await page.reload();
+  await chooseMenuTool(page, "AI Chef Studio");
+  const savedProjectButton = page.locator(".v3-studio-project").filter({ hasText: recipeTitle }).first();
+  await expect(savedProjectButton).toBeVisible();
+  await savedProjectButton.click();
+  await expect(page.locator(".v3-studio-editor")).toContainText(recipeTitle);
+  const recoveredReference = page.locator(".v3-reference-card").filter({ hasText: referenceLabel });
+  await expect(recoveredReference).toContainText("OWNER-APPROVED");
+  await expect(recoveredReference).toContainText("Local only");
+  await expect(page.locator(".v3-pinned-reference-list")).toContainText(referenceLabel);
+  const recoveredPreview = await recoveredReference.locator(".v3-reference-preview")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(recoveredPreview).toContain("blob:");
+  expect(externalRequests).toEqual([]);
+});
+

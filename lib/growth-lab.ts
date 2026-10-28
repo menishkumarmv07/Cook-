@@ -12,6 +12,23 @@ export type GrowthPlatform = (typeof GROWTH_PLATFORMS)[number];
 export type GrowthDataKind = "actual" | "estimate";
 export type GrowthExperimentStatus = "planned" | "reviewed" | "closed";
 
+export const GROWTH_EXPERIMENT_PRIMARY_METRICS = [
+  { value: "views", label: "Views" },
+  { value: "averageWatchSeconds", label: "Average watch duration" },
+  { value: "retentionPercent", label: "Retention (%)" },
+  { value: "followersGained", label: "Followers / subscribers gained" },
+  { value: "linkClicks", label: "Link clicks" },
+  { value: "revenueUsd", label: "Reported content revenue (USD)" },
+  { value: "other", label: "Other (write the definition in the hypothesis)" },
+] as const;
+
+export type GrowthExperimentPrimaryMetric =
+  (typeof GROWTH_EXPERIMENT_PRIMARY_METRICS)[number]["value"];
+
+function isGrowthExperimentPrimaryMetric(value: unknown): value is GrowthExperimentPrimaryMetric {
+  return GROWTH_EXPERIMENT_PRIMARY_METRICS.some((metric) => metric.value === value);
+}
+
 export type GrowthMetric = {
   id: string;
   publishedDate: string;
@@ -39,6 +56,10 @@ export type GrowthExperiment = {
   variableChanged: string;
   platform: GrowthPlatform;
   contentTitle: string;
+  // Optional only to load older workspaces. New experiments require all three planning fields.
+  audience?: string;
+  primaryMetric?: GrowthExperimentPrimaryMetric | "";
+  reviewByDate?: string;
   startedDate: string;
   resultDate: string;
   outcome: string;
@@ -48,7 +69,7 @@ export type GrowthExperiment = {
 
 export type GrowthWorkspaceBackup = {
   format: "cooking-creator-growth-lab";
-  version: 2;
+  version: 3;
   exportedAt: string;
   metrics: GrowthMetric[];
   experiments: GrowthExperiment[];
@@ -425,7 +446,7 @@ export function createGrowthWorkspaceBackupJSON(
   const safeExperiments = experiments.filter(isGrowthExperiment);
   const backup: GrowthWorkspaceBackup = {
     format: "cooking-creator-growth-lab",
-    version: 2,
+    version: 3,
     exportedAt,
     metrics: safeMetrics,
     experiments: safeExperiments,
@@ -439,6 +460,12 @@ export function isGrowthExperiment(value: unknown): value is GrowthExperiment {
   if (!validText(value.hypothesis, 500, true) || !validText(value.variableChanged, 240, true)) return false;
   if (!isGrowthPlatform(value.platform) || !validText(value.contentTitle, MAX_TEXT_TITLE, false)) return false;
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) return false;
+  if (value.audience !== undefined && !validText(value.audience, 160, false)) return false;
+  if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) return false;
+  if (value.reviewByDate !== undefined &&
+      (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) return false;
+  if (typeof value.reviewByDate === "string" && value.reviewByDate &&
+      isValidDateOnly(value.reviewByDate) && value.reviewByDate < value.startedDate) return false;
   if (typeof value.resultDate !== "string" || (value.resultDate !== "" && !isValidDateOnly(value.resultDate))) return false;
   if (value.resultDate && value.resultDate < value.startedDate) return false;
   if (!validText(value.outcome, 1200, false) || !validText(value.nextAction, 500, false)) return false;
@@ -458,6 +485,17 @@ export function validateGrowthExperiment(value: unknown): string[] {
   if (!isGrowthPlatform(value.platform)) errors.push("Choose a supported platform.");
   if (!validText(value.contentTitle, MAX_TEXT_TITLE, false)) errors.push("Content title must be 180 characters or fewer.");
   if (typeof value.startedDate !== "string" || !isValidDateOnly(value.startedDate)) errors.push("Start date must be a real YYYY-MM-DD date.");
+  if (value.audience !== undefined && !validText(value.audience, 160, false)) errors.push("Audience must be 160 characters or fewer.");
+  if (value.primaryMetric !== undefined && value.primaryMetric !== "" && !isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose a supported primary outcome metric.");
+  if (value.reviewByDate !== undefined &&
+      (typeof value.reviewByDate !== "string" || (value.reviewByDate !== "" && !isValidDateOnly(value.reviewByDate)))) {
+    errors.push("Planned review date must be blank or a real YYYY-MM-DD date.");
+  }
+  if (typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) &&
+      typeof value.reviewByDate === "string" && value.reviewByDate && isValidDateOnly(value.reviewByDate) &&
+      value.reviewByDate < value.startedDate) {
+    errors.push("Planned review date cannot be before the experiment start date.");
+  }
   if (typeof value.resultDate !== "string" || (value.resultDate !== "" && !isValidDateOnly(value.resultDate))) errors.push("Result date must be blank or a real YYYY-MM-DD date.");
   if (typeof value.startedDate === "string" && typeof value.resultDate === "string" && value.resultDate && isValidDateOnly(value.startedDate) && isValidDateOnly(value.resultDate) && value.resultDate < value.startedDate) {
     errors.push("Result date cannot be before the experiment start date.");
@@ -488,6 +526,19 @@ export function validateGrowthExperiment(value: unknown): string[] {
   return errors;
 }
 
+export function validateGrowthExperimentPlan(value: unknown): string[] {
+  const errors = validateGrowthExperiment(value);
+  if (!isPlainObject(value)) return errors;
+  if (!validText(value.audience, 160, true)) errors.push("Describe the intended audience in 160 characters or fewer.");
+  if (!isGrowthExperimentPrimaryMetric(value.primaryMetric)) errors.push("Choose one measurable primary outcome metric.");
+  if (typeof value.reviewByDate !== "string" || !isValidDateOnly(value.reviewByDate)) {
+    errors.push("Choose a real planned review date.");
+  } else if (typeof value.startedDate === "string" && isValidDateOnly(value.startedDate) && value.reviewByDate < value.startedDate) {
+    errors.push("Planned review date cannot be before the experiment start date.");
+  }
+  return errors;
+}
+
 export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBackup | null {
   if (raw.length > MAX_WORKSPACE_CHARACTERS) return null;
   let parsed: unknown;
@@ -498,7 +549,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   }
   if (!isPlainObject(parsed) ||
       parsed.format !== "cooking-creator-growth-lab" ||
-      (parsed.version !== 1 && parsed.version !== 2) ||
+      (parsed.version !== 1 && parsed.version !== 2 && parsed.version !== 3) ||
       typeof parsed.exportedAt !== "string" ||
       !isValidIsoTimestamp(parsed.exportedAt) ||
       !Array.isArray(parsed.metrics) ||
@@ -533,6 +584,10 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
     // discarding an otherwise recoverable owner's workspace.
     const candidate: Record<string, unknown> = {
       ...value,
+      // V3 adds experiment design fields. Preserve old records without inventing values.
+      audience: value.audience === undefined ? "" : value.audience,
+      primaryMetric: value.primaryMetric === undefined ? "" : value.primaryMetric,
+      reviewByDate: value.reviewByDate === undefined ? "" : value.reviewByDate,
       nextAction: value.nextAction === undefined ? "" : value.nextAction,
       outcome: value.outcome === undefined ? "" : value.outcome,
     };
@@ -577,7 +632,7 @@ export function parseGrowthWorkspaceBackupJSON(raw: string): GrowthWorkspaceBack
   }
   return {
     format: "cooking-creator-growth-lab",
-    version: 2,
+    version: 3,
     exportedAt: parsed.exportedAt,
     metrics: metrics as GrowthMetric[],
     experiments: experiments as GrowthExperiment[],
@@ -718,4 +773,147 @@ export function buildDescriptiveGrowthInsights(metrics: GrowthMetric[]): string[
   }
   if (!insights.length) insights.push(`No within-platform comparison is shown yet. Record at least 10 actual rows with view counts for the same platform; the current data contains ${actual.length} actual row(s) with views in total.`);
   return insights;
+}
+
+/**
+ * Summarize observed actual creator outcomes without turning sparse records into forecasts.
+ * Estimates and blank fields never enter medians or ratios.
+ */
+export function buildGrowthEvidenceInsights(metrics: GrowthMetric[]): string[] {
+  const actual = metrics.filter((metric) => isGrowthMetric(metric) && metric.dataKind === "actual");
+  const byPlatform = new Map<GrowthPlatform, GrowthMetric[]>();
+  for (const metric of actual) {
+    byPlatform.set(metric.platform, [...(byPlatform.get(metric.platform) ?? []), metric]);
+  }
+
+  const median = (values: number[]): number | null => {
+    const sorted = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+  };
+  const fmt = (value: number, digits = 1) => value.toLocaleString("en-US", {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: 0,
+  });
+  const summaries: string[] = [];
+
+  for (const [platform, rows] of byPlatform) {
+    const withViews = rows.filter((row) => row.views !== null);
+    if (withViews.length < 10) continue;
+
+    const medianViews = median(withViews.map((row) => row.views as number));
+    const withRetention = withViews.filter((row) => row.retentionPercent !== null);
+    const retention = withRetention.length >= 5
+      ? median(withRetention.map((row) => row.retentionPercent as number))
+      : null;
+    const followerRates = withViews
+      .filter((row) => row.views! > 0 && row.followersGained !== null)
+      .map((row) => (row.followersGained as number) / (row.views as number) * 1000);
+    const clickRates = withViews
+      .filter((row) => row.views! > 0 && row.linkClicks !== null)
+      .map((row) => (row.linkClicks as number) / (row.views as number) * 1000);
+    const revenueRows = rows.filter((row) => row.revenueUsd !== null);
+    const revenueTotal = revenueRows.reduce((sum, row) => sum + (row.revenueUsd as number), 0);
+    const parts = [
+      `${platform}: median recorded views are ${fmt(medianViews ?? 0, 0)} across ${withViews.length} actual row(s)`,
+      `from ${rows.length} valid actual record(s)`,
+    ];
+    if (retention !== null) parts.push(`median recorded retention is ${fmt(retention)}% across ${withRetention.length} row(s)`);
+    if (followerRates.length >= 5) parts.push(`median owner-reported follower gains are ${fmt(median(followerRates) ?? 0)} per 1,000 views across ${followerRates.length} row(s)`);
+    if (clickRates.length >= 5) parts.push(`median owner-reported link clicks are ${fmt(median(clickRates) ?? 0)} per 1,000 views across ${clickRates.length} row(s)`);
+    if (revenueRows.length) parts.push(`revenue was entered for ${revenueRows.length} row(s) (entered total ${fmt(revenueTotal, 2)} USD; check reporting periods for overlap before treating this as aggregate income)`);
+    summaries.push(parts.join("; ") + ". These are descriptive historical signals, not an earnings forecast or proof of causation. Use the results to choose a small, clearly defined next experiment; change one main variable at a time and record actual outcomes.");
+  }
+
+  if (summaries.length) return summaries;
+  const actualViewRows = actual.filter((metric) => metric.views !== null);
+  return [
+    `Evidence summaries are hidden until a platform has at least 10 valid actual rows with recorded views. Current data: ${actualViewRows.length} actual view row(s); estimates are excluded. Record retention, follower gains, link clicks and revenue only when the source dashboard reports them; blank values stay unknown. This is not a revenue prediction.`,
+  ];
+}
+
+
+export type GrowthExperimentEvidenceSummary = {
+  matchingActualRows: number;
+  matchingEstimateRows: number;
+  actualRowsWithViews: number;
+  actualViewsTotal: number | null;
+  medianActualRetentionPercent: number | null;
+  actualRevenueUsdTotal: number | null;
+  notes: string[];
+  nextActionHint: string;
+};
+
+/**
+ * Find potentially relevant metric rows for an experiment using platform, date window,
+ * and (when supplied) exact normalized title. This is only a provisional local match:
+ * it does not establish that a metric row was caused by the experiment.
+ */
+export function summarizeGrowthExperimentEvidence(
+  experiment: GrowthExperiment,
+  metrics: GrowthMetric[],
+): GrowthExperimentEvidenceSummary {
+  if (!isGrowthExperiment(experiment)) {
+    return {
+      matchingActualRows: 0,
+      matchingEstimateRows: 0,
+      actualRowsWithViews: 0,
+      actualViewsTotal: null,
+      medianActualRetentionPercent: null,
+      actualRevenueUsdTotal: null,
+      notes: ["Experiment data is invalid, so no metric rows were matched."],
+      nextActionHint: "Fix the experiment record before reviewing results.",
+    };
+  }
+
+  const titleKey = fingerprintString(experiment.contentTitle);
+  const endDate = experiment.resultDate || getLocalDateOnly();
+  const matching = metrics.filter((metric) =>
+    isGrowthMetric(metric) &&
+    metric.platform === experiment.platform &&
+    metric.publishedDate >= experiment.startedDate &&
+    metric.publishedDate <= endDate &&
+    (!titleKey || fingerprintString(metric.contentTitle) === titleKey)
+  );
+  const actual = matching.filter((metric) => metric.dataKind === "actual");
+  const estimates = matching.filter((metric) => metric.dataKind === "estimate");
+  const withViews = actual.filter((metric) => metric.views !== null);
+  const withRetention = actual
+    .map((metric) => metric.retentionPercent)
+    .filter((value): value is number => value !== null);
+  const withRevenue = actual
+    .map((metric) => metric.revenueUsd)
+    .filter((value): value is number => value !== null);
+
+  const median = (values: number[]): number | null => {
+    const ordered = values.filter(Number.isFinite).slice().sort((a, b) => a - b);
+    if (!ordered.length) return null;
+    const middle = Math.floor(ordered.length / 2);
+    return ordered.length % 2 === 1 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+  };
+
+  const notes: string[] = [];
+  if (matching.length === 0) {
+    notes.push("No valid metric rows matched this platform/date/title filter.");
+  } else {
+    notes.push(`Provisional match: ${actual.length} actual record(s) and ${estimates.length} estimate(s); inspect the records to ensure they belong to this experiment.`);
+  }
+  if (!titleKey) notes.push("No exact content title was set, so the match uses platform and date only and may include unrelated posts.");
+  if (estimates.length > 0) notes.push("Estimates are displayed separately and excluded from actual-view, retention and revenue summaries.");
+  if (withViews.length < 5) notes.push(`Only ${withViews.length} matched actual record(s) have views; treat any pattern as anecdotal until more comparable observations exist.`);
+  notes.push("This is descriptive record matching, not causal attribution. Timing, topic, distribution, seasonality and other changes can explain differences.");
+
+  return {
+    matchingActualRows: actual.length,
+    matchingEstimateRows: estimates.length,
+    actualRowsWithViews: withViews.length,
+    actualViewsTotal: withViews.length ? withViews.reduce((sum, metric) => sum + (metric.views ?? 0), 0) : null,
+    medianActualRetentionPercent: median(withRetention),
+    actualRevenueUsdTotal: withRevenue.length ? withRevenue.reduce((sum, value) => sum + value, 0) : null,
+    notes,
+    nextActionHint: withViews.length < 5
+      ? "Collect more comparable actual platform records and verify the exact content/date match before drawing a conclusion."
+      : "Compare the observed metric with a pre-defined baseline, then test one clearly recorded variable at a time. Do not interpret the match as proof of causation.",
+  };
 }

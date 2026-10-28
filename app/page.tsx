@@ -4,12 +4,13 @@ import SchedulePlanner from "@/components/schedule-planner";
 import ResearchEvidenceVault from "@/components/research-evidence-vault";
 import EditorialCalendar from "@/components/editorial-calendar";
 import MonetizationWorkspace from "@/components/monetization-workspace";
+import dynamic from "next/dynamic";
 import {
-  GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
-  buildDescriptiveGrowthInsights, createGrowthWorkspaceBackupJSON,
+  GROWTH_EXPERIMENT_PRIMARY_METRICS, GROWTH_PLATFORMS, MAX_GROWTH_EXPERIMENT_ROWS, MAX_GROWTH_METRIC_ROWS,
+  buildDescriptiveGrowthInsights, buildGrowthEvidenceInsights, summarizeGrowthExperimentEvidence, createGrowthWorkspaceBackupJSON,
   mergeGrowthExperiments, mergeGrowthMetrics, parseGrowthMetricsCsv, parseGrowthWorkspaceBackupJSON,
-  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthMetric,
-  type GrowthCsvImportResult, type GrowthExperiment, type GrowthMetric, type GrowthPlatform,
+  serializeGrowthMetricsCsv, summarizeGrowthMetrics, validateGrowthExperiment, validateGrowthExperimentPlan, validateGrowthMetric,
+  type GrowthCsvImportResult, type GrowthExperiment, type GrowthExperimentPrimaryMetric, type GrowthMetric, type GrowthPlatform,
 } from "@/lib/growth-lab";
 import { getRecipeTrustAssessment } from "@/lib/recipe-trust";
 import { buildUSCreatorPackAppendix } from "@/lib/creator-content-pack";
@@ -43,6 +44,15 @@ import {
   type SourceReference,
 } from "@/lib/recipe";
 
+const V3ContentStudio = dynamic(() => import("@/components/v3-content-studio"), {
+  ssr: false,
+  loading: () => (
+    <section id="v3-content-studio" className="v3-studio" role="status" aria-live="polite">
+      Opening AI Chef Studio…
+    </section>
+  ),
+});
+
 const STORAGE_KEY = "cooking-creator-v1-drafts";
 const PROFILE_STORAGE_KEY = "cooking-creator-profile-v1";
 const GROWTH_STORAGE_KEY = "cooking-creator-growth-lab-v1";
@@ -53,7 +63,7 @@ const CHAT_CONVERSATIONS_STORAGE_KEY = "cooking-creator-conversations-v1";
 const ACTIVE_CHAT_STORAGE_KEY = "cooking-creator-active-chat-v1";
 const MAX_CHAT_HISTORY_MESSAGES = 100;
 const MAX_CHAT_MESSAGE_CHARACTERS = 12_000;
-const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial", "monetization"];
+const WORKSPACE_TOOLS: readonly WorkspaceTool[] = ["home", "plan", "content", "research", "publish", "intake", "profile", "library", "connections", "growth", "editorial", "monetization", "studio"];
 const MAX_SAFE_LOCAL_DRAFT_CHARACTERS = 2_000_000;
 const MAX_IMPORT_FILE_BYTES = 15 * 1024 * 1024;
 
@@ -80,7 +90,7 @@ type SourceInspectionResult = {
   } | null;
 };
 
-type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial" | "monetization";
+type WorkspaceTool = "home" | "plan" | "content" | "research" | "publish" | "intake" | "profile" | "library" | "connections" | "growth" | "editorial" | "monetization" | "studio";
 type ChatMessage = { id: string; role: "user" | "assistant"; text: string; timestamp?: string };
 type ChatConversation = {
   id: string;
@@ -94,7 +104,10 @@ type GrowthNumericDraftKey = "views" | "reach" | "averageWatchSeconds" | "retent
 type GrowthMetricDraft = {
   publishedDate: string; platform: GrowthPlatform; contentTitle: string; concept: string; dataKind: "actual" | "estimate";
 } & Record<GrowthNumericDraftKey, string>;
-type GrowthExperimentDraft = { hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string; startedDate: string };
+type GrowthExperimentDraft = {
+  hypothesis: string; variableChanged: string; platform: GrowthPlatform; contentTitle: string;
+  audience: string; primaryMetric: GrowthExperimentPrimaryMetric; reviewByDate: string; startedDate: string;
+};
 type GrowthCsvPreview = GrowthCsvImportResult & { fileName: string };
 const GROWTH_METRIC_INPUTS: Array<{ key: GrowthNumericDraftKey; label: string; id: string; step: string; hint?: string }> = [
   { key: "views", label: "Views", id: "growth-views", step: "1" },
@@ -116,7 +129,7 @@ type MessageActionMenu = { id: string; role: "user" | "assistant"; x: number; y:
 const WORKSPACE_TOOL_LABELS: Record<WorkspaceTool, string> = {
   home: "Home", plan: "Today’s Plan", content: "Plan Content", research: "Research Studio", publish: "Publish",
   intake: "New recipe", profile: "Creator profile", library: "Library / recent drafts", connections: "Connect social accounts",
-  growth: "Growth Lab", editorial: "Editorial Calendar", monetization: "Monetization Readiness",
+  growth: "Growth Lab", editorial: "Editorial Calendar", monetization: "Monetization Readiness", studio: "AI Chef Studio",
 };
 
 const SOCIAL_PLATFORMS = [
@@ -433,6 +446,7 @@ export default function Home() {
   const [copiedToast, setCopiedToast] = useState(false);
   const [command, setCommand] = useState("");
   const [activeTool, setActiveTool] = useState<WorkspaceTool>("home");
+  const activeToolInteractedRef = useRef(false);
   const [activeToolReady, setActiveToolReady] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatConversations, setChatConversations] = useState<ChatConversation[]>([]);
@@ -444,6 +458,7 @@ export default function Home() {
   const [growthDataReady, setGrowthDataReady] = useState(false);
   const [growthStorageBlocked, setGrowthStorageBlocked] = useState(false);
   const [growthMessage, setGrowthMessage] = useState("");
+  const [growthEvidenceExperimentId, setGrowthEvidenceExperimentId] = useState<string | null>(null);
   const [growthCsvPreview, setGrowthCsvPreview] = useState<GrowthCsvPreview | null>(null);
   const [growthMetricDraft, setGrowthMetricDraft] = useState<GrowthMetricDraft>({
     publishedDate: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", concept: "", dataKind: "actual",
@@ -451,7 +466,8 @@ export default function Home() {
     shares: "", saves: "", followersGained: "", linkClicks: "", revenueUsd: "",
   });
   const [growthExperimentDraft, setGrowthExperimentDraft] = useState<GrowthExperimentDraft>({
-    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: "",
+    hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "",
+    audience: "", primaryMetric: "views", reviewByDate: "", startedDate: "",
   });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -467,6 +483,7 @@ export default function Home() {
   const trustAssessment = useMemo(() => current ? getRecipeTrustAssessment(current) : null, [current]);
   const growthSummary = useMemo(() => summarizeGrowthMetrics(growthMetrics), [growthMetrics]);
   const growthInsights = useMemo(() => buildDescriptiveGrowthInsights(growthMetrics), [growthMetrics]);
+  const growthEvidenceInsights = useMemo(() => buildGrowthEvidenceInsights(growthMetrics), [growthMetrics]);
   const recentGrowthMetrics = useMemo(() => growthMetrics.slice().sort((a, b) => b.publishedDate.localeCompare(a.publishedDate)).slice(0, 50), [growthMetrics]);
   const issues = useMemo(() => current ? validateRecipe(current) : [], [current]);
   const tutorial = useMemo(() => current ? buildTutorialDraft(current) : "", [current]);
@@ -544,7 +561,7 @@ export default function Home() {
   useEffect(() => {
     try {
       const savedTool = window.localStorage.getItem(ACTIVE_TOOL_STORAGE_KEY);
-      if (savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
+      if (!activeToolInteractedRef.current && savedTool && WORKSPACE_TOOLS.includes(savedTool as WorkspaceTool)) {
         setActiveTool(savedTool as WorkspaceTool);
       }
     } catch {
@@ -706,6 +723,7 @@ export default function Home() {
   }
 
   function openSettingsView() {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     setActiveTool("profile");
     window.requestAnimationFrame(() => {
@@ -715,9 +733,11 @@ export default function Home() {
     });
   }
 
-  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization") {
+  function openDrawerItem(item: "images" | "library" | "projects" | "remote" | "scheduled" | "explore" | "growth" | "editorial" | "monetization" | "ai-studio") {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     const tool: WorkspaceTool =
+      item === "ai-studio" ? "studio" :
       item === "monetization" ? "monetization" :
       item === "editorial" ? "editorial" :
       item === "growth" ? "growth" :
@@ -727,6 +747,7 @@ export default function Home() {
       item === "scheduled" ? "content" : "research";
     setActiveTool(tool);
     const targetId =
+      item === "ai-studio" ? "v3-content-studio" :
       item === "monetization" ? "monetization-workspace" :
       item === "editorial" ? "editorial-calendar" :
       item === "growth" ? "growth-lab" :
@@ -850,6 +871,7 @@ export default function Home() {
       }
       return { tool: "intake", text: "Only a valid HTTP(S) URL can be added. Use a full http:// or https:// recipe/video link. No source was added." };
     }
+    if (/ai chef studio|video studio|cooking video|v3 studio/.test(request)) return { tool: "studio", text: responseForTool("studio") };
     if (/editorial calendar|content ideas|idea backlog|idea research|editorial ideas/.test(request)) return { tool: "editorial", text: responseForTool("editorial") };
     if (/links upload|upload links|multiple links/.test(request)) return { tool: "content", text: "Links upload is open. Paste as many recipe or Reel URLs as you need into the message bar, then use Plan Content to set the maximum links per day and total days. This V1 creates a planning draft; it does not analyze Reel audio/video or automatically publish posts." };
     if (/today[’\u0027]s plan|my plan|daily plan|next step/.test(request)) return { tool: "plan", text: responseForTool("plan") };
@@ -876,6 +898,7 @@ export default function Home() {
     const result = replyForEditedRequest(raw);
     const answer: ChatMessage = { id: makeId(), role: "assistant", text: result.text, timestamp: new Date().toISOString() };
     setChatMessages([...prefix, editedUser, answer].slice(-MAX_CHAT_HISTORY_MESSAGES));
+    activeToolInteractedRef.current = true;
     setActiveTool(result.tool);
     setEditingMessageId(null);
     setEditDraft("");
@@ -910,6 +933,7 @@ export default function Home() {
   }
 
   function startNewChat() {
+    activeToolInteractedRef.current = true;
     const id = makeId();
     const now = new Date().toISOString();
     setChatConversations((previous) => [{
@@ -929,6 +953,7 @@ export default function Home() {
   }
 
   function openConversation(conversation: ChatConversation) {
+    activeToolInteractedRef.current = true;
     setActiveConversationId(conversation.id);
     setChatMessages(conversation.messages);
     setCommand("");
@@ -949,6 +974,7 @@ export default function Home() {
       const nextConversation = remaining[0] || null;
       setActiveConversationId(nextConversation?.id ?? null);
       setChatMessages(nextConversation?.messages ?? []);
+      activeToolInteractedRef.current = true;
       setActiveTool("home");
       setCommand("");
     }
@@ -1000,12 +1026,14 @@ export default function Home() {
     if (tool === "growth") return "Growth Lab is open. Add manually recorded platform results or import a CSV you lawfully exported. Actual values and estimates stay separate; no analytics API, virality prediction or earnings guarantee is used.";
     if (tool === "editorial") return "Editorial Calendar is open. Record original ideas, separate hypotheses from dated sourced observations, customize transparent scoring weights, and keep unresolved recipe, rights, nutrition or disclosure questions on hold. No live trends are fetched and nothing is published automatically.";
     if (tool === "monetization") return "Monetization Readiness is open. Prepare a media kit from owner-entered records, keep actual USD receipts separate from estimates/offers, review disclosures and rights, and track brand/affiliate commitments locally. The app does not connect accounts, handle payouts, verify legal eligibility or guarantee income.";
+    if (tool === "studio") return "AI Chef Studio is open. Create a local, editable blueprint from a saved V2 recipe, trace steps back to source fields, and review every scene. This first slice does not generate video; realistic AI generation and rendering remain unverified and no paid service is required.";
     return "Social connections are open. Official account authorization is not configured yet, so these accounts remain disconnected and nothing can be posted from this screen.";
   }
 
   function openTool(tool: WorkspaceTool, userText?: string, customResponse?: string) {
     const shownText = userText?.trim() || WORKSPACE_TOOL_LABELS[tool];
     ensureActiveChat();
+    activeToolInteractedRef.current = true;
     setActiveTool(tool);
     closeOverlays();
     setCommand("");
@@ -1026,13 +1054,14 @@ export default function Home() {
       tool === "intake" ? "intake" :
       tool === "profile" ? "creator-profile" :
       tool === "library" ? "recent-projects" :
-      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : "social-connections";
+      tool === "growth" ? "growth-lab" : tool === "editorial" ? "editorial-calendar" : tool === "monetization" ? "monetization-workspace" : tool === "studio" ? "v3-content-studio" : "social-connections";
     window.requestAnimationFrame(() => {
       document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
   function goToSection(section: "plan" | "research" | "studio" | "publish" | "intake" | "profile" | "library" | "connections") {
+    activeToolInteractedRef.current = true;
     closeOverlays();
     setActiveTool(
       section === "plan" ? "plan" : section === "research" ? "research" :
@@ -1833,19 +1862,21 @@ export default function Home() {
     const candidate: GrowthExperiment = {
       id: makeId(),
       ...growthExperimentDraft,
+      audience: growthExperimentDraft.audience.trim(),
       resultDate: "",
       outcome: "",
       nextAction: "",
       status: "planned",
     };
-    const errors = validateGrowthExperiment(candidate);
+    const errors = validateGrowthExperimentPlan(candidate);
     if (errors.length) {
       setGrowthMessage(errors.join(" "));
       return;
     }
     setGrowthExperiments((existing) => [candidate, ...existing]);
     setGrowthExperimentDraft({
-      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "", startedDate: getLocalDateOnly(),
+      hypothesis: "", variableChanged: "", platform: GROWTH_PLATFORMS[0], contentTitle: "",
+      audience: "", primaryMetric: "views", reviewByDate: "", startedDate: getLocalDateOnly(),
     });
     setGrowthMessage("Experiment added locally. Record one main variable and review actual platform data when available.");
   }
@@ -1883,7 +1914,7 @@ export default function Home() {
   }
 
   return (
-    <main className="shell" data-theme={theme} data-active-tool={activeTool} data-has-current={current ? "true" : "false"}>
+    <main className="shell" data-theme={theme} data-active-tool={activeTool} data-navigation-ready={activeToolReady ? "true" : "false"} data-has-current={current ? "true" : "false"}>
       {menuOpen && <button className="drawer-backdrop" type="button" aria-label="Close navigation menu" onClick={closeOverlays} />}
       {(taskMenuOpen || logoMenuOpen || messageActionMenu) && !menuOpen && <button className="popup-dismiss-layer" type="button" aria-label="Close popup" onClick={closeOverlays} />}
       {messageActionMenu && <div className="message-action-popover" style={{ left: messageActionMenu.x, top: messageActionMenu.y }} role="menu" aria-label="Message actions">
@@ -1894,7 +1925,7 @@ export default function Home() {
       <aside id="workspace-drawer" className={menuOpen ? "sidebar is-open" : "sidebar"} aria-hidden={!menuOpen}
         onTouchStart={handleDrawerTouchStart} onTouchEnd={handleDrawerTouchEnd}>
         <div className="drawer-head">
-          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); closeOverlays(); setActiveTool("home"); }}>
+          <a className="brand" href="#dashboard" onClick={(event) => { event.preventDefault(); activeToolInteractedRef.current = true; closeOverlays(); setActiveTool("home"); }}>
             <span className="brand-icon" aria-hidden="true"><ChefHatLogo /></span>
             <span><b>Cooking Creator</b><small>AI COOKING CONTENT APP</small></span>
           </a>
@@ -1910,6 +1941,7 @@ export default function Home() {
           <button className="nav" type="button" onClick={() => openDrawerItem("growth")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Growth Lab</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("editorial")}><span className="nav-icon"><InterfaceIcon name="calendar" /></span>Editorial Calendar</button>
           <button className="nav" type="button" onClick={() => openDrawerItem("monetization")}><span className="nav-icon"><InterfaceIcon name="explore" /></span>Monetization Readiness</button>
+          <button className="nav" type="button" onClick={() => openDrawerItem("ai-studio")}><span className="nav-icon"><InterfaceIcon name="images" /></span>AI Chef Studio</button>
         </nav>
         <div className="drawer-divider" />
         <section className="chat-history-section" aria-label="Saved chat history">
@@ -1939,7 +1971,7 @@ export default function Home() {
           {activeTool === "home" ? (
             <button ref={menuButtonRef} className="menu-trigger" type="button" aria-label="Open navigation menu" aria-controls="workspace-drawer" aria-expanded={menuOpen} onClick={openWorkspaceMenu}><InterfaceIcon name="menu" /></button>
           ) : (
-            <button className="page-back-trigger" type="button" aria-label="Back to chat home" title="Back" onClick={() => { closeOverlays(); setActiveTool("home"); }}><InterfaceIcon name="arrow-left" /></button>
+            <button className="page-back-trigger" type="button" aria-label="Back to chat home" title="Back" onClick={() => { activeToolInteractedRef.current = true; closeOverlays(); setActiveTool("home"); }}><InterfaceIcon name="arrow-left" /></button>
           )}
           <span className="top-context"><strong>{activeTool === "home" ? "Cooking Creator" : WORKSPACE_TOOL_LABELS[activeTool]}</strong><small>{activeTool === "home" ? "AI Cooking Content App" : "Cooking Creator"}</small></span>
           <button className="logout-trigger" type="button" onClick={() => void logOut()} aria-label="Log out">Log out</button>
@@ -2103,7 +2135,10 @@ export default function Home() {
                       <div><label htmlFor="growth-experiment-variable">Variable changed *</label><input id="growth-experiment-variable" value={growthExperimentDraft.variableChanged} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, variableChanged: event.target.value }))} maxLength={240} required placeholder="e.g. opening shot only" /></div>
                       <div><label htmlFor="growth-experiment-platform">Platform *</label><select id="growth-experiment-platform" value={growthExperimentDraft.platform} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, platform: event.target.value as GrowthPlatform }))}>{GROWTH_PLATFORMS.map((platform) => <option key={platform} value={platform}>{platform}</option>)}</select></div>
                       <div><label htmlFor="growth-experiment-title">Content / recipe family</label><input id="growth-experiment-title" value={growthExperimentDraft.contentTitle} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, contentTitle: event.target.value }))} maxLength={180} placeholder="Optional label" /></div>
+                      <div><label htmlFor="growth-experiment-audience">Intended audience *</label><input id="growth-experiment-audience" value={growthExperimentDraft.audience} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, audience: event.target.value }))} maxLength={160} required placeholder="e.g. US home cooks looking for quick dinners" /></div>
+                      <div><label htmlFor="growth-experiment-primary-metric">Primary outcome metric *</label><select id="growth-experiment-primary-metric" value={growthExperimentDraft.primaryMetric} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, primaryMetric: event.target.value as GrowthExperimentPrimaryMetric }))} required>{GROWTH_EXPERIMENT_PRIMARY_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
                       <div><label htmlFor="growth-experiment-start-date">Start date *</label><input id="growth-experiment-start-date" type="date" value={growthExperimentDraft.startedDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, startedDate: event.target.value }))} required /></div>
+                      <div><label htmlFor="growth-experiment-review-date">Planned review date *</label><input id="growth-experiment-review-date" type="date" min={growthExperimentDraft.startedDate || undefined} value={growthExperimentDraft.reviewByDate} onChange={(event) => setGrowthExperimentDraft((previous) => ({ ...previous, reviewByDate: event.target.value }))} required /></div>
                     </div>
                     <div className="action-row"><button className="primary" type="submit" disabled={!growthDataReady}>Add experiment</button></div>
                   </form>
@@ -2111,9 +2146,12 @@ export default function Home() {
                     <div className="growth-experiment-list">
                       {growthExperiments.map((item) => (
                         <article className="growth-experiment-card" key={item.id}>
-                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
+                          <div className="growth-experiment-heading"><div><strong>{item.hypothesis}</strong><small>{item.platform} · started {item.startedDate}{item.contentTitle ? " · " + item.contentTitle : ""} · audience: {item.audience?.trim() || "not recorded"} · primary metric: {GROWTH_EXPERIMENT_PRIMARY_METRICS.find((metric) => metric.value === item.primaryMetric)?.label ?? "not recorded"} · review by {item.reviewByDate || "not set"}</small></div><span className={"growth-status growth-status-" + item.status}>{item.status}</span></div>
                           <p><b>Variable:</b> {item.variableChanged}</p>
                           <div className="growth-form-grid">
+                            <div><label htmlFor={"growth-audience-" + item.id}>Audience</label><input id={"growth-audience-" + item.id} maxLength={160} value={item.audience ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { audience: event.target.value })} /></div>
+                            <div><label htmlFor={"growth-primary-metric-" + item.id}>Primary metric</label><select id={"growth-primary-metric-" + item.id} value={item.primaryMetric ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { primaryMetric: event.target.value as GrowthExperimentPrimaryMetric | "" })}><option value="">Not recorded (legacy)</option>{GROWTH_EXPERIMENT_PRIMARY_METRICS.map((metric) => <option key={metric.value} value={metric.value}>{metric.label}</option>)}</select></div>
+                            <div><label htmlFor={"growth-review-date-" + item.id}>Planned review date</label><input id={"growth-review-date-" + item.id} type="date" min={item.startedDate} value={item.reviewByDate ?? ""} onChange={(event) => patchGrowthExperiment(item.id, { reviewByDate: event.target.value })} /></div>
                             <div><label htmlFor={"growth-result-date-" + item.id}>Result date</label><input id={"growth-result-date-" + item.id} type="date" value={item.resultDate} min={item.startedDate} onChange={(event) => patchGrowthExperiment(item.id, { resultDate: event.target.value })} /></div>
                             <div className="growth-span-two"><label htmlFor={"growth-outcome-" + item.id}>Observed outcome (use actual numbers where available)</label><textarea id={"growth-outcome-" + item.id} rows={2} maxLength={1200} value={item.outcome} onChange={(event) => patchGrowthExperiment(item.id, { outcome: event.target.value })} /></div>
                             <div className="growth-span-two"><label htmlFor={"growth-next-action-" + item.id}>Next action</label><textarea id={"growth-next-action-" + item.id} rows={2} maxLength={500} value={item.nextAction} onChange={(event) => patchGrowthExperiment(item.id, { nextAction: event.target.value })} /></div>
@@ -2121,8 +2159,24 @@ export default function Home() {
                           <div className="action-row">
                             <button className="secondary" type="button" disabled={item.status === "reviewed" || item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "reviewed")}>Mark reviewed</button>
                             <button className="secondary" type="button" disabled={item.status === "closed"} onClick={() => updateGrowthExperimentStatus(item.id, "closed")}>Close experiment</button>
+                            <button className="secondary" type="button" aria-expanded={growthEvidenceExperimentId === item.id} aria-controls={"growth-experiment-evidence-" + item.id} onClick={() => setGrowthEvidenceExperimentId((currentId) => currentId === item.id ? null : item.id)}>{growthEvidenceExperimentId === item.id ? "Hide evidence match" : "Check matching metrics"}</button>
                             <button className="secondary" type="button" onClick={() => setGrowthExperiments((existing) => existing.filter((candidate) => candidate.id !== item.id))}>Remove</button>
                           </div>
+                          {growthEvidenceExperimentId === item.id && (() => {
+                            const evidence = summarizeGrowthExperimentEvidence(item, growthMetrics);
+                            return (
+                              <div id={"growth-experiment-evidence-" + item.id} className="growth-subpanel" role="region" aria-label={"Evidence match for " + (item.contentTitle || item.hypothesis)}>
+                                <h4>Provisional evidence match</h4>
+                                <p className="muted">This is a local match by platform, date window, and exact title when supplied. Verify each record; it does not prove the experiment caused an outcome.</p>
+                                <p><strong>Matched records:</strong> {evidence.matchingActualRows} actual · {evidence.matchingEstimateRows} estimate(s)</p>
+                                <p><strong>Actual rows with views:</strong> {evidence.actualRowsWithViews} · <strong>Sum of entered actual views:</strong> {evidence.actualViewsTotal === null ? "not recorded" : evidence.actualViewsTotal.toLocaleString("en-US")}</p>
+                                <p><strong>Median actual retention:</strong> {evidence.medianActualRetentionPercent === null ? "not recorded" : evidence.medianActualRetentionPercent.toLocaleString("en-US", { maximumFractionDigits: 2 }) + "%"}</p>
+                                <p><strong>Entered actual content-level revenue:</strong> {evidence.actualRevenueUsdTotal === null ? "not recorded" : evidence.actualRevenueUsdTotal.toLocaleString("en-US", { style: "currency", currency: "USD" })}</p>
+                                <ul>{evidence.notes.map((note, noteIndex) => <li key={noteIndex}>{note}</li>)}</ul>
+                                <p><strong>Suggested next action:</strong> {evidence.nextActionHint}</p>
+                              </div>
+                            );
+                          })()}
                         </article>
                       ))}
                     </div>
@@ -2132,6 +2186,11 @@ export default function Home() {
                 <section className="growth-subpanel" aria-labelledby="growth-insights-title">
                   <div className="subsection-head"><div><h3 id="growth-insights-title">Descriptive comparisons</h3><p className="muted">Only actual view counts are considered. Estimates never enter the comparison. The app does not call a result “viral” or infer a causal effect.</p></div></div>
                   <ul className="growth-insight-list">{growthInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
+                </section>
+
+                <section className="growth-subpanel" aria-labelledby="growth-evidence-insights-title">
+                  <div className="subsection-head"><div><h3 id="growth-evidence-insights-title">Observed performance signals</h3><p className="muted">Actual rows only, with a minimum sample gate. Median outcomes reduce the influence of a single outlier; this is descriptive evidence, not a promise or forecast.</p></div></div>
+                  <ul className="growth-insight-list">{growthEvidenceInsights.map((insight, index) => <li key={index}>{insight}</li>)}</ul>
                 </section>
 
                 <section className="growth-subpanel" aria-labelledby="growth-records-title">
@@ -2163,6 +2222,7 @@ export default function Home() {
 
           {activeTool === "editorial" && <EditorialCalendar />}
           {activeTool === "monetization" && <MonetizationWorkspace />}
+          {activeTool === "studio" && <V3ContentStudio />}
 
           <section className="connection-hub panel" id="social-connections">
             <div className="section-head">
